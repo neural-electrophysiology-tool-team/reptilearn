@@ -1,0 +1,322 @@
+import numpy as np
+import multiprocessing as mp
+import cv2 as cv
+import time
+from datetime import datetime
+from pathlib import Path
+
+# TODO:
+# - allow resize and color convert before encoding for web stream.
+# - check if two feeds = twice the number of encodings. looks silly...
+
+
+class AcquireException(Exception):
+    pass
+
+
+class ImageSource(mp.Process):
+    def __init__(self, src_id, image_shape, buf_len=1, logger=mp.get_logger()):
+        super().__init__()
+        self.image_shape = image_shape
+        self.buf_len = buf_len
+        self.log = logger
+        self.src_id = src_id
+        self.buf_shape = image_shape  # currently supports only a single image buffer
+        self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
+        self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
+            self.buf_shape
+        )
+
+        self.timestamp = mp.Value("d")
+        self.end_event = mp.Event()
+
+        self.observer_events = []
+        self.stream_obs_event = mp.Event()
+        self.add_observer_event(self.stream_obs_event)
+        self.name = f"{type(self).__name__}:{self.src_id}"
+
+    def add_observer_event(self, obs: mp.Event):
+        self.observer_events.append(obs)
+
+    def remove_observer_event(self, obs: mp.Event):
+        self.observer_events.remove(obs)
+
+    def stop_stream(self):
+        self.is_streaming = False
+
+    def kill(self):
+        self.end_event.set()
+
+    def stream_gen(self, img_size, fps=15):
+        self.log.info(f"Streaming from {self.src_id}.")
+        self.is_streaming = True
+
+        while True:
+            t1 = time.time()
+            self.stream_obs_event.wait()
+            self.stream_obs_event.clear()
+            if self.end_event.is_set():
+                break
+            if not self.is_streaming:
+                self.log.info(f"Stopped streaming from {self.src_id}.")
+                break
+
+            enc_img, timestamp = self.get_encoded_image(
+                encoding=".webp",
+                encode_params=[cv.IMWRITE_WEBP_QUALITY, 20],
+                resize=img_size,
+            )
+
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/webp\r\n\r\n" + bytearray(enc_img) + b"\r\n\r\n"
+            )
+            if fps is not None:
+                dt = time.time() - t1
+                time.sleep(max(1 / fps - dt, 0))
+
+    def run(self):
+        if not self.on_begin():
+            return
+
+        while True:
+            try:
+                img, timestamp = self.acquire_image()
+            except AcquireException as e:
+                self.log.error(e)
+                break
+
+            if img is None:
+                break
+
+            if self.end_event.is_set():
+                self.log.info("Stopping process")
+
+            with self.buf.get_lock():
+                self.timestamp.value = timestamp
+                self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
+                    self.buf_shape
+                )
+                np.copyto(self.buf_np, img)
+
+            for obs in self.observer_events:
+                obs.set()
+
+        self.on_finish()
+
+        for obs in self.observer_events:
+            obs.set()
+        self.end_event.set()
+
+    def get_image(self):
+        img = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(self.buf_shape)
+        timestamp = self.timestamp.value
+        return img, timestamp
+
+    def get_encoded_image(self, encoding=".jpg", encode_params=[], resize=(None, None)):
+        img, timestamp = self.get_image()
+
+        if resize[0] is None or resize[1] is None:
+            resized_img = img
+        else:
+            resized_img = cv.resize(img, resize)
+
+        ret, img_buf_arr = cv.imencode(".jpg", resized_img, encode_params)
+        return img_buf_arr.tobytes(), timestamp
+
+    def acquire_image(self):
+        pass
+
+    def on_finish(self):
+        pass
+
+    def on_begin(self):
+        pass
+
+
+class ImageObserver(mp.Process):
+    def __init__(self, img_src: ImageSource, logger=mp.get_logger()):
+        super().__init__()
+        self.log = logger
+        self.img_src = img_src
+        self.update_event = mp.Event()
+        img_src.add_observer_event(self.update_event)
+        self.name = type(self).__name__
+
+    def run(self):
+        self.on_begin()
+
+        while True:
+            if self.img_src.end_event.is_set():
+                self.log.info("End event is set")
+                break
+
+            self.update_event.wait()
+            self.update_event.clear()
+
+            img, timestamp = self.img_src.get_image()
+            self.on_image_update(img, timestamp)
+
+        self.on_finish()
+
+    def on_begin(self):
+        pass
+
+    def on_image_update(self, img, timestamp):
+        pass
+
+    def on_finish(self):
+        pass
+
+
+class VideoImageSource(ImageSource):
+    def __init__(
+        self,
+        video_path: Path,
+        start_frame=0,
+        end_frame=None,
+        fps=60,
+        repeat=False,
+        num_channels=3,
+        logger=mp.get_logger(),
+    ):
+        self.video_path = video_path
+        self.fps = fps
+        self.start_frame = start_frame
+        self.end_frame = end_frame
+        self.repeat = repeat
+
+        vcap = cv.VideoCapture(str(video_path))
+        image_shape = (
+            int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
+            int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
+            num_channels,
+        )
+        vcap.release()
+        src_id = video_path.stem + str(start_frame)
+        if end_frame is not None:
+            src_id += "_" + str(end_frame)
+
+        super().__init__(src_id, image_shape, logger=logger)
+
+    def on_begin(self):
+        self.vcap = cv.VideoCapture(str(self.video_path))
+        if self.end_frame is None:
+            self.end_frame = self.vcap.get(cv.CAP_PROP_FRAME_COUNT) - 1
+        if self.start_frame != 0:
+            self.vcap.set(cv.CAP_PROP_POS_FRAMES, self.start_frame)
+
+        self.frame_num = self.start_frame
+        self.repeat_count = 0
+        self.last_acquire_time = None
+        return True
+
+    def acquire_image(self):
+        if self.last_acquire_time is not None:
+            time.sleep(max(1 / self.fps - self.last_acquire_time, 0))
+        t = time.time()
+        ret, img = self.vcap.read()
+        if not ret:
+            raise AcquireException("Error reading frame")
+
+        if self.frame_num >= self.end_frame:
+            if self.repeat is False:
+                return None, t
+            elif self.repeat is True or type(self.repeat) is int:
+                self.repeat_count += 1
+                if type(self.repeat) is int and self.repeat_count >= self.repeat:
+                    self.log.info(f"Done repeating {self.repeat} times.")
+                    return None, t
+                else:
+                    self.log.info("Repeating video")
+                    self.vcap.set(cv.CAP_PROP_POS_FRAMES, self.start_frame)
+                    self.frame_num = self.start_frame
+
+        self.frame_num += 1
+        self.last_acquire_time = time.time() - t
+        return img, t
+
+    def on_finish(self):
+        self.vcap.release()
+
+
+class VideoWriter(mp.Process):
+    def __init__(
+        self,
+        img_src: ImageSource,
+        fps,
+        write_path=Path("."),
+        codec="mp4v",
+        file_ext="mp4",
+        logger=mp.get_logger(),
+    ):
+        super().__init__()
+        self.codec = codec
+        self.fps = fps
+        self.img_src = img_src
+        self.write_path = write_path
+        self.file_ext = file_ext
+        self.log = logger
+        self.update_event = mp.Event()
+        img_src.add_observer_event(self.update_event)
+
+        self.parent_pipe, self.child_pipe = mp.Pipe()
+        self.name = type(self).__name__
+
+    def start_writing(self):
+        self.parent_pipe.send("start")
+
+    def stop_writing(self):
+        self.parent_pipe.send("stop")
+
+    def _get_new_write_paths(self):
+        base = (
+            self.img_src.src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
+        )
+        return (
+            self.write_path / (base + self.file_ext),
+            self.write_path / (base + "csv"),
+        )
+
+    def _begin_writing(self):
+        vid_path, ts_path = self._get_new_write_paths()
+        is_color = len(self.img_src.image_shape) == 3
+        self.log.info(f"Starting to write video to: {vid_path}")
+        self.writer = cv.VideoWriter(
+            str(vid_path),
+            cv.VideoWriter_fourcc(*self.codec),
+            self.fps,
+            tuple(reversed(self.img_src.image_shape[:2])),
+            isColor=is_color,
+        )
+        self.ts_file = open(str(ts_path), "w")
+        self.ts_file.write("timestamp\n")
+
+    def _write(self):
+        img, timestamp = self.img_src.get_image()
+
+        self.ts_file.write(str(timestamp) + "\n")
+        self.writer.write(img)
+
+    def _finish_writing(self):
+        self.writer.release()
+        self.ts_file.close()
+
+    def run(self):
+        while True:
+            cmd = self.child_pipe.recv()
+            if cmd == "start":
+                self._begin_writing()
+
+                while True:
+                    if self.img_src.end_event.is_set():
+                        break
+                    if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
+                        break
+                    self.update_event.wait()
+                    self.update_event.clear()
+
+                    self._write()
+
+                self.log.info("Stopped writing.")
+                self._finish_writing()
