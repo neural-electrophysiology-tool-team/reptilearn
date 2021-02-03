@@ -7,7 +7,8 @@ from pathlib import Path
 
 # TODO:
 # - allow resize and color convert before encoding for web stream.
-# - check if two feeds = twice the number of encodings. looks silly...
+# - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
+#   current frame twice, etc.
 
 
 class AcquireException(Exception):
@@ -15,25 +16,40 @@ class AcquireException(Exception):
 
 
 class ImageSource(mp.Process):
-    def __init__(self, src_id, image_shape, buf_len=1, logger=mp.get_logger()):
+    def __init__(
+        self, src_id, image_shape, state_dict=None, buf_len=1, logger=mp.get_logger()
+    ):
         super().__init__()
         self.image_shape = image_shape
         self.buf_len = buf_len
         self.log = logger
         self.src_id = src_id
+        self.state_dict = state_dict
+
+        if state_dict is not None:
+            self.state_dict[src_id] = {}
+            self.set_state({"streaming": False})
+
         self.buf_shape = image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
         self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
             self.buf_shape
         )
 
-        self.timestamp = mp.Value("d")
+        self.timestamp = mp.Value("L")
         self.end_event = mp.Event()
+        self.stop_event = mp.Event()
 
         self.observer_events = []
         self.stream_obs_event = mp.Event()
         self.add_observer_event(self.stream_obs_event)
         self.name = f"{type(self).__name__}:{self.src_id}"
+
+    def set_state(self, new_state):
+        if self.state_dict is not None:
+            self.state_dict[self.src_id] = dict(
+                self.state_dict[self.src_id], **new_state
+            )
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
@@ -49,12 +65,14 @@ class ImageSource(mp.Process):
 
     def stream_gen(self, img_size, fps=15):
         self.log.info(f"Streaming from {self.src_id}.")
+        self.set_state({"streaming": True})
         self.is_streaming = True
 
         while True:
             t1 = time.time()
             self.stream_obs_event.wait()
             self.stream_obs_event.clear()
+
             if self.end_event.is_set():
                 break
             if not self.is_streaming:
@@ -75,6 +93,8 @@ class ImageSource(mp.Process):
                 dt = time.time() - t1
                 time.sleep(max(1 / fps - dt, 0))
 
+        self.set_state({"streaming": False})
+
     def run(self):
         if not self.on_begin():
             return
@@ -89,8 +109,10 @@ class ImageSource(mp.Process):
             if img is None:
                 break
 
-            if self.end_event.is_set():
+            if self.stop_event.is_set():
                 self.log.info("Stopping process")
+                self.stop_event.clear()
+                break
 
             with self.buf.get_lock():
                 self.timestamp.value = timestamp
@@ -254,6 +276,8 @@ class VideoWriter(mp.Process):
         self.codec = codec
         self.fps = fps
         self.img_src = img_src
+        self.img_src.set_state({"writing": False})
+
         self.write_path = write_path
         self.file_ext = file_ext
         self.log = logger
@@ -261,13 +285,14 @@ class VideoWriter(mp.Process):
         img_src.add_observer_event(self.update_event)
 
         self.parent_pipe, self.child_pipe = mp.Pipe()
-        self.name = type(self).__name__
+        self.name = f"{type(self).__name__}:{self.img_src.src_id}"
 
     def start_writing(self):
         self.parent_pipe.send("start")
 
     def stop_writing(self):
         self.parent_pipe.send("stop")
+        self.img_src.set_state({"writing": False})
 
     def _get_new_write_paths(self):
         base = (
@@ -291,6 +316,8 @@ class VideoWriter(mp.Process):
         )
         self.ts_file = open(str(ts_path), "w")
         self.ts_file.write("timestamp\n")
+
+        self.img_src.set_state({"writing": True})
 
     def _write(self):
         img, timestamp = self.img_src.get_image()

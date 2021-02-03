@@ -2,7 +2,7 @@ import multiprocessing as mp
 import logging
 import flask
 from flir_cameras import FLIRImageSource
-from video_stream import VideoImageSource, VideoWriter
+from video_stream import VideoWriter
 from pathlib import Path
 
 logger = mp.log_to_stderr(logging.INFO)
@@ -15,25 +15,15 @@ config = {
     "exposure": 8000,
 }
 
-state = {}
+state_mgr = mp.Manager()
+general_state = state_mgr.dict()
+img_src_state = state_mgr.dict()
+
 image_sources = []
 video_writers = []
 
-"""
-video_path = Path("./feeding4_vid.avi")
-image_sources.append(
-    VideoImageSource(
-        video_path, fps=config["acq_fps"], repeat=True, start_frame=1000, end_frame=2000
-    )
-)
-image_sources.append(
-    VideoImageSource(
-        video_path, fps=config["acq_fps"], repeat=True, start_frame=2000, end_frame=None
-    )
-)
-"""
 for cam_id in config["cam_ids"]:
-    image_sources.append(FLIRImageSource(cam_id, config))
+    image_sources.append(FLIRImageSource(cam_id, config, img_src_state))
 
 for img_src in image_sources:
     video_writers.append(VideoWriter(img_src, fps=60, write_path=Path("videos")))
@@ -43,7 +33,6 @@ for w in video_writers:
 
 for img_src in image_sources:
     img_src.start()
-
 
 app = flask.Flask("API")
 
@@ -81,9 +70,24 @@ def video_writer(idx, cmd):
     return flask.Response("ok")
 
 
+@app.route("/video_writer/all/<cmd>")
+def video_writer_all(cmd):
+    for i in range(len(video_writers)):
+        video_writer(i, cmd)
+
+    return flask.Response("ok")
+
+
 @app.route("/list_image_sources")
 def list_image_sources():
     return flask.jsonify([s.src_id for s in image_sources])
+
+
+@app.route("/state")
+def get_state():
+    state = general_state.copy()
+    state["img_srcs"] = img_src_state.copy()
+    return flask.jsonify(state)
 
 
 @app.route("/")
@@ -97,5 +101,8 @@ def after_request(response):
     header["Access-Control-Allow-Origin"] = "*"
     return response
 
+
+app_log = logging.getLogger('werkzeug')
+app_log.setLevel(logging.ERROR)
 
 app.run(use_reloader=False)

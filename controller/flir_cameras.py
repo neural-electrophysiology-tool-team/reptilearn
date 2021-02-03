@@ -1,5 +1,5 @@
 import PySpin
-from video_stream import ImageSource, AcquireException
+from video_stream import ImageSource
 import re
 import multiprocessing as mp
 import logging
@@ -7,15 +7,11 @@ import time
 
 
 class FLIRImageSource(ImageSource):
-    def __init__(self, cam_id, config, logger=mp.get_logger()):
-        super().__init__(cam_id, (1080, 1440), logger=logger)
+    def __init__(self, cam_id, config, state_dict=None, logger=mp.get_logger()):
+        super().__init__(cam_id, (1080, 1440), state_dict, logger=logger)
         self.cam_id = cam_id
         self.config = config
-
-        # self.log.info("Initialize camera.")
-        # self.cam.Init()
-        # self.configure_camera()
-        # self.cam.BeginAcquisition()
+        self.set_state({"acquiring": False})
 
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
@@ -26,16 +22,16 @@ class FLIRImageSource(ImageSource):
             self.cam.AcquisitionFrameRateEnable.SetValue(False)
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
             self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
-            #self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
-            #self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+            # self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+            # self.cam.LineMode.SetValue(PySpin.LineMode_Input)
             self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
-            #self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
+            # self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
             # self.cam.DeviceLinkThroughputLimit.SetValue(self.get_max_throughput())
             self.cam.ExposureTime.SetValue(self.config["exposure"])
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
             self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
             self.log.info("Finished Configuration")
-            #while True:
+            # while True:
             #    self.log.info(self.cam.LineStatus.GetValue())
             #    time.sleep(0.025)
 
@@ -52,12 +48,17 @@ class FLIRImageSource(ImageSource):
 
         self.cam = filtered[0]
         self.cam.Init()
-        #self.cam.FactoryReset.Execute()
-        #return False
         self.log.info("Initialized camera.")
         self.configure_camera()
-        self.cam.BeginAcquisition()
 
+        self.cam.TimestampLatch()
+        cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
+        server_time = time.time_ns()
+        self.camera_time_delta = server_time - cam_time
+        self.log.info(f"Camera time delta: {self.camera_time_delta}")
+
+        self.cam.BeginAcquisition()
+        self.set_state({"acquiring": True})
         self.image_result = None
 
         return True
@@ -67,11 +68,14 @@ class FLIRImageSource(ImageSource):
             self.image_result.Release()
 
         self.image_result = self.cam.GetNextImage(5000)
-        return (self.image_result.GetNDArray(), self.image_result.GetTimeStamp())
+        timestamp = self.image_result.GetTimeStamp() + self.camera_time_delta
+        return (self.image_result.GetNDArray(), timestamp)
 
     def on_finish(self):
         if self.cam.IsStreaming():
             self.cam.EndAcquisition()
+            self.set_state({"acquiring": False})  # possibly move somewhere else
+
         self.cam.DeInit()
         self.cam = None
         self.cam_list.Clear()
@@ -121,6 +125,21 @@ def get_cam_ids():
     return dids
 
 
+def factory_reset(cam_id):
+    """not tested"""
+    system = PySpin.System.GetInstance()
+    cameras = system.GetCameras()
+    filtered = filter_cameras(cameras, cam_id)
+    if len(filtered) == 0:
+        raise Exception(f"Camera {cam_id} was not found.")
+
+    cam = filtered[0]
+    cam.FactoryReset.Execute()
+
+    cameras.Clear()
+    system.ReleaseInstance()
+
+
 if __name__ == "__main__":
     logger = mp.log_to_stderr(level=logging.INFO)
     cam_ids = ["20349302", "20349310"]
@@ -130,4 +149,3 @@ if __name__ == "__main__":
         f.start()
     for f in fs:
         f.join()
-
