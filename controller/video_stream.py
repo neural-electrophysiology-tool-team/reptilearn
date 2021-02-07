@@ -47,9 +47,12 @@ class ImageSource(mp.Process):
 
     def set_state(self, new_state):
         if self.state_dict is not None:
-            self.state_dict[self.src_id] = dict(
-                self.state_dict[self.src_id], **new_state
-            )
+            try:
+                self.state_dict[self.src_id] = dict(
+                    self.state_dict[self.src_id], **new_state
+                )
+            except BrokenPipeError:
+                pass  # maybe print something out, not sure...
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
@@ -76,7 +79,6 @@ class ImageSource(mp.Process):
             if self.end_event.is_set():
                 break
             if not self.is_streaming:
-                self.log.info(f"Stopped streaming from {self.src_id}.")
                 break
 
             enc_img, timestamp = self.get_encoded_image(
@@ -93,39 +95,43 @@ class ImageSource(mp.Process):
                 dt = time.time() - t1
                 time.sleep(max(1 / fps - dt, 0))
 
+        self.log.info(f"Stopped streaming from {self.src_id}.")
         self.set_state({"streaming": False})
 
     def run(self):
         if not self.on_begin():
             return
+        try:
+            while True:
+                try:
+                    img, timestamp = self.acquire_image()
+                except AcquireException as e:
+                    self.log.error(e)
+                    break
 
-        while True:
-            try:
-                img, timestamp = self.acquire_image()
-            except AcquireException as e:
-                self.log.error(e)
-                break
+                if img is None:
+                    break
 
-            if img is None:
-                break
+                if self.stop_event.is_set():
+                    self.log.info("Stopping process")
+                    self.stop_event.clear()
+                    break
 
-            if self.stop_event.is_set():
-                self.log.info("Stopping process")
-                self.stop_event.clear()
-                break
+                with self.buf.get_lock():
+                    self.timestamp.value = timestamp
+                    self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
+                        self.buf_shape
+                    )
+                    np.copyto(self.buf_np, img)
 
-            with self.buf.get_lock():
-                self.timestamp.value = timestamp
-                self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
-                    self.buf_shape
-                )
-                np.copyto(self.buf_np, img)
+                    for obs in self.observer_events:
+                        obs.set()
 
-            for obs in self.observer_events:
-                obs.set()
-
-        self.on_finish()
-
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.on_finish()
+        
         for obs in self.observer_events:
             obs.set()
         self.end_event.set()
@@ -168,19 +174,23 @@ class ImageObserver(mp.Process):
     def run(self):
         self.on_begin()
 
-        while True:
-            if self.img_src.end_event.is_set():
-                self.log.info("End event is set")
-                break
+        try:
+            while True:
+                if self.img_src.end_event.is_set():
+                    self.log.info("End event is set")
+                    break
 
-            self.update_event.wait()
-            self.update_event.clear()
+                self.update_event.wait()
+                self.update_event.clear()
 
-            img, timestamp = self.img_src.get_image()
-            self.on_image_update(img, timestamp)
+                img, timestamp = self.img_src.get_image()
+                self.on_image_update(img, timestamp)
 
-        self.on_finish()
-
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.on_finish()
+        
     def on_begin(self):
         pass
 
@@ -195,11 +205,12 @@ class VideoImageSource(ImageSource):
     def __init__(
         self,
         video_path: Path,
+        state_dict=None,
         start_frame=0,
         end_frame=None,
         fps=60,
         repeat=False,
-        num_channels=3,
+        is_color=True,
         logger=mp.get_logger(),
     ):
         self.video_path = video_path
@@ -207,19 +218,27 @@ class VideoImageSource(ImageSource):
         self.start_frame = start_frame
         self.end_frame = end_frame
         self.repeat = repeat
-
+        self.is_color = is_color
+        
         vcap = cv.VideoCapture(str(video_path))
-        image_shape = (
-            int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
-            int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
-            num_channels,
-        )
+        if is_color:
+            image_shape = (
+                int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
+                int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
+                3
+            )
+        else:
+            image_shape = (
+                int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
+                int(vcap.get(cv.CAP_PROP_FRAME_WIDTH))
+            )
+            
         vcap.release()
         src_id = video_path.stem + str(start_frame)
         if end_frame is not None:
             src_id += "_" + str(end_frame)
 
-        super().__init__(src_id, image_shape, logger=logger)
+        super().__init__(src_id, image_shape, state_dict, logger=logger)
 
     def on_begin(self):
         self.vcap = cv.VideoCapture(str(self.video_path))
@@ -241,6 +260,9 @@ class VideoImageSource(ImageSource):
         if not ret:
             raise AcquireException("Error reading frame")
 
+        if not self.is_color:
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            
         if self.frame_num >= self.end_frame:
             if self.repeat is False:
                 return None, t
@@ -256,7 +278,7 @@ class VideoImageSource(ImageSource):
 
         self.frame_num += 1
         self.last_acquire_time = time.time() - t
-        return img, t
+        return img, int(t * 1e9)
 
     def on_finish(self):
         self.vcap.release()
@@ -330,20 +352,28 @@ class VideoWriter(mp.Process):
         self.ts_file.close()
 
     def run(self):
+        cmd = None
         while True:
-            cmd = self.child_pipe.recv()
+            try:
+                cmd = self.child_pipe.recv()
+            except KeyboardInterrupt:
+                break
+            
             if cmd == "start":
                 self._begin_writing()
 
-                while True:
-                    if self.img_src.end_event.is_set():
-                        break
-                    if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
-                        break
-                    self.update_event.wait()
-                    self.update_event.clear()
+                try:
+                    while True:
+                        if self.img_src.end_event.is_set():
+                            break
+                        if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
+                            break
+                        self.update_event.wait()
+                        self.update_event.clear()
 
-                    self._write()
-
-                self.log.info("Stopped writing.")
-                self._finish_writing()
+                        self._write()
+                except KeyboardInterrupt:
+                    break
+                finally:
+                    self.log.info("Stopped writing.")
+                    self._finish_writing()

@@ -5,9 +5,8 @@ import React from 'react';
 TODO:
 - stop stream before switching source.
 - ui obviously.
-- do something better when the api is not working (error of apiMsg).
-- move image source ui to another component
 - add a no image source option (default)
+- streaming toggle is not working properly
 */
 
 const ImageSourceSelector = ({onSelect}) => {

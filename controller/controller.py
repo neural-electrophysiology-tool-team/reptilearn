@@ -2,8 +2,10 @@ import multiprocessing as mp
 import logging
 import flask
 from flir_cameras import FLIRImageSource
-from video_stream import VideoWriter
+from video_stream import VideoWriter, VideoImageSource
 from pathlib import Path
+from detector import DetectorImageObserver
+from YOLOv4.detector import YOLOv4Detector
 
 logger = mp.log_to_stderr(logging.INFO)
 
@@ -13,14 +15,38 @@ config = {
     "manager_port": 50000,
     "cam_ids": ["20349302", "20349310"],
     "exposure": 8000,
+    "detector_source": 0,
 }
 
 state_mgr = mp.Manager()
 general_state = state_mgr.dict()
 img_src_state = state_mgr.dict()
+detection_buffer = state_mgr.list()
+
+
+def get_state():
+    state = general_state.copy()
+    state["img_srcs"] = img_src_state.copy()
+    state["detections"] = list(detection_buffer)
+    return state
+
 
 image_sources = []
 video_writers = []
+
+"""
+image_sources.append(
+    VideoImageSource(
+        Path("./feeding4_vid.avi"),
+        state_dict=img_src_state,
+        start_frame=1000,
+        end_frame=2000,
+        fps=60,
+        repeat=True,
+        is_color=False,
+    )
+)
+"""
 
 for cam_id in config["cam_ids"]:
     image_sources.append(FLIRImageSource(cam_id, config, img_src_state))
@@ -28,8 +54,15 @@ for cam_id in config["cam_ids"]:
 for img_src in image_sources:
     video_writers.append(VideoWriter(img_src, fps=60, write_path=Path("videos")))
 
+detector_obs = DetectorImageObserver(image_sources[config["detector_source"]],
+                                     YOLOv4Detector(conf_thres=0.8, return_neareast_detection=True),
+                                     detection_buffer=detection_buffer,
+                                     buffer_size=20)
+
 for w in video_writers:
     w.start()
+
+detector_obs.start()
 
 for img_src in image_sources:
     img_src.start()
@@ -84,10 +117,8 @@ def list_image_sources():
 
 
 @app.route("/state")
-def get_state():
-    state = general_state.copy()
-    state["img_srcs"] = img_src_state.copy()
-    return flask.jsonify(state)
+def route_state():
+    return flask.jsonify(get_state())
 
 
 @app.route("/")
@@ -102,7 +133,7 @@ def after_request(response):
     return response
 
 
-app_log = logging.getLogger('werkzeug')
+app_log = logging.getLogger("werkzeug")
 app_log.setLevel(logging.ERROR)
 
 app.run(use_reloader=False)
