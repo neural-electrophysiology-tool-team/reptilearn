@@ -9,55 +9,77 @@ TODO:
 - streaming toggle is not working properly
 */
 
-const ImageSourceSelector = ({onSelect}) => {
-    const [imageSources, setImageSources] = React.useState([]);
+const Selector = ({options, selected, on_select}) => {
+    const option_items = options.map(
+        (val, idx) => {
+            if (idx == selected) {
+                return (
+                    <option key={idx} value={idx} selected>{val}</option>
+                );                
+            }
+            else {
+                return (
+                    <option key={idx} value={idx}>{val}</option>
+                );
+            }
+        }
+    );
 
-    React.useEffect(() => {
-        fetch("http://localhost:5000/list_image_sources")
-            .then(res => res.json())
-            .then(
-                (res) => {
-                    setImageSources(res);
-                },
-                (error) => {
-                    setImageSources([error.toString()]);
-                }
-            );
-    }, []);
-    
-    const option_items = imageSources.map((src, idx) => { return (<option key={src} value={idx}>{src}</option>); });
-
-                                                                          return (
-                                                                              <select onChange={onSelect}>
-                                                                                {option_items}
-                                                                              </select>
-                                                                          );
+    const on_change = (e) => {
+        const i = e.target.value;
+        on_select(options[i], i);
+    };
+                            
+    return <select onChange={on_change}>{option_items}</select>;
 };
 
-const ImageSourceView = ({srcId, srcIdx, stream_width, stream_height, ctrl_state, update_ctrl_state}) => {
+const ImageSourceView = ({image_sources, source_idx, stream_width, stream_height, ctrl_state, update_ctrl_state}) => {
     const [isStreaming, setStreaming] = React.useState(false);
-
-    const stream_url = `http://localhost:5000/video_stream/${srcIdx}/${stream_width}/${stream_height}?${Date.now()}`;
+    const [sourceIdx, setSourceIdx] = React.useState(source_idx);
+    const [streamWidth, setStreamWidth] = React.useState(stream_width);
+    const [streamHeight, setStreamHeight] = React.useState(stream_height);
+    const [undistort, setUndistort] = React.useState(false);
+    
+    const stream_url = `http://localhost:5000/video_stream/${sourceIdx}?width=${streamWidth}&height=${streamHeight}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
+    const source_id = image_sources[sourceIdx];
+    
+    const stopStreaming = () => {
+        return fetch(`http://localhost:5000/stop_stream/${sourceIdx}`)
+            .then(update_ctrl_state);
+    };
     
     const toggleStream = (e) => {
         if (isStreaming) {
-            fetch(`http://localhost:5000/stop_stream/${srcIdx}`)
-                .then(update_ctrl_state);
+            stopStreaming();
         }
-        fetch(stream_url).then(update_ctrl_state);
         setStreaming(!isStreaming);
     };
     
     const toggleRecording = (e) => {
-        if (ctrl_state["img_srcs"][srcId].writing) {
-            fetch(`http://localhost:5000/video_writer/${srcIdx}/stop`)
+        if (ctrl_state["img_srcs"][source_id].writing) {
+            fetch(`http://localhost:5000/video_writer/${sourceIdx}/stop`)
                 .then(update_ctrl_state);            
         }
         else {
-            fetch(`http://localhost:5000/video_writer/${srcIdx}/start`)
+            fetch(`http://localhost:5000/video_writer/${sourceIdx}/start`)
                 .then(update_ctrl_state);            
         }
     };
+
+    const onUndistortClick = (e) => {
+        setUndistort(e.target.checked);
+    };
+    
+    const switchSource = (name, idx) => {
+        if (isStreaming) {
+            stopStreaming()
+                .then(() => setSourceIdx(idx));
+        }
+    };
+    
+    React.useEffect(() => {
+        return stopStreaming; // run on unmount
+    }, []);
     
     const stream_div_style = {width: stream_width + "px", height: stream_height + "px"};
     
@@ -65,23 +87,26 @@ const ImageSourceView = ({srcId, srcIdx, stream_width, stream_height, ctrl_state
 	  (
               <img
 	        src={stream_url}
-                width={stream_width}
-                height={stream_height}          
+                width={streamWidth}
+                height={streamHeight}          
               />
           ) : null;
     
     const stream_btn_title = isStreaming ? "Stop Streaming" : "Start Streaming";
-    const record_btn_title = ctrl_state["img_srcs"][srcId].writing ? "Stop Recording" : "Start Recording";
-          
+    const record_btn_title = ctrl_state["img_srcs"][source_id].writing ? "Stop Recording" : "Start Recording";
+    
     return (
 	<div>
-	  <label>Image source: {srcId}</label>
+          <label>Image Source: </label>
+          <Selector options={image_sources} on_select={switchSource} selected={sourceIdx}/>
           <div className="stream" style={stream_div_style}>
             {stream}
           </div>	  
           <br/>
           <button onClick={toggleStream}>{stream_btn_title}</button>
           <button onClick={toggleRecording}>{record_btn_title}</button>
+          <input type="checkbox" name="undistort_checkbox" checked={undistort} onClick={onUndistortClick} disabled={isStreaming}/>
+          <label htmlFor="undistort_checkbox">Undistort</label>
         </div>
     );
 };
@@ -166,10 +191,10 @@ const App = () => {
         return null;
     
     const imgSrcViews = imageSources.map((srcId, srcIdx) => {
-        return <ImageSourceView srcId={srcId}
-                                srcIdx={srcIdx}
-                                stream_width={320}
-                                stream_height={240}
+        return <ImageSourceView image_sources={imageSources}
+                                source_idx={srcIdx}
+                                stream_width={640}
+                                stream_height={480}
                                 ctrl_state={ctrlState}
                                 update_ctrl_state={update_ctrl_state}
                                 key={srcId}/>;

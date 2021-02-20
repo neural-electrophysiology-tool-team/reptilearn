@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 
 # TODO:
-# - allow resize and color convert before encoding for web stream.
 # - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
 #   current frame twice, etc.
 
@@ -37,7 +36,7 @@ class ImageSource(mp.Process):
         )
 
         self.timestamp = mp.Value("L")
-        self.end_event = mp.Event()
+        self.end_event = mp.Event()  # do we really need two events? v--
         self.stop_event = mp.Event()
 
         self.observer_events = []
@@ -54,6 +53,12 @@ class ImageSource(mp.Process):
             except BrokenPipeError:
                 pass  # maybe print something out, not sure...
 
+    def get_state(self, key):
+        if key in self.state_dict[self.src_id]:
+            return self.state_dict[self.src_id][key]
+        else:
+            return None
+        
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
 
@@ -61,15 +66,14 @@ class ImageSource(mp.Process):
         self.observer_events.remove(obs)
 
     def stop_stream(self):
-        self.is_streaming = False
+        self.set_state({"streaming": False})
 
     def kill(self):
         self.end_event.set()
 
-    def stream_gen(self, img_size, fps=15):
+    def stream_gen(self, fps=15):
         self.log.info(f"Streaming from {self.src_id}.")
         self.set_state({"streaming": True})
-        self.is_streaming = True
 
         while True:
             t1 = time.time()
@@ -77,20 +81,13 @@ class ImageSource(mp.Process):
             self.stream_obs_event.clear()
 
             if self.end_event.is_set():
-                break
-            if not self.is_streaming:
+                self.stop_stream()
+                
+            if not self.get_state("streaming"):
                 break
 
-            enc_img, timestamp = self.get_encoded_image(
-                encoding=".webp",
-                encode_params=[cv.IMWRITE_WEBP_QUALITY, 20],
-                resize=img_size,
-            )
-
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/webp\r\n\r\n" + bytearray(enc_img) + b"\r\n\r\n"
-            )
+            yield self.get_image()
+            
             if fps is not None:
                 dt = time.time() - t1
                 time.sleep(max(1 / fps - dt, 0))
@@ -140,17 +137,6 @@ class ImageSource(mp.Process):
         img = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(self.buf_shape)
         timestamp = self.timestamp.value
         return img, timestamp
-
-    def get_encoded_image(self, encoding=".jpg", encode_params=[], resize=(None, None)):
-        img, timestamp = self.get_image()
-
-        if resize[0] is None or resize[1] is None:
-            resized_img = img
-        else:
-            resized_img = cv.resize(img, resize)
-
-        ret, img_buf_arr = cv.imencode(".jpg", resized_img, encode_params)
-        return img_buf_arr.tobytes(), timestamp
 
     def acquire_image(self):
         pass

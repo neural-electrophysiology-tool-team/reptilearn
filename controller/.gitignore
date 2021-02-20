@@ -2,3 +2,4 @@ videos/
 *.avi
 *.mp4
 __pycache__
+blackfly_checkerboard
