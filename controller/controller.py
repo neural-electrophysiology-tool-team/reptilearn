@@ -11,33 +11,36 @@ from detector import DetectorImageObserver
 from YOLOv4.detector import YOLOv4Detector
 import undistort
 import image_utils
+import state
+import experiment
 from config import config
 
 logger = mp.log_to_stderr(logging.INFO)
 
-state_mgr = mp.Manager()
-general_state = state_mgr.dict()
-img_src_state = state_mgr.dict()
-detection_buffer = state_mgr.list()
-
 db_conn = storage.make_connection()
 
+# initialize state
+state.update_state(["image_sources"], {})
 
-def get_state():
-    state = general_state.copy()
-    state["img_srcs"] = img_src_state.copy()
-    state["detections"] = list(detection_buffer)
-    return state
+# test state listener
+dispatcher = state.Dispatcher()
+dispatcher.register_listener(("image_sources", "0138A051", "streaming"),
+                             lambda o, n: print("streaming:", o, n))
+dispatcher.register_listener(("image_sources", "0138A051", "writing"),
+                             lambda o, n: print("writing:", o, n))
+
+dispatcher.start()
+###
 
 
 image_sources = []
 video_writers = []
 
-"""
+
 image_sources.append(
     VideoImageSource(
         Path("./feeding4_vid.avi"),
-        state_dict=img_src_state,
+        state_root=["image_sources"],
         start_frame=0,
         end_frame=None,
         fps=60,
@@ -45,11 +48,11 @@ image_sources.append(
         is_color=False,
     )
 )
-"""
+
 
 for cam_id in config["cameras"].keys():
     image_sources.append(
-        FLIRImageSource(cam_id, config["cameras"][cam_id], img_src_state)
+        FLIRImageSource(cam_id, config["cameras"][cam_id], ["image_sources"])
     )
 
 for img_src in image_sources:
@@ -87,19 +90,22 @@ def get_config():
     return flask.jsonify(config)
 
 
-@app.route("/video_stream/<int:idx>")
-def video_stream(idx, width=None, height=None):
-    src_config = list(config["cameras"].values())[idx]
-    img_src = image_sources[idx]
-
+@app.route("/video_stream/<src_id>")
+def video_stream(src_id, width=None, height=None):
+    img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
+    if img_src.src_id in config["cameras"]:
+        src_config = config["cameras"][img_src.src_id]
+    else:
+        src_config = None
+    
     swidth = flask.request.args.get("width")
     width = None if swidth is None else int(swidth)
     sheight = flask.request.args.get("height")
     height = None if sheight is None else int(sheight)
     fps = int(flask.request.args.get("fps", default=config["stream_fps"]))
 
-    if flask.request.args.get("undistort") == "true" and "undistort" in src_config:
-        oheight, owidth = src_config["img_shape"]
+    if flask.request.args.get("undistort") == "true" and src_config is not None and "undistort" in src_config:
+        oheight, owidth = img_src.image_shape
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
             owidth, oheight, src_config["undistort"]
         )
@@ -138,16 +144,16 @@ def video_stream(idx, width=None, height=None):
     )
 
 
-@app.route("/stop_stream/<int:idx>")
-def stop_stream(idx):
-    img_src = image_sources[idx]
+@app.route("/stop_stream/<src_id>")
+def stop_stream(src_id):
+    img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
     img_src.stop_stream()
     return flask.Response("ok")
 
 
-@app.route("/video_writer/<int:idx>/<cmd>")
-def video_writer(idx, cmd):
-    vid_writer = video_writers[idx]
+@app.route("/video_writer/<src_id>/<cmd>")
+def video_writer(src_id, cmd):
+    vid_writer = next(filter(lambda s: s.img_src.src_id == src_id, video_writers))
     if cmd == "start":
         vid_writer.start_writing()
     if cmd == "stop":
@@ -171,7 +177,7 @@ def list_image_sources():
 
 @app.route("/state")
 def route_state():
-    return flask.jsonify(get_state())
+    return flask.jsonify(state.get_state())
 
 
 @app.route("/")

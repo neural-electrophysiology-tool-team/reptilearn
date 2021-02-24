@@ -19,7 +19,7 @@ config = {
         "0138A051": {  # BFS-U3-16S2M
             "exposure": 8000,
             "trigger": "frame_rate",
-            "frame_rate": 2,
+            "frame_rate": 60,
             "img_shape": (1080, 1440),
             "undistort": undistort.flir_blackfly_attr,
         },

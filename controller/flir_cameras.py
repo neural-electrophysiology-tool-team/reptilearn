@@ -7,11 +7,10 @@ import time
 
 
 class FLIRImageSource(ImageSource):
-    def __init__(self, cam_id, config, state_dict=None, logger=mp.get_logger()):
-        super().__init__(cam_id, config["img_shape"], state_dict, logger=logger)
+    def __init__(self, cam_id, config, state_root=None, logger=mp.get_logger()):
+        super().__init__(cam_id, config["img_shape"], state_root, logger=logger)
         self.cam_id = cam_id
         self.config = config
-        self.set_state({"acquiring": False})
 
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
@@ -65,7 +64,6 @@ class FLIRImageSource(ImageSource):
         self.log.info(f"Camera time delta: {self.camera_time_delta}")
 
         self.cam.BeginAcquisition()
-        self.set_state({"acquiring": True})
         self.image_result = None
 
         return True
@@ -81,7 +79,6 @@ class FLIRImageSource(ImageSource):
     def on_finish(self):
         if self.cam.IsStreaming():
             self.cam.EndAcquisition()
-            self.set_state({"acquiring": False})  # possibly move somewhere else
 
         self.cam.DeInit()
         self.cam = None

@@ -2,6 +2,7 @@ import numpy as np
 import multiprocessing as mp
 import cv2 as cv
 import time
+import state
 from datetime import datetime
 from pathlib import Path
 
@@ -16,18 +17,20 @@ class AcquireException(Exception):
 
 class ImageSource(mp.Process):
     def __init__(
-        self, src_id, image_shape, state_dict=None, buf_len=1, logger=mp.get_logger()
+        self, src_id, image_shape, state_root=None, buf_len=1, logger=mp.get_logger()
     ):
         super().__init__()
         self.image_shape = image_shape
         self.buf_len = buf_len
         self.log = logger
         self.src_id = src_id
-        self.state_dict = state_dict
 
-        if state_dict is not None:
-            self.state_dict[src_id] = {}
-            self.set_state({"streaming": False})
+        if state_root is not None:
+            self.state_path = state_root + [src_id]
+            state.update_state(self.state_path, {
+                "streaming": False,
+                "acquiring": False
+            })
 
         self.buf_shape = image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
@@ -45,20 +48,12 @@ class ImageSource(mp.Process):
         self.name = f"{type(self).__name__}:{self.src_id}"
 
     def set_state(self, new_state):
-        if self.state_dict is not None:
-            try:
-                self.state_dict[self.src_id] = dict(
-                    self.state_dict[self.src_id], **new_state
-                )
-            except BrokenPipeError:
-                pass  # maybe print something out, not sure...
+        if self.state_path is not None:
+            state.assoc_state(self.state_path, new_state)
 
     def get_state(self, key):
-        if key in self.state_dict[self.src_id]:
-            return self.state_dict[self.src_id][key]
-        else:
-            return None
-        
+        return state.get_state_path(self.state_path + [key])
+
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
 
@@ -82,7 +77,7 @@ class ImageSource(mp.Process):
 
             if self.end_event.is_set():
                 self.stop_stream()
-                
+
             if not self.get_state("streaming"):
                 break
 
@@ -98,6 +93,9 @@ class ImageSource(mp.Process):
     def run(self):
         if not self.on_begin():
             return
+        
+        self.set_state({"acquiring": True})
+        
         try:
             while True:
                 try:
@@ -127,6 +125,7 @@ class ImageSource(mp.Process):
         except KeyboardInterrupt:
             pass
         finally:
+            self.set_state({"acquiring": False})
             self.on_finish()
         
         for obs in self.observer_events:
@@ -191,7 +190,7 @@ class VideoImageSource(ImageSource):
     def __init__(
         self,
         video_path: Path,
-        state_dict=None,
+        state_root=None,
         start_frame=0,
         end_frame=None,
         fps=60,
@@ -224,7 +223,7 @@ class VideoImageSource(ImageSource):
         if end_frame is not None:
             src_id += "_" + str(end_frame)
 
-        super().__init__(src_id, image_shape, state_dict, logger=logger)
+        super().__init__(src_id, image_shape, state_root, logger=logger)
 
     def on_begin(self):
         self.vcap = cv.VideoCapture(str(self.video_path))
@@ -312,6 +311,10 @@ class VideoWriter(mp.Process):
         )
 
     def _begin_writing(self):
+        if not self.img_src.get_state("acquiring"):
+            self.log.error("Can't write video. Image source is not acquiring.")
+            return
+            
         vid_path, ts_path = self._get_new_write_paths()
         is_color = len(self.img_src.image_shape) == 3
         self.log.info(f"Starting to write video to: {vid_path}")
