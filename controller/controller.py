@@ -36,7 +36,7 @@ dispatcher.start()
 image_sources = []
 video_writers = []
 
-
+"""
 image_sources.append(
     VideoImageSource(
         Path("./feeding4_vid.avi"),
@@ -48,7 +48,7 @@ image_sources.append(
         is_color=False,
     )
 )
-
+"""
 
 for cam_id in config["cameras"].keys():
     image_sources.append(
@@ -82,6 +82,9 @@ for w in video_writers:
 for img_src in image_sources:
     img_src.start()
 
+
+#### Flask API ####
+    
 app = flask.Flask("API")
 
 
@@ -168,11 +171,6 @@ def video_writer_all(cmd):
         video_writer(i, cmd)
 
     return flask.Response("ok")
-
-
-@app.route("/list_image_sources")
-def list_image_sources():
-    return flask.jsonify([s.src_id for s in image_sources])
 
 
 @app.route("/state")

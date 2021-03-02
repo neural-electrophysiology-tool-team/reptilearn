@@ -39,12 +39,12 @@ const ImageSourceView = ({image_sources, source_idx, stream_width, stream_height
     const [streamWidth, setStreamWidth] = React.useState(stream_width);
     const [streamHeight, setStreamHeight] = React.useState(stream_height);
     const [undistort, setUndistort] = React.useState(false);
-    
-    const stream_url = `http://localhost:5000/video_stream/${sourceIdx}?width=${streamWidth}&height=${streamHeight}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
-    const source_id = image_sources[sourceIdx];
+
+    const source_id = image_sources[sourceIdx];    
+    const stream_url = `http://localhost:5000/video_stream/${source_id}?width=${streamWidth}&height=${streamHeight}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
     
     const stopStreaming = () => {
-        return fetch(`http://localhost:5000/stop_stream/${sourceIdx}`)
+        return fetch(`http://localhost:5000/stop_stream/${source_id}`)
             .then(update_ctrl_state);
     };
     
@@ -56,12 +56,12 @@ const ImageSourceView = ({image_sources, source_idx, stream_width, stream_height
     };
     
     const toggleRecording = (e) => {
-        if (ctrl_state["img_srcs"][source_id].writing) {
-            fetch(`http://localhost:5000/video_writer/${sourceIdx}/stop`)
+        if (ctrl_state["image_sources"][source_id].writing) {
+            fetch(`http://localhost:5000/video_writer/${source_id}/stop`)
                 .then(update_ctrl_state);            
         }
         else {
-            fetch(`http://localhost:5000/video_writer/${sourceIdx}/start`)
+            fetch(`http://localhost:5000/video_writer/${source_id}/start`)
                 .then(update_ctrl_state);            
         }
     };
@@ -93,7 +93,7 @@ const ImageSourceView = ({image_sources, source_idx, stream_width, stream_height
           ) : null;
     
     const stream_btn_title = isStreaming ? "Stop Streaming" : "Start Streaming";
-    const record_btn_title = ctrl_state["img_srcs"][source_id].writing ? "Stop Recording" : "Start Recording";
+    const record_btn_title = ctrl_state["image_sources"][source_id].writing ? "Stop Recording" : "Start Recording";
     
     return (
 	<div>
@@ -105,7 +105,11 @@ const ImageSourceView = ({image_sources, source_idx, stream_width, stream_height
           <br/>
           <button onClick={toggleStream}>{stream_btn_title}</button>
           <button onClick={toggleRecording}>{record_btn_title}</button>
-          <input type="checkbox" name="undistort_checkbox" checked={undistort} onClick={onUndistortClick} disabled={isStreaming}/>
+          <input type="checkbox"
+                 name="undistort_checkbox"
+                 checked={undistort}
+                 onClick={onUndistortClick}
+                 disabled={isStreaming}/>
           <label htmlFor="undistort_checkbox">Undistort</label>
         </div>
     );
@@ -116,7 +120,7 @@ const RecordAllControl = ({ctrl_state, update_ctrl_state}) => {
     // should allow stop if at least one is recording.
     let any_recording = false;
         
-    for (const src_state of Object.values(ctrl_state["img_srcs"])) {
+    for (const src_state of Object.values(ctrl_state["image_sources"])) {
         if (src_state["writing"]) {
             any_recording = true;
             break;
@@ -152,7 +156,6 @@ const fetch_control_state = (on_fetch) => {
 const App = () => {
     const [apiMsg, setApiMsg] = React.useState("Connecting to API...");
     const [error, setError] = React.useState("");
-    const [imageSources, setImageSources] = React.useState([]);
     const [ctrlState, setCtrlState] = React.useState(null);
 
     const update_ctrl_state = () => {
@@ -172,26 +175,19 @@ const App = () => {
 		}
 	    );
 
-        fetch("http://localhost:5000/list_image_sources")
-            .then(res => res.json())
-            .then(
-                (res) => {
-                    setImageSources(res);
-                },
-                (error) => {
-                    setError([error.toString()]);
-                }
-            );
-
         update_ctrl_state();
-        //setInterval(update_ctrl_state, 1000);
     }, []);
 
     if (ctrlState === null)
         return null;
-    
-    const imgSrcViews = imageSources.map((srcId, srcIdx) => {
-        return <ImageSourceView image_sources={imageSources}
+
+    const image_sources = Object.keys(ctrlState.image_sources);
+
+    const imgSrcViews = image_sources.map((srcId, srcIdx) => {
+        if (!ctrlState.image_sources[srcId].acquiring)
+            return null;
+        
+        return <ImageSourceView image_sources={image_sources}
                                 source_idx={srcIdx}
                                 stream_width={640}
                                 stream_height={480}

@@ -294,7 +294,7 @@ class VideoWriter(mp.Process):
         self.parent_pipe, self.child_pipe = mp.Pipe()
         self.name = f"{type(self).__name__}:{self.img_src.src_id}"
 
-    def start_writing(self):
+    def start_writing(self, num_frames=None):
         self.parent_pipe.send("start")
 
     def stop_writing(self):
@@ -357,10 +357,10 @@ class VideoWriter(mp.Process):
                             break
                         if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
                             break
-                        self.update_event.wait()
-                        self.update_event.clear()
-
-                        self._write()
+                        if self.update_event.wait(1):
+                            self.update_event.clear()
+                            self._write()
+                            
                 except KeyboardInterrupt:
                     break
                 finally:

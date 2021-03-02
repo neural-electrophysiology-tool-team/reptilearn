@@ -72,7 +72,7 @@ class FLIRImageSource(ImageSource):
         if self.image_result is not None:
             self.image_result.Release()
 
-        self.image_result = self.cam.GetNextImage(5000)
+        self.image_result = self.cam.GetNextImage()
         timestamp = self.image_result.GetTimeStamp() + self.camera_time_delta
         return (self.image_result.GetNDArray(), timestamp)
 
