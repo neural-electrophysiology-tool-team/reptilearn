@@ -83,7 +83,9 @@ void start(SerialCommands* sender) {
   char* s_ttl_count = sender->Next();
   if (s_ttl_count != NULL)
     ttl_count = atol(s_ttl_count);
-  
+  else
+    ttl_count = 0;
+
   char* do_serial_trigger = sender->Next();
   if (do_serial_trigger != NULL)
     serial_trigger = true;

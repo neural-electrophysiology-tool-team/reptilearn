@@ -13,7 +13,10 @@ import undistort
 import image_utils
 import state
 import experiment
-from config import config
+import mqtt
+import video_record
+import config
+from dynamic_loading import instantiate_class
 
 logger = mp.log_to_stderr(logging.INFO)
 
@@ -24,41 +27,32 @@ state.update_state(["image_sources"], {})
 
 # test state listener
 dispatcher = state.Dispatcher()
-dispatcher.register_listener(("image_sources", "0138A051", "streaming"),
-                             lambda o, n: print("streaming:", o, n))
-dispatcher.register_listener(("image_sources", "0138A051", "writing"),
-                             lambda o, n: print("writing:", o, n))
+dispatcher.register_listener(
+    ("image_sources", "0138A051", "streaming"), lambda o, n: print("streaming:", o, n)
+)
+dispatcher.register_listener(
+    ("image_sources", "0138A051", "writing"), lambda o, n: print("writing:", o, n)
+)
 
 dispatcher.start()
 ###
 
+# test mqtt client
+mqtt_client = mqtt.Client(logger=logger)
+mqtt_client.register_listener("#", print)
+mqtt_client.connect()
+mqtt_process = mp.Process(target=mqtt_client.listen)
+mqtt_process.start()
+###
 
-image_sources = []
-video_writers = []
+image_sources = [
+    instantiate_class(config["class"], src_id, config, state_root=["image_sources"])
+    for (src_id, config) in config.image_sources.items()
+]
+
+video_record.init(image_sources)
 
 """
-image_sources.append(
-    VideoImageSource(
-        Path("./feeding4_vid.avi"),
-        state_root=["image_sources"],
-        start_frame=0,
-        end_frame=None,
-        fps=60,
-        repeat=True,
-        is_color=False,
-    )
-)
-"""
-
-for cam_id in config["cameras"].keys():
-    image_sources.append(
-        FLIRImageSource(cam_id, config["cameras"][cam_id], ["image_sources"])
-    )
-
-for img_src in image_sources:
-    video_writers.append(VideoWriter(img_src, fps=60, write_path=Path("videos")))
-
-
 def store_detection(det, image_timestamp, detection_timestamp):
     if det is None:
         det = [None] * 5
@@ -66,7 +60,7 @@ def store_detection(det, image_timestamp, detection_timestamp):
     storage.insert_bbox_position(db_conn, det)
 
 
-"""    
+   
 detector_obs = DetectorImageObserver(image_sources[config["detector_source"]],
                                      YOLOv4Detector(conf_thres=0.8, return_neareast_detection=True),
                                      detection_buffer=detection_buffer,
@@ -74,8 +68,6 @@ detector_obs = DetectorImageObserver(image_sources[config["detector_source"]],
                                      buffer_size=20)
 """
 
-for w in video_writers:
-    w.start()
 
 # detector_obs.start()
 
@@ -84,7 +76,7 @@ for img_src in image_sources:
 
 
 #### Flask API ####
-    
+
 app = flask.Flask("API")
 
 
@@ -96,18 +88,22 @@ def get_config():
 @app.route("/video_stream/<src_id>")
 def video_stream(src_id, width=None, height=None):
     img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
-    if img_src.src_id in config["cameras"]:
-        src_config = config["cameras"][img_src.src_id]
+    if img_src.src_id in config.image_sources:
+        src_config = config.image_sources[img_src.src_id]
     else:
         src_config = None
-    
+
     swidth = flask.request.args.get("width")
     width = None if swidth is None else int(swidth)
     sheight = flask.request.args.get("height")
     height = None if sheight is None else int(sheight)
-    fps = int(flask.request.args.get("fps", default=config["stream_fps"]))
+    fps = int(flask.request.args.get("fps", default=config.stream_fps))
 
-    if flask.request.args.get("undistort") == "true" and src_config is not None and "undistort" in src_config:
+    if (
+        flask.request.args.get("undistort") == "true"
+        and src_config is not None
+        and "undistort" in src_config
+    ):
         oheight, owidth = img_src.image_shape
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
             owidth, oheight, src_config["undistort"]
@@ -137,7 +133,7 @@ def video_stream(src_id, width=None, height=None):
                     + bytearray(enc_img)
                     + b"\r\n\r\n"
                 )
-                
+
             except StopIteration:
                 break
 
@@ -154,21 +150,16 @@ def stop_stream(src_id):
     return flask.Response("ok")
 
 
-@app.route("/video_writer/<src_id>/<cmd>")
-def video_writer(src_id, cmd):
-    vid_writer = next(filter(lambda s: s.img_src.src_id == src_id, video_writers))
+@app.route("/video_record/<cmd>")
+def request_video_record(cmd):
+    src_ids = flask.request.args.getlist("src")
+    if len(src_ids) == 0:
+        src_ids = None
+        
     if cmd == "start":
-        vid_writer.start_writing()
-    if cmd == "stop":
-        vid_writer.stop_writing()
-
-    return flask.Response("ok")
-
-
-@app.route("/video_writer/all/<cmd>")
-def video_writer_all(cmd):
-    for i in range(len(video_writers)):
-        video_writer(i, cmd)
+        video_record.start_record(src_ids=src_ids)
+    elif cmd == "stop":
+        video_record.stop_record(src_ids=src_ids)
 
     return flask.Response("ok")
 

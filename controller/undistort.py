@@ -16,47 +16,6 @@ from tqdm.auto import tqdm
 #   https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_calib3d/py_calibration/py_calibration.html
 
 # Static un-distortion matrices for the cameras.
-flir_firefly_attr = {
-    "mtx": np.array(
-        [
-            [1.14515564e03, 0.00000000e00, 7.09060713e02],
-            [0.00000000e00, 1.14481967e03, 5.28220061e02],
-            [0.00000000e00, 0.00000000e00, 1.00000000e00],
-        ]
-    ),
-    "dist": np.array(
-        [
-            [
-                -4.25580120e-01,
-                3.02361751e-01,
-                -1.56952670e-03,
-                -4.04385846e-04,
-                -2.27525587e-01,
-            ]
-        ]
-    ),
-}
-
-flir_blackfly_attr = {
-    "dist": np.array(
-        [
-            [
-                -3.73487649e-01,
-                1.70639650e-01,
-                2.12535002e-04,
-                9.02337277e-05,
-                -4.25039396e-02,
-            ]
-        ]
-    ),
-    "mtx": np.array(
-        [
-            [1.04345883e03, 0.00000000e00, 7.94892178e02],
-            [0.00000000e00, 1.04346538e03, 6.09748241e02],
-            [0.00000000e00, 0.00000000e00, 1.00000000e00],
-        ]
-    ),
-}
 
 
 class CalibrationException(Exception):

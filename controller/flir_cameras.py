@@ -7,9 +7,9 @@ import time
 
 
 class FLIRImageSource(ImageSource):
-    def __init__(self, cam_id, config, state_root=None, logger=mp.get_logger()):
-        super().__init__(cam_id, config["img_shape"], state_root, logger=logger)
-        self.cam_id = cam_id
+    def __init__(self, src_id, config, state_root=None, logger=mp.get_logger()):
+        super().__init__(src_id, config["image_shape"], state_root, logger=logger)
+        self.cam_id = config["cam_id"]
         self.config = config
 
     def configure_camera(self):

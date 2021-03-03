@@ -57,11 +57,11 @@ const ImageSourceView = ({image_sources, source_idx, stream_width, stream_height
     
     const toggleRecording = (e) => {
         if (ctrl_state["image_sources"][source_id].writing) {
-            fetch(`http://localhost:5000/video_writer/${source_id}/stop`)
+            fetch(`http://localhost:5000/video_record/stop?src=${source_id}`)
                 .then(update_ctrl_state);            
         }
         else {
-            fetch(`http://localhost:5000/video_writer/${source_id}/start`)
+            fetch(`http://localhost:5000/video_record/start?src=${source_id}`)
                 .then(update_ctrl_state);            
         }
     };
@@ -132,11 +132,11 @@ const RecordAllControl = ({ctrl_state, update_ctrl_state}) => {
     const toggleRecording = (e) => {
 
         if (any_recording) {
-            fetch("http://localhost:5000/video_writer/all/stop")
+            fetch("http://localhost:5000/video_record/stop")
                 .then(update_ctrl_state);
         }
         else {
-            fetch("http://localhost:5000/video_writer/all/start")
+            fetch("http://localhost:5000/video_record/start")
                 .then(update_ctrl_state);
         }
     };

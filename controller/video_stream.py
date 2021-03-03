@@ -27,10 +27,9 @@ class ImageSource(mp.Process):
 
         if state_root is not None:
             self.state_path = state_root + [src_id]
-            state.update_state(self.state_path, {
-                "streaming": False,
-                "acquiring": False
-            })
+            state.update_state(
+                self.state_path, {"streaming": False, "acquiring": False}
+            )
 
         self.buf_shape = image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
@@ -82,7 +81,7 @@ class ImageSource(mp.Process):
                 break
 
             yield self.get_image()
-            
+
             if fps is not None:
                 dt = time.time() - t1
                 time.sleep(max(1 / fps - dt, 0))
@@ -93,9 +92,9 @@ class ImageSource(mp.Process):
     def run(self):
         if not self.on_begin():
             return
-        
+
         self.set_state({"acquiring": True})
-        
+
         try:
             while True:
                 try:
@@ -114,9 +113,9 @@ class ImageSource(mp.Process):
 
                 with self.buf.get_lock():
                     self.timestamp.value = timestamp
-                    self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
-                        self.buf_shape
-                    )
+                    self.buf_np = np.frombuffer(
+                        self.buf.get_obj(), dtype="uint8"
+                    ).reshape(self.buf_shape)
                     np.copyto(self.buf_np, img)
 
                     for obs in self.observer_events:
@@ -127,7 +126,7 @@ class ImageSource(mp.Process):
         finally:
             self.set_state({"acquiring": False})
             self.on_finish()
-        
+
         for obs in self.observer_events:
             obs.set()
         self.end_event.set()
@@ -175,7 +174,7 @@ class ImageObserver(mp.Process):
             pass
         finally:
             self.on_finish()
-        
+
     def on_begin(self):
         pass
 
@@ -187,41 +186,29 @@ class ImageObserver(mp.Process):
 
 
 class VideoImageSource(ImageSource):
-    def __init__(
-        self,
-        video_path: Path,
-        state_root=None,
-        start_frame=0,
-        end_frame=None,
-        fps=60,
-        repeat=False,
-        is_color=True,
-        logger=mp.get_logger(),
-    ):
-        self.video_path = video_path
-        self.fps = fps
-        self.start_frame = start_frame
-        self.end_frame = end_frame
-        self.repeat = repeat
-        self.is_color = is_color
+    def __init__(self, src_id, config, state_root=None, logger=mp.get_logger()):
+        self.video_path = config["video_path"]
+        self.fps = config.get("fps", 60)
+        self.start_frame = config.get("start_frame", 0)
+        self.end_frame = config.get("end_frame", None)
+        self.repeat = config.get("repeat", False)
+        self.is_color = config.get("is_color", False)
+        self.src_id = src_id
         
-        vcap = cv.VideoCapture(str(video_path))
-        if is_color:
+        vcap = cv.VideoCapture(str(self.video_path))
+        if self.is_color:
             image_shape = (
                 int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
                 int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
-                3
+                3,
             )
         else:
             image_shape = (
                 int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
-                int(vcap.get(cv.CAP_PROP_FRAME_WIDTH))
+                int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
             )
-            
+
         vcap.release()
-        src_id = video_path.stem + str(start_frame)
-        if end_frame is not None:
-            src_id += "_" + str(end_frame)
 
         super().__init__(src_id, image_shape, state_root, logger=logger)
 
@@ -247,7 +234,7 @@ class VideoImageSource(ImageSource):
 
         if not self.is_color:
             img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-            
+
         if self.frame_num >= self.end_frame:
             if self.repeat is False:
                 return None, t
@@ -257,7 +244,6 @@ class VideoImageSource(ImageSource):
                     self.log.info(f"Done repeating {self.repeat} times.")
                     return None, t
                 else:
-                    self.log.info("Repeating video")
                     self.vcap.set(cv.CAP_PROP_POS_FRAMES, self.start_frame)
                     self.frame_num = self.start_frame
 
@@ -314,7 +300,7 @@ class VideoWriter(mp.Process):
         if not self.img_src.get_state("acquiring"):
             self.log.error("Can't write video. Image source is not acquiring.")
             return
-            
+
         vid_path, ts_path = self._get_new_write_paths()
         is_color = len(self.img_src.image_shape) == 3
         self.log.info(f"Starting to write video to: {vid_path}")
@@ -347,9 +333,10 @@ class VideoWriter(mp.Process):
                 cmd = self.child_pipe.recv()
             except KeyboardInterrupt:
                 break
-            
+
             if cmd == "start":
                 self._begin_writing()
+                self.update_event.clear()
 
                 try:
                     while True:
@@ -360,7 +347,7 @@ class VideoWriter(mp.Process):
                         if self.update_event.wait(1):
                             self.update_event.clear()
                             self._write()
-                            
+
                 except KeyboardInterrupt:
                     break
                 finally:
