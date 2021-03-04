@@ -44,18 +44,20 @@ undistort_flir_blackfly_computar = {
     ),
 }
 
-stream_fps = 15
+stream_frame_rate = 15
 
 image_sources = dict(
     {
-        "left_camera": {  # firefly-dl 1
-            "class": "flir_cameras.FLIRImageSource",
-            "cam_id": "20349302",
-            "exposure": 8000,
-            "trigger": "ttl",  # or "frame_rate"
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firfly_4mm,
-        },
+        ################################################
+        # "left_camera": {  # firefly-dl 1             #
+        #     "class": "flir_cameras.FLIRImageSource", #
+        #     "cam_id": "20349302",                    #
+        #     "exposure": 8000,                        #
+        #     "trigger": "ttl",  # or "frame_rate"     #
+        #     "image_shape": (1080, 1440),             #
+        #     "undistort": undistort_flir_firfly_4mm,  #
+        # },                                           #
+        ################################################
         "right_camera": {  # firefly-dl 2
             "class": "flir_cameras.FLIRImageSource",
             "cam_id": "20349310",
@@ -79,12 +81,20 @@ image_sources = dict(
             "video_path": Path("./feeding4_vid.avi"),
             "start_frame": 0,
             "end_frame": None,
-            "fps": 60,
+            "frame_rate": 60,
             "repeat": True,
             "is_color": False,
         },
     },
 )
+
+# these parameters are passed to imageio.get_writer function
+# See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
+video_encoding = {
+    "codec": "libx264",
+    "quality": 5,
+    "macro_block_size": 8,  # to work with 1440x1080 image size
+}
 
 mqtt = {
     "host": "localhost",

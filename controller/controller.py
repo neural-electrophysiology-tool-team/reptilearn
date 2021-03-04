@@ -4,9 +4,6 @@ import flask
 import cv2
 
 import storage
-from flir_cameras import FLIRImageSource
-from video_stream import VideoWriter, VideoImageSource
-from pathlib import Path
 from detector import DetectorImageObserver
 from YOLOv4.detector import YOLOv4Detector
 import undistort
@@ -46,8 +43,8 @@ mqtt_process.start()
 ###
 
 image_sources = [
-    instantiate_class(config["class"], src_id, config, state_root=["image_sources"])
-    for (src_id, config) in config.image_sources.items()
+    instantiate_class(src_config["class"], src_id, src_config, state_root=["image_sources"])
+    for (src_id, src_config) in config.image_sources.items()
 ]
 
 video_record.init(image_sources)
@@ -97,7 +94,7 @@ def video_stream(src_id, width=None, height=None):
     width = None if swidth is None else int(swidth)
     sheight = flask.request.args.get("height")
     height = None if sheight is None else int(sheight)
-    fps = int(flask.request.args.get("fps", default=config.stream_fps))
+    frame_rate = int(flask.request.args.get("frame_rate", default=config.stream_frame_rate))
 
     if (
         flask.request.args.get("undistort") == "true"
@@ -112,7 +109,7 @@ def video_stream(src_id, width=None, height=None):
         undistort_mapping = None
 
     def flask_gen():
-        gen = img_src.stream_gen(fps)
+        gen = img_src.stream_gen(frame_rate)
         while True:
             try:
                 img, timestamp = next(gen)

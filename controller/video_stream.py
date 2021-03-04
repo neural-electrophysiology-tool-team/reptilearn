@@ -3,12 +3,9 @@ import multiprocessing as mp
 import cv2 as cv
 import time
 import state
-from datetime import datetime
-from pathlib import Path
 
-# TODO:
-# - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
-#   current frame twice, etc.
+# TODO
+# - consider using imageio for VideoImageSource
 
 
 class AcquireException(Exception):
@@ -65,7 +62,7 @@ class ImageSource(mp.Process):
     def kill(self):
         self.end_event.set()
 
-    def stream_gen(self, fps=15):
+    def stream_gen(self, frame_rate=15):
         self.log.info(f"Streaming from {self.src_id}.")
         self.set_state({"streaming": True})
 
@@ -82,9 +79,9 @@ class ImageSource(mp.Process):
 
             yield self.get_image()
 
-            if fps is not None:
+            if frame_rate is not None:
                 dt = time.time() - t1
-                time.sleep(max(1 / fps - dt, 0))
+                time.sleep(max(1 / frame_rate - dt, 0))
 
         self.log.info(f"Stopped streaming from {self.src_id}.")
         self.set_state({"streaming": False})
@@ -188,13 +185,13 @@ class ImageObserver(mp.Process):
 class VideoImageSource(ImageSource):
     def __init__(self, src_id, config, state_root=None, logger=mp.get_logger()):
         self.video_path = config["video_path"]
-        self.fps = config.get("fps", 60)
+        self.frame_rate = config.get("frame_rate", 60)
         self.start_frame = config.get("start_frame", 0)
         self.end_frame = config.get("end_frame", None)
         self.repeat = config.get("repeat", False)
         self.is_color = config.get("is_color", False)
         self.src_id = src_id
-        
+
         vcap = cv.VideoCapture(str(self.video_path))
         if self.is_color:
             image_shape = (
@@ -226,7 +223,7 @@ class VideoImageSource(ImageSource):
 
     def acquire_image(self):
         if self.last_acquire_time is not None:
-            time.sleep(max(1 / self.fps - self.last_acquire_time, 0))
+            time.sleep(max(1 / self.frame_rate - self.last_acquire_time, 0))
         t = time.time()
         ret, img = self.vcap.read()
         if not ret:
@@ -253,103 +250,3 @@ class VideoImageSource(ImageSource):
 
     def on_finish(self):
         self.vcap.release()
-
-
-class VideoWriter(mp.Process):
-    def __init__(
-        self,
-        img_src: ImageSource,
-        fps,
-        write_path=Path("."),
-        codec="mp4v",
-        file_ext="mp4",
-        logger=mp.get_logger(),
-    ):
-        super().__init__()
-        self.codec = codec
-        self.fps = fps
-        self.img_src = img_src
-        self.img_src.set_state({"writing": False})
-
-        self.write_path = write_path
-        self.file_ext = file_ext
-        self.log = logger
-        self.update_event = mp.Event()
-        img_src.add_observer_event(self.update_event)
-
-        self.parent_pipe, self.child_pipe = mp.Pipe()
-        self.name = f"{type(self).__name__}:{self.img_src.src_id}"
-
-    def start_writing(self, num_frames=None):
-        self.parent_pipe.send("start")
-
-    def stop_writing(self):
-        self.parent_pipe.send("stop")
-        self.img_src.set_state({"writing": False})
-
-    def _get_new_write_paths(self):
-        base = (
-            self.img_src.src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
-        )
-        return (
-            self.write_path / (base + self.file_ext),
-            self.write_path / (base + "csv"),
-        )
-
-    def _begin_writing(self):
-        if not self.img_src.get_state("acquiring"):
-            self.log.error("Can't write video. Image source is not acquiring.")
-            return
-
-        vid_path, ts_path = self._get_new_write_paths()
-        is_color = len(self.img_src.image_shape) == 3
-        self.log.info(f"Starting to write video to: {vid_path}")
-        self.writer = cv.VideoWriter(
-            str(vid_path),
-            cv.VideoWriter_fourcc(*self.codec),
-            self.fps,
-            tuple(reversed(self.img_src.image_shape[:2])),
-            isColor=is_color,
-        )
-        self.ts_file = open(str(ts_path), "w")
-        self.ts_file.write("timestamp\n")
-
-        self.img_src.set_state({"writing": True})
-
-    def _write(self):
-        img, timestamp = self.img_src.get_image()
-
-        self.ts_file.write(str(timestamp) + "\n")
-        self.writer.write(img)
-
-    def _finish_writing(self):
-        self.writer.release()
-        self.ts_file.close()
-
-    def run(self):
-        cmd = None
-        while True:
-            try:
-                cmd = self.child_pipe.recv()
-            except KeyboardInterrupt:
-                break
-
-            if cmd == "start":
-                self._begin_writing()
-                self.update_event.clear()
-
-                try:
-                    while True:
-                        if self.img_src.end_event.is_set():
-                            break
-                        if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
-                            break
-                        if self.update_event.wait(1):
-                            self.update_event.clear()
-                            self._write()
-
-                except KeyboardInterrupt:
-                    break
-                finally:
-                    self.log.info("Stopped writing.")
-                    self._finish_writing()
