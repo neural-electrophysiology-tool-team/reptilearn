@@ -2,7 +2,6 @@ import PySpin
 from video_stream import ImageSource
 import re
 import multiprocessing as mp
-import logging
 import time
 
 

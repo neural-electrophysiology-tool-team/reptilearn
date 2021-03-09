@@ -5,3 +5,10 @@
     border-color: lightgrey;
     
 }
+
+.component {
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid;
+    margin: 5px;
+}

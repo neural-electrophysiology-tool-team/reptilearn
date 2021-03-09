@@ -1,6 +1,8 @@
 import numpy as np
 from pathlib import Path
 
+experiments_dir = Path("./experiments/")
+
 # undistort lens correction
 undistort_flir_firfly_4mm = {
     "mtx": np.array(

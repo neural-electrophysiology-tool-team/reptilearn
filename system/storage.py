@@ -35,3 +35,6 @@ def insert_bbox_position(conn, data):
         print(error.pgerror)
     conn.commit()
     cur.close()
+
+
+db_conn = make_connection()

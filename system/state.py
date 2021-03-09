@@ -73,31 +73,41 @@ def assoc_state(path, kvs):
 
 def register_listener(on_update):
     did_update_event = _mgr.Event()
+    stop_event = mp.Event()
+
     _did_update_events.append(did_update_event)
     old = get_state()
 
     def listen():
         nonlocal old
+        try:
+            while True:
+                did_update_event.wait()
+                if stop_event.is_set():
+                    break
+                did_update_event.clear()
+                new = get_state()
+                on_update(old, new)
+                old = new
+        except EOFError:
+            pass
 
-        while True:
-            did_update_event.wait()
-            did_update_event.clear()
-            new = get_state()
-            on_update(old, new)
-            old = new
+    def stop_listening():
+        stop_event.set()
+        did_update_event.set()
 
-    return listen
+    return listen, stop_listening
 
 
-class Dispatcher(mp.Process):
+def shutdown():
+    _mgr.shutdown()
+
+
+class Dispatcher():
     def __init__(self):
         super().__init__()
         self._dispatch_table = dict()
-    
-    def register_listener(self, path, on_update):
-        self._dispatch_table[path] = on_update
 
-    def run(self):
         def on_update(old, new):
             for path, on_update in self._dispatch_table.items():
                 old_val = get_path(old, path, path_not_found)
@@ -106,5 +116,10 @@ class Dispatcher(mp.Process):
                 if not old_val == new_val:
                     on_update(old_val, new_val)
 
-        listen = register_listener(on_update)
-        listen()
+        self.listen, self.stop = register_listener(on_update)
+
+    def add_callback(self, path, on_update):
+        self._dispatch_table[path] = on_update
+
+    def remove_callback(self, path):
+        return self._dispatch_table.pop(path)
