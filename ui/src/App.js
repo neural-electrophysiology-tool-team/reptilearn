@@ -4,6 +4,7 @@ import React from 'react';
 import {ExperimentView} from './experiment_view.js';
 import {StreamView} from './stream_view.js';
 import {StateView} from './state_view.js';
+import {VideoRecordView} from './video_record_view.js';
 import {SocketContext} from './socket.js';
 /*
 TODO:
@@ -14,36 +15,6 @@ TODO:
 */
 
 
-const RecordAllControl = ({ctrl_state}) => {
-    // should only allow start if no one is recording
-    // should allow stop if at least one is recording.
-    let any_recording = false;
-        
-    for (const src_state of Object.values(ctrl_state["image_sources"])) {
-        if (src_state["writing"]) {
-            any_recording = true;
-            break;
-        }
-    }
-
-    const rec_btn_title = any_recording ? "Stop Recording" : "Start Recording";
-    
-    const toggleRecording = (e) => {
-
-        if (any_recording) {
-            fetch("http://localhost:5000/video_record/stop")
-        }
-        else {
-            fetch("http://localhost:5000/video_record/start")
-        }
-    };
-    
-    return (
-        <div className="component">
-          <button onClick={toggleRecording}>{rec_btn_title}</button>
-        </div>
-    );
-};
 
 const fetch_control_state = (on_fetch) => {
     return fetch("http://localhost:5000/state")
@@ -51,7 +22,6 @@ const fetch_control_state = (on_fetch) => {
 };
                   
 const App = () => {
-    const [apiMsg, setApiMsg] = React.useState("Connecting to API...");
     const [error, setError] = React.useState("");
     const [ctrlState, setCtrlState] = React.useState(null);
     const [imageSources, setImageSources] = React.useState(null);
@@ -64,25 +34,21 @@ const App = () => {
 	if (imageSources === null)
 	    setImageSources(Object.keys(new_state.image_sources));
     }, []);
+
+    const handle_disconnect = React.useCallback(() => setCtrlState(null))
     
     React.useEffect(() => {
-        fetch("http://localhost:5000/")
-            .then(res => res.text())
-            .then(
-                (res) => {
-		    setApiMsg(res);
-		},
-                (error) => {
-		    setError(error.toString());
-		}
-	    );
-
 	socket.on("state", handle_new_state);
+	socket.on("disconnect", handle_disconnect);
     }, []);
 
-    if (ctrlState === null)
-        return null;
-
+    if (ctrlState===null)
+	return (
+	    <div className="App">
+		<p>Waiting for API...</p>
+	    </div>
+	);
+    
     const stream_view = imageSources !== null && imageSources.length > 0 ?
 	<StreamView image_sources={imageSources}
                     source_idx={0}
@@ -93,10 +59,9 @@ const App = () => {
 
     return (
         <div className="App">
-            {apiMsg}<br/>
             {error}
-	    <ExperimentView cur_experiment={ctrlState.experiment.cur_experiment}/>
-	    <RecordAllControl ctrl_state={ctrlState} />
+	    <ExperimentView ctrl_state={ctrlState}/>
+	    <VideoRecordView ctrl_state={ctrlState} />
 	    {stream_view}
 	    <StateView ctrl_state={ctrlState} />
         </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import {Selector} from './components.js';
 import ReactJson from 'react-json-view'
 
-export const ExperimentView = ({cur_experiment}) => {
+export const ExperimentView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
     const [experimentParams, setExperimentParams] = React.useState({});
     const [error, setError] = React.useState(null);
@@ -13,8 +13,6 @@ export const ExperimentView = ({cur_experiment}) => {
             .then(
                 (res) => {
                     setExperimentList(res);
-		    if (res.length > 0)
-			set_experiment(res[0]);
                 },
                 (error) => {
                     setError(error.toString());
@@ -22,7 +20,7 @@ export const ExperimentView = ({cur_experiment}) => {
             );               
     }, []);
 
-    const set_experiment = (val, idx) => {
+    const set_experiment = val => {
 	fetch(`http://localhost:5000/set_experiment/${val}`)
     };
 
@@ -36,36 +34,56 @@ export const ExperimentView = ({cur_experiment}) => {
 	    body: JSON.stringify(experimentParams)
 	}).then(res => {
 	    if (!res.ok)
-		res.json().then(json => console.log(json))
+		res.text().then(json => console.log(json))
 	});
 	
-    }
+    };
 
     const end_experiment = () => {
 	fetch("http://localhost:5000/end_experiment")
 	    .then(res => console.log(res));
-    }
+    };
 
     const on_params_changed = (e) => {
 	setExperimentParams(e.updated_src);
-    }
+    };
 
-    const cur_exp_idx = experimentList.indexOf(cur_experiment) + 1
-	
+    if (!ctrl_state)
+	return null;
+
+    const cur_exp_name = ctrl_state.experiment.cur_experiment;
+    const cur_exp_idx = experimentList.indexOf(cur_exp_name) + 1;
+    const is_running = ctrl_state.experiment.is_running;
+    
+    console.log(cur_exp_name);
+    const reload_btn = cur_exp_name ?
+	<button onClick={(e) => set_experiment(cur_exp_name)}
+		disabled={is_running}>
+	    Reload
+	</button> :
+	  null;
+    
+    const run_end_btn = is_running ?
+        <button onClick={end_experiment}>End Experiment</button>
+	  :
+          <button onClick={run_experiment}>Run Experiment</button>;
+    
     return (
 	<div className="component">
           Experiment:
 	    <Selector options={["None"].concat(experimentList)}
 		      selected={cur_exp_idx}
-		      on_select={set_experiment} /><br/>
+		      on_select={set_experiment}
+	              disabled={ctrl_state.experiment.is_running}/>
+	    {reload_btn}
+	    <br/>
 	    <label>Parameters:</label>
 	    <ReactJson src={experimentParams}
 		       name={null}
 		       onEdit={on_params_changed}
 		       onAdd={on_params_changed}
 	    />
-	    <button onClick={run_experiment}>Run</button>
-	    <button onClick={end_experiment}>End</button>
+	    {run_end_btn}
 	</div>
     );
 };

@@ -24,7 +24,7 @@ class ImageSource(mp.Process):
 
         if state_root is not None:
             self.state_path = state_root + [src_id]
-            state.update_state(
+            state.update(
                 self.state_path, {"acquiring": False}
             )
 
@@ -46,10 +46,10 @@ class ImageSource(mp.Process):
 
     def set_state(self, new_state):
         if self.state_path is not None:
-            state.assoc_state(self.state_path, new_state)
+            state.assoc(self.state_path, new_state)
 
     def get_state(self, key):
-        return state.get_state_path(self.state_path + [key])
+        return state.get_path(self.state_path + [key])
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)

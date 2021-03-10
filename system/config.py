@@ -61,7 +61,7 @@ image_sources = dict(
         # },                                           #
         ################################################
         "right_camera": {  # firefly-dl 2
-            "class": "flir_cameras.FLIRImageSource",
+            "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "20349310",
             "exposure": 8000,
             "trigger": "ttl",
@@ -70,7 +70,7 @@ image_sources = dict(
             "undistort": undistort_flir_firfly_4mm,
         },
         "top_camera": {  # BFS-U3-16S2M
-            "class": "flir_cameras.FLIRImageSource",
+            "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "0138A051",
             "exposure": 8000,
             "trigger": "frame_rate",

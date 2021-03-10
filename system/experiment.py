@@ -10,7 +10,7 @@ class ExperimentException(Exception):
     pass
 
 
-state.update_state(["experiment"], {"is_running": False})
+state.update(["experiment"], {"is_running": False})
 cur_experiment = None
 state_dispatcher = state.Dispatcher()
 
@@ -148,25 +148,25 @@ def next_trial():
 
 
 def load_experiments(experiments_dir=config.experiments_dir):
-    experiments = {}
+    experiment_specs = {}
     experiment_pys = experiments_dir.glob("*.py")
 
     for py in experiment_pys:
         module, spec = load_module(py)
         cls = find_subclass(module, Experiment)
         if cls is not None:
-            experiments[py.stem] = (cls, module, spec)
+            experiment_specs[py.stem] = spec
 
-    return experiments
+    return experiment_specs
 
 
 def init(logger):
-    global log, experiments, state_dispatcher_thread
+    global log, experiment_specs
     log = logger
-    experiments = load_experiments()
-    log.info(f"Loaded {len(experiments)} experiment(s):")
-    for e in experiments.keys():
-        log.info(f"\t{e}")
+    experiment_specs = load_experiments()
+    log.info(
+        f"Loaded {len(experiment_specs)} experiment(s): {', '.join(experiment_specs.keys())}"
+    )
 
     mqttc.connect(**config.mqtt)
     threading.Thread(target=state_dispatcher.listen).start()
@@ -180,29 +180,30 @@ def shutdown():
 def set_experiment(name):
     global cur_experiment
 
-    if name == state.get_state_path(("experiment", "cur_experiment")):
-        return
-    
     if state.get_state_path(("experiment", "is_running")) is True:
         raise ExperimentException(
             "Can't set experiment while an experiment is running."
         )
 
-    if name not in experiments.keys():
+    if name not in experiment_specs.keys() and name is not None:
         raise ExperimentException(f"Unknown experiment name: {name}")
 
     if cur_experiment is not None:
         mqtt_unsubscribe_all()
         cur_experiment.release()
-        
-    spec = experiments[name][2]
-    module = reload_module(spec)
-    cls = find_subclass(module, Experiment)
-    experiments[name] = (cls, module, spec)
-    cur_experiment = cls(log)
-    
+
+    if name is not None:
+        spec = experiment_specs[name]
+        module = reload_module(spec)
+        cls = find_subclass(module, Experiment)
+        cur_experiment = cls(log)
+
+        log.info(f"Loaded experiment {name}.")
+    else:
+        cur_experiment = None
+        log.info("Unloaded experiment.")
+
     state.update_state(("experiment", "cur_experiment"), name)
-    log.info(f"Loaded experiment {name}.")
 
 
 class Experiment:

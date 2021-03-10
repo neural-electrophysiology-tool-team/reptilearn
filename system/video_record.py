@@ -7,6 +7,7 @@ from threading import Timer
 from datetime import datetime
 import imageio
 import time
+import state
 
 # TODO:
 # - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
@@ -15,8 +16,7 @@ import time
 
 
 video_writers = {}
-
-mqtt_client = mqtt.Client()
+_mqtt_client = mqtt.Client()
 
 
 def init(image_sources):
@@ -25,24 +25,52 @@ def init(image_sources):
             img_src, frame_rate=60, write_path=Path("videos")
         )
 
-    mqtt_client.connect()
-
+    _mqtt_client.connect()
+    # need to stop trigger and match with state
+    state.update(["video_recorder"], {"selected_sources": [],
+                                      "ttl_trigger": False})
     for w in video_writers.values():
         w.start()
 
 
+def set_selected_sources(src_ids):
+    state.update(("video_recorder", "selected_sources"), src_ids)
+
+def select_source(src_id):
+    selected_sources = state.get_path(("video_recorder", "selected_sources"))
+    if src_id in selected_sources:
+        return
+    
+    selected_sources.append(src_id)
+    state.update(("video_recorder", "selected_sources"), selected_sources)
+
+
+def unselect_source(src_id):
+    selected_sources = state.get_path(("video_recorder", "selected_sources"))
+    if src_id not in selected_sources:
+        return
+    
+    selected_sources.remove(src_id)
+    state.update(("video_recorder", "selected_sources"), selected_sources)
+
+    
 def start_trigger(pulse_len=17):
-    mqtt_client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
+    state.update(("video_recorder", "ttl_trigger"), True)
+    _mqtt_client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
 
 
 def stop_trigger():
-    mqtt_client.publish("arena/ttl_trigger/stop")
+    state.update(("video_recorder", "ttl_trigger"), False)
+    _mqtt_client.publish("arena/ttl_trigger/stop")
 
 
 def start_record(src_ids=None):
     if src_ids is None:
-        src_ids = video_writers.keys()
+        src_ids = state.get_path(("video_recorder", "selected_sources"))
 
+    if len(src_ids) == 0:
+        return
+    
     def standby():
         for src_id in src_ids:
             video_writers[src_id].start_writing()
@@ -54,7 +82,10 @@ def start_record(src_ids=None):
 
 def stop_record(src_ids=None):
     if src_ids is None:
-        src_ids = video_writers.keys()
+        src_ids = state.get_path(("video_recorder", "selected_sources"))
+
+    if len(src_ids) == 0:
+        return
 
     def stop():
         for src_id in src_ids:

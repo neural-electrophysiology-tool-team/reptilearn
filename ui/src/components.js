@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Selector = ({options, selected, on_select}) => {
+export const Selector = ({options, selected, on_select, disabled}) => {
     const option_items = options.map(
         (val, idx) => {
             if (idx == selected) {
@@ -21,5 +21,5 @@ export const Selector = ({options, selected, on_select}) => {
         on_select(options[i], i);
     };
                             
-    return <select onChange={on_change}>{option_items}</select>;
+    return <select onChange={on_change} disabled={disabled}>{option_items}</select>;
 };

@@ -13,7 +13,6 @@ import undistort
 import image_utils
 import state
 import experiment
-import mqtt
 import video_record
 import config
 from dynamic_loading import instantiate_class
@@ -21,7 +20,7 @@ from dynamic_loading import instantiate_class
 logger = mp.log_to_stderr(logging.INFO)
 
 # initialize state
-state.update_state(["image_sources"], {})
+state.update(["image_sources"], {})
 
 image_sources = [
     instantiate_class(
@@ -71,24 +70,24 @@ def send_state(old, new):
     socketio.emit("state", (old, new))
 
 
-listen, stop_listening = state.register_listener(send_state)
-listen_process = threading.Thread(target=listen)
-listen_process.start()
+state_listen, stop_state_emitter = state.register_listener(send_state)
+state_emitter_process = threading.Thread(target=state_listen)
+state_emitter_process.start()
 
 
 @socketio.on("connect")
 def handle_connect():
-    logger.info(f"New SocketIO connection. Emitting state")
-    emit("state", (None, state.get_state()))
+    logger.info("New SocketIO connection. Emitting state")
+    emit("state", (None, state.get()))
 
 
 @app.route("/config")
-def get_config():
+def route_config():
     return flask.jsonify(config)
 
 
 @app.route("/video_stream/<src_id>")
-def video_stream(src_id, width=None, height=None):
+def route_video_stream(src_id, width=None, height=None):
     img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
     if img_src.src_id in config.image_sources:
         src_config = config.image_sources[img_src.src_id]
@@ -148,38 +147,26 @@ def video_stream(src_id, width=None, height=None):
 
 
 @app.route("/stop_stream/<src_id>")
-def stop_stream(src_id):
+def route_stop_stream(src_id):
     img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
     img_src.stop_stream()
     return flask.Response("ok")
 
 
-@app.route("/video_record/<cmd>")
-def request_video_record(cmd):
-    src_ids = flask.request.args.getlist("src")
-    if len(src_ids) == 0:
-        src_ids = None
-
-    if cmd == "start":
-        video_record.start_record(src_ids=src_ids)
-    elif cmd == "stop":
-        video_record.stop_record(src_ids=src_ids)
-
-    return flask.Response("ok")
-
-
 @app.route("/state")
 def route_state():
-    return flask.jsonify(state.get_state())
+    return flask.jsonify(state.get())
 
 
 @app.route("/list_experiments")
 def route_list_experiments():
-    return flask.jsonify(list(experiment.experiments.keys()))
+    return flask.jsonify(list(experiment.experiment_specs.keys()))
 
 
 @app.route("/set_experiment/<name>")
 def route_set_experiment(name):
+    if name == "None":
+        name = None
     experiment.set_experiment(name)
     return flask.Response("ok")
 
@@ -195,7 +182,7 @@ def route_run_experiment():
         experiment.run(**params)
         return flask.Response("ok")
     except Exception as e:
-        flask.abort(500, description=str(e))
+        flask.abort(500, e)
 
 
 @app.route("/end_experiment")
@@ -204,7 +191,45 @@ def route_end_experiment():
         experiment.end()
         return flask.Response("ok")
     except Exception as e:
-        flask.abort(500, description=str(e))
+        flask.abort(500, e)
+
+
+@app.route("/video_record/select_source/<src_id>")
+def route_select_source(src_id):
+    video_record.select_source(src_id)
+    return flask.Response("ok")
+
+
+@app.route("/video_record/unselect_source/<src_id>")
+def route_unselect_source(src_id):
+    video_record.unselect_source(src_id)
+    return flask.Response("ok")
+
+
+@app.route("/video_record/<cmd>")
+def route_video_record(cmd):
+    #src_ids = flask.request.args.getlist("src")
+    #if len(src_ids) == 0:
+    #    src_ids = None
+
+    if cmd == "start":
+        video_record.start_record()
+    elif cmd == "stop":
+        video_record.stop_record()
+
+    return flask.Response("ok")
+
+
+@app.route("/video_record/start_trigger")
+def route_start_trigger():
+    video_record.start_trigger()
+    return flask.Response("ok")
+
+
+@app.route("/video_record/stop_trigger")
+def route_stop_trigger():
+    video_record.stop_trigger()
+    return flask.Response("ok")
 
 
 @app.route("/")
@@ -222,12 +247,12 @@ def after_request(response):
     print(response.data)
     return response
 """
-
+"""
 @app.errorhandler(500)
 def server_error(e):
-    print(str(e))
+    print(str(e), type(e))
     return flask.jsonify(error=str(e)), 500
-
+"""
 
 app_log = logging.getLogger("werkzeug")
 app_log.setLevel(logging.ERROR)
@@ -235,6 +260,7 @@ socketio.run(app, use_reloader=False)
 
 # After flask server is terminated due to KeyboardInterrupt:
 logger.info("System shutting down...")
+stop_state_emitter()
 experiment.shutdown()
 
 for img_src in image_sources:
