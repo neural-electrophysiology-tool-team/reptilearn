@@ -24,9 +24,7 @@ class ImageSource(mp.Process):
 
         if state_root is not None:
             self.state_path = state_root + [src_id]
-            state.update(
-                self.state_path, {"acquiring": False}
-            )
+            state.update(self.state_path, {"acquiring": False})
 
         self.buf_shape = image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
@@ -40,7 +38,7 @@ class ImageSource(mp.Process):
 
         self.observer_events = []
         self.stream_obs_event = mp.Event()
-        self.stop_streaming_event = mp.Event()
+        self.stop_streaming_events = []
         self.add_observer_event(self.stream_obs_event)
         self.name = f"{type(self).__name__}:{self.src_id}"
 
@@ -57,25 +55,28 @@ class ImageSource(mp.Process):
     def remove_observer_event(self, obs: mp.Event):
         self.observer_events.remove(obs)
 
-    def stop_stream(self):
-        self.stop_streaming_event.set()
-
     def kill(self):
         self.end_event.set()
 
+    def stop_streaming(self):
+        for e in self.stop_streaming_events:
+            e.set()
+
     def stream_gen(self, frame_rate=15):
         self.log.info(f"Streaming from {self.src_id}.")
+
+        self.stop_streaming()
+
+        stop_this_stream_event = mp.Event()
+        self.stop_streaming_events.append(stop_this_stream_event)
 
         while True:
             t1 = time.time()
             self.stream_obs_event.wait()
             self.stream_obs_event.clear()
 
-            if self.end_event.is_set():
-                self.stop_stream()
-
-            if self.stop_streaming_event.is_set():
-                self.stop_streaming_event.clear()
+            if self.end_event.is_set() or stop_this_stream_event.is_set():
+                self.stop_streaming_events.remove(stop_this_stream_event)
                 break
 
             yield self.get_image()

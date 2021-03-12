@@ -84,8 +84,10 @@ image_sources = dict(
             "start_frame": 0,
             "end_frame": None,
             "frame_rate": 60,
+            "image_shape": (1080, 1440),
             "repeat": True,
             "is_color": False,
+            "undistort": undistort_flir_firfly_4mm,
         },
     },
 )

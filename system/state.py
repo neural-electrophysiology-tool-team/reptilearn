@@ -1,14 +1,13 @@
 import multiprocessing as mp
 from copy import deepcopy
 import dict_transform as dt
+from dict_transform import path_not_found
 
 _mgr = mp.Manager()
 _ns = _mgr.Namespace()
 _ns.state = _mgr.dict()
 _did_update_events = _mgr.list()
 _state_lock = _mgr.Lock()
-
-
 
 
 def get():
@@ -76,8 +75,8 @@ class Dispatcher():
 
         def on_update(old, new):
             for path, on_update in self._dispatch_table.items():
-                old_val = get_path(old, path, dt.path_not_found)
-                new_val = get_path(new, path, dt.path_not_found)
+                old_val = dt.get_path(old, path, dt.path_not_found)
+                new_val = dt.get_path(new, path, dt.path_not_found)
 
                 if not old_val == new_val:
                     on_update(old_val, new_val)

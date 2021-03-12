@@ -29,7 +29,7 @@ def assoc(d, path, kvs):
         c = c[k]
 
     if not (isinstance(c, dict) or isinstance(c, list)):
-        raise KeyError("assoc_state path does not point to a dictionary or list.")
+        raise KeyError("assoc path does not point to a dictionary or list.")
 
     c[path[-1]] = dict(c[path[-1]], **kvs)
     return d

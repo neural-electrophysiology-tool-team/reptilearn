@@ -27,8 +27,9 @@ def init(image_sources):
 
     _mqtt_client.connect()
     # need to stop trigger and match with state
-    state.update(["video_recorder"], {"selected_sources": [],
-                                      "ttl_trigger": False})
+    state.update(["video_recorder"], {"selected_sources": [ims.src_id for ims in image_sources],
+                                      "ttl_trigger": False,
+                                      "is_recording": False})
     for w in video_writers.values():
         w.start()
 
@@ -36,11 +37,12 @@ def init(image_sources):
 def set_selected_sources(src_ids):
     state.update(("video_recorder", "selected_sources"), src_ids)
 
+
 def select_source(src_id):
     selected_sources = state.get_path(("video_recorder", "selected_sources"))
     if src_id in selected_sources:
         return
-    
+
     selected_sources.append(src_id)
     state.update(("video_recorder", "selected_sources"), selected_sources)
 
@@ -49,11 +51,11 @@ def unselect_source(src_id):
     selected_sources = state.get_path(("video_recorder", "selected_sources"))
     if src_id not in selected_sources:
         return
-    
+
     selected_sources.remove(src_id)
     state.update(("video_recorder", "selected_sources"), selected_sources)
 
-    
+
 def start_trigger(pulse_len=17):
     state.update(("video_recorder", "ttl_trigger"), True)
     _mqtt_client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
@@ -63,21 +65,29 @@ def stop_trigger():
     state.update(("video_recorder", "ttl_trigger"), False)
     _mqtt_client.publish("arena/ttl_trigger/stop")
 
+    
+do_restore_trigger = False
+
 
 def start_record(src_ids=None):
+    global do_restore_trigger
     if src_ids is None:
         src_ids = state.get_path(("video_recorder", "selected_sources"))
 
     if len(src_ids) == 0:
         return
-    
+
     def standby():
+        state.update(("video_recorder", "is_recording"), True)
         for src_id in src_ids:
             video_writers[src_id].start_writing()
 
-    stop_trigger()
+    if state.get_path(("video_recorder", "ttl_trigger")):
+        do_restore_trigger = True
+        stop_trigger()
+        Timer(1, start_trigger).start()
+
     Timer(0.5, standby).start()
-    Timer(1, start_trigger).start()
 
 
 def stop_record(src_ids=None):
@@ -88,10 +98,14 @@ def stop_record(src_ids=None):
         return
 
     def stop():
+        state.update(("video_recorder", "is_recording"), False)
         for src_id in src_ids:
             video_writers[src_id].stop_writing()
 
-    stop_trigger()
+    if do_restore_trigger:
+        stop_trigger()
+        Timer(1, start_trigger).start()
+
     Timer(0.5, stop).start()
 
 
@@ -179,7 +193,7 @@ class VideoWriter(mp.Process):
             if cmd == "start":
                 self.avg_write_time = 0
                 self.frame_count = 0
-                
+
                 self._begin_writing()
                 self.update_event.clear()
 

@@ -5,7 +5,7 @@ import state
 
 class TimerExperiment(exp.Experiment):
     def setup(self):
-        self.log.info("Salaam setting up!")
+        self.log.info("Hi setting up!")
         
     def timer_fn(self):
         exp.mqttc.publish("reptilearn/timer", "tick")

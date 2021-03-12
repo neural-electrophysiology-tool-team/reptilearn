@@ -3,7 +3,6 @@
     border-style: solid;
     border-width: 2px;
     border-color: lightgrey;
-    
 }
 
 .component {
@@ -11,4 +10,28 @@
     border-radius: 5px;
     border: 1px solid;
     margin: 5px;
+}
+
+.stream_group_div {
+    /*display: inline-grid;*/
+    gap: 5px;
+    grid-template-columns: repeat(auto-fill, min-content);
+    grid-auto-columns: min-content;
+}
+
+.stream_view {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+    margin-top: 5px;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid;
+}
+
+.stream_group_div:before {
+    content: "";
+    display: inline-block;
+    vertical-align: middle;
+    height: 100%;
 }

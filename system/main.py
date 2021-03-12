@@ -5,6 +5,8 @@ import flask
 import flask_cors
 from flask_socketio import SocketIO, emit
 import cv2
+import json
+from pathlib import Path
 
 import storage
 from detector import DetectorImageObserver
@@ -64,6 +66,15 @@ app.config["SECRET_KEY"] = "reptilearn"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 
+# Boradcast logs
+class SocketIOHandler(logging.Handler):
+    def emit(self, record):
+        socketio.emit("log", record.getMessage())
+
+
+logger.addHandler(SocketIOHandler())
+
+
 # Broadcast state updates
 def send_state(old, new):
     logger.info("Emitting state update")
@@ -81,9 +92,17 @@ def handle_connect():
     emit("state", (None, state.get()))
 
 
-@app.route("/config")
-def route_config():
-    return flask.jsonify(config)
+@app.route("/config/<attribute>")
+def route_config(attribute):
+    def convert(v):
+        if hasattr(v, "tolist"):
+            return v.tolist()
+        if isinstance(v, Path):
+            return str(v)
+        raise TypeError(v)
+    
+    return flask.Response(json.dumps(getattr(config, attribute), default=convert),
+                          mimetype='application/json')
 
 
 @app.route("/video_stream/<src_id>")
@@ -149,7 +168,7 @@ def route_video_stream(src_id, width=None, height=None):
 @app.route("/stop_stream/<src_id>")
 def route_stop_stream(src_id):
     img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
-    img_src.stop_stream()
+    img_src.stop_streaming()
     return flask.Response("ok")
 
 
@@ -179,7 +198,7 @@ def route_run_experiment():
         return flask.abort(400, "Invalid params json.")
 
     try:
-        experiment.run(**params)
+        experiment.run(params)
         return flask.Response("ok")
     except Exception as e:
         flask.abort(500, e)

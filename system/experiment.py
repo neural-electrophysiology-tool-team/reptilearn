@@ -74,15 +74,15 @@ def mqtt_json_callback(callback):
 # the experiment should have a params dict that's overriden by block params.
 # should have cur params with the right params for block (assoc cur block params into global params and put here)
 # make it easy to make the flow time based.
-def run(**params):
-    if state.get_state_path(("experiment", "is_running")) is True:
+def run(params):
+    if state.get_path(("experiment", "is_running")) is True:
         raise ExperimentException("Experiment is already running.")
 
     if cur_experiment is None:
         raise ExperimentException("Can't run experiment. No experiment was set.")
 
-    state.update_state(("experiment", "params"), params)
-    state.assoc_state(
+    state.update(("experiment", "params"), params)
+    state.assoc(
         ["experiment"],
         {
             "is_running": True,
@@ -96,10 +96,10 @@ def run(**params):
 
 
 def end():
-    if state.get_state_path(("experiment", "is_running")) is False:
+    if state.get_path(("experiment", "is_running")) is False:
         raise ExperimentException("Experiment is not running.")
 
-    state.update_state(["experiment", "is_running"], False)
+    state.update(["experiment", "is_running"], False)
 
     cur_experiment.end()
     mqttc.loop_stop()
@@ -118,7 +118,7 @@ def set_phase(block, trial):
     if "num_trials" in blocks[block] and trial >= blocks[block]["num_trials"]:
         raise ExperimentException(f"Trial {trial} is out of range for block {block}.")
 
-    state.assoc_state(["experiment"], {"cur_block": block, "cur_trial": trial})
+    state.assoc(["experiment"], {"cur_block": block, "cur_trial": trial})
 
 
 def next_trial():
@@ -180,7 +180,7 @@ def shutdown():
 def set_experiment(name):
     global cur_experiment
 
-    if state.get_state_path(("experiment", "is_running")) is True:
+    if state.get_path(("experiment", "is_running")) is True:
         raise ExperimentException(
             "Can't set experiment while an experiment is running."
         )
@@ -203,7 +203,7 @@ def set_experiment(name):
         cur_experiment = None
         log.info("Unloaded experiment.")
 
-    state.update_state(("experiment", "cur_experiment"), name)
+    state.update(("experiment", "cur_experiment"), name)
 
 
 class Experiment:

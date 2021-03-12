@@ -1,6 +1,7 @@
 import React from 'react';
 import {Selector} from './components.js';
-import ReactJson from 'react-json-view'
+import ReactJson from 'react-json-view';
+import {api_url} from './config.js';
 
 export const ExperimentView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
@@ -8,7 +9,7 @@ export const ExperimentView = ({ctrl_state}) => {
     const [error, setError] = React.useState(null);
     
     React.useEffect(() => {
-	fetch("http://localhost:5000/list_experiments")
+	fetch(api_url + "/list_experiments")
 	    .then(res => res.json())
             .then(
                 (res) => {
@@ -21,11 +22,11 @@ export const ExperimentView = ({ctrl_state}) => {
     }, []);
 
     const set_experiment = val => {
-	fetch(`http://localhost:5000/set_experiment/${val}`)
+	fetch(api_url + `/set_experiment/${val}`);
     };
 
     const run_experiment = () => {
-	fetch("http://localhost:5000/run_experiment", {
+	fetch(api_url + "/run_experiment", {
 	    method: "POST",
 	    headers: {
 		"Accept": "application/json",
@@ -34,13 +35,13 @@ export const ExperimentView = ({ctrl_state}) => {
 	    body: JSON.stringify(experimentParams)
 	}).then(res => {
 	    if (!res.ok)
-		res.text().then(json => console.log(json))
+		res.text().then(json => console.log(json));
 	});
 	
     };
 
     const end_experiment = () => {
-	fetch("http://localhost:5000/end_experiment")
+	fetch(api_url + "/end_experiment")
 	    .then(res => console.log(res));
     };
 
@@ -55,7 +56,6 @@ export const ExperimentView = ({ctrl_state}) => {
     const cur_exp_idx = experimentList.indexOf(cur_exp_name) + 1;
     const is_running = ctrl_state.experiment.is_running;
     
-    console.log(cur_exp_name);
     const reload_btn = cur_exp_name ?
 	<button onClick={(e) => set_experiment(cur_exp_name)}
 		disabled={is_running}>
