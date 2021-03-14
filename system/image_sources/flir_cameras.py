@@ -6,8 +6,8 @@ import time
 
 
 class FLIRImageSource(ImageSource):
-    def __init__(self, src_id, config, state_root=None, logger=mp.get_logger()):
-        super().__init__(src_id, config["image_shape"], state_root, logger=logger)
+    def __init__(self, src_id, config, state_root=None):
+        super().__init__(src_id, config["image_shape"], state_root)
         self.cam_id = config["cam_id"]
         self.config = config
 
@@ -35,7 +35,6 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRate.SetValue(self.config["frame_rate"])
                 self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
 
-            self.log.info("Finished Configuration")
             # while True:
             #    self.log.info(self.cam.LineStatus.GetValue())
             #    time.sleep(0.025)
@@ -53,14 +52,13 @@ class FLIRImageSource(ImageSource):
 
         self.cam = filtered[0]
         self.cam.Init()
-        self.log.info("Initialized camera.")
         self.configure_camera()
 
         self.cam.TimestampLatch()
         cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
         server_time = time.time_ns()
         self.camera_time_delta = server_time - cam_time
-        self.log.info(f"Camera time delta: {self.camera_time_delta}")
+        self.log.info(f"Camera initialized (time delta: {self.camera_time_delta})")
 
         self.cam.BeginAcquisition()
         self.image_result = None

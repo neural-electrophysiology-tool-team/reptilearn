@@ -10,8 +10,6 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
     const stream_height = src_height * (stream_width / src_width);
     const stream_url = api_url + `/video_stream/${source_id}?width=${stream_width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
 
-    console.log("unused idxs:", unused_src_idxs);
-    
     const toggle_stream = (e) => {
         if (is_streaming)
             stop_streaming(source_id);
@@ -32,7 +30,7 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
     
     const stream_btn_title = is_streaming ? "Stop Streaming" : "Start Streaming";
 
-    const width_options = Array(6).fill().map((_, i) => (i+1) * src_width / 6);
+    const width_options = Array(12).fill().map((_, i) => (i+1) * src_width / 12);
 
     const used_img_srcs = image_sources.filter((id, idx) => {
         return unused_src_idxs.indexOf(idx) === -1 && idx !== src_idx;
@@ -40,8 +38,7 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
 
     return (
           <div className="stream_view">
-            <button onClick={(e) => remove_stream(idx)} disabled={is_streaming}>X</button>
-            <label>Image Source: </label>
+            <button onClick={(e) => remove_stream(idx)} disabled={is_streaming}>x</button>
             <Selector options={image_sources}
                       on_select={(_, i) => set_src_idx(idx, i)}
                       selected={src_idx}
@@ -132,9 +129,6 @@ export class StreamGroupView extends React.Component {
     }
     
     render() {
-        if (this.sources_config === null || this.image_sources === null)
-            return null;
-
         const stream_views = this.state.streams.map(
             (stream, idx) => <StreamView
                                idx={idx}
@@ -157,12 +151,11 @@ export class StreamGroupView extends React.Component {
         );
         
         return (
-	    <div className="component stream_group_view">
-              <button onClick={this.add_stream}
-                      disabled={this.state.streams.length === this.image_sources.length}>+</button>         
-              Streaming:
-              <br/>
-              <div className="stream_group_div">
+	    <div className="stream_group_view pane-content">
+	      <button onClick={this.add_stream}
+                      disabled={this.state.streams.length === this.image_sources.length}>Add stream</button>
+	      <br/>
+              <div className="">
                 {stream_views}
               </div>
             </div>

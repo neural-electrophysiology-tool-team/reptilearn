@@ -2,21 +2,25 @@ import React from 'react';
 import {SocketContext} from './socket.js';
 
 export const LogView = () => {
-    const logContainer = React.useRef("");
-
+    const logContainer = React.useRef("System log\n==========\n");
+    const textarea_ref = React.useRef();
+    const [logMsg, setLogMsg] = React.useState(null);
+    
     const socket = React.useContext(SocketContext);
 
     React.useEffect(() => {
-	socket.on("log", msg => logContainer.current += msg + "\n");
+	socket.on("log", msg => {	   
+            logContainer.current += "\n" + msg ;
+            setLogMsg(msg);
+	    if (textarea_ref.current !== null)
+		textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
+        });
     }, [socket]);
 
     return (
-        <div className="component">
-          Log:<br/>
           <textarea value={logContainer.current}
-                    rows="10"
-                    cols="80"
-                    readOnly/>
-        </div>
+                    readOnly
+                    className="log_view pane-content"
+		    ref={textarea_ref}/>
     );
 };

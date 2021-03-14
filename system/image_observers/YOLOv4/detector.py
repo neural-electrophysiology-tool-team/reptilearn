@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 from ctypes import c_int, pointer
-import YOLOv4.darknet as darknet
+import image_observers.YOLOv4.darknet as darknet
 import bbox
 
 
@@ -16,9 +16,9 @@ class YOLOv4Detector:
 
     def __init__(
         self,
-        cfg_path="YOLOv4/yolo4_2306.cfg",
-        weights_path="YOLOv4/yolo4_gs_best_2306.weights",
-        meta_path="YOLOv4/obj.data",
+        cfg_path="image_observers/YOLOv4/yolo4_2306.cfg",
+        weights_path="image_observers/YOLOv4/yolo4_gs_best_2306.weights",
+        meta_path="image_observers/YOLOv4/obj.data",
         conf_thres=0.9,
         nms_thres=0.6,
         return_neareast_detection=False,

@@ -25,6 +25,14 @@ export const ExperimentView = ({ctrl_state}) => {
 	fetch(api_url + `/set_experiment/${val}`);
     };
 
+    const refresh_experiment_list = (e) => {
+        fetch(api_url + "/refresh_experiment_list")
+            .then(res => res.json())
+            .then(
+                res => setExperimentList(res),
+                error => setError(error.toString()));              
+    };
+    
     const run_experiment = () => {
 	fetch(api_url + "/run_experiment", {
 	    method: "POST",
@@ -56,34 +64,34 @@ export const ExperimentView = ({ctrl_state}) => {
     const cur_exp_idx = experimentList.indexOf(cur_exp_name) + 1;
     const is_running = ctrl_state.experiment.is_running;
     
-    const reload_btn = cur_exp_name ?
+    const reload_btn = cur_exp_name ? (
 	<button onClick={(e) => set_experiment(cur_exp_name)}
 		disabled={is_running}>
-	    Reload
-	</button> :
-	  null;
+	  Reload
+	</button>)
+                : null;
     
     const run_end_btn = is_running ?
-        <button onClick={end_experiment}>End Experiment</button>
-	  :
-          <button onClick={run_experiment}>Run Experiment</button>;
+          <button onClick={end_experiment}>End Experiment</button>
+	          : <button onClick={run_experiment}>Run Experiment</button>;
     
     return (
-	<div className="component">
+	<div className="pane-content">
           Experiment:
-	    <Selector options={["None"].concat(experimentList)}
-		      selected={cur_exp_idx}
-		      on_select={set_experiment}
-	              disabled={ctrl_state.experiment.is_running}/>
-	    {reload_btn}
-	    <br/>
-	    <label>Parameters:</label>
-	    <ReactJson src={experimentParams}
-		       name={null}
-		       onEdit={on_params_changed}
-		       onAdd={on_params_changed}
-	    />
-	    {run_end_btn}
+	  <Selector options={["None"].concat(experimentList)}
+		    selected={cur_exp_idx}
+		    on_select={set_experiment}
+	            disabled={ctrl_state.experiment.is_running}/>
+	  {reload_btn}
+          <button onClick={refresh_experiment_list}>Refresh list...</button>
+	  <br/>
+	  <label>Parameters:</label>
+	  <ReactJson src={experimentParams}
+		     name={null}
+		     onEdit={on_params_changed}
+		     onAdd={on_params_changed}
+	  />
+	  {run_end_btn}
 	</div>
     );
 };

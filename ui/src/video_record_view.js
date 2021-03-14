@@ -53,7 +53,7 @@ export const VideoRecordView = ({ctrl_state}) => {
     });
     
     return (
-        <div className="component">
+        <div className="pane-content">
 	  {source_checkboxes}
           <br/>
           <button onClick={toggle_recording}>{rec_btn_title}</button>

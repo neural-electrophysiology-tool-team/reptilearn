@@ -1,4 +1,3 @@
-import multiprocessing as mp
 import threading
 import logger
 import logging
@@ -8,10 +7,8 @@ from flask_socketio import SocketIO, emit
 import cv2
 import json
 from pathlib import Path
-
+import sys
 import storage
-from detector import DetectorImageObserver
-from YOLOv4.detector import YOLOv4Detector
 import undistort
 import image_utils
 import state
@@ -30,11 +27,12 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 class SocketIOHandler(logging.Handler):
     def emit(self, record):
         socketio.emit("log", self.format(record))
+        socketio.sleep(0)
 
         
 logger.init(SocketIOHandler())
 
-log = logging.getLogger()
+log = logging.getLogger("Main")
 handler = SocketIOHandler()
 handler.setFormatter(logger._formatter)
 log.addHandler(handler)
@@ -44,39 +42,57 @@ log.addHandler(stderr_handler)
 log.setLevel(logging.DEBUG)
 
 
+def patch_threading_excepthook():
+    """Installs our exception handler into the threading modules Thread object
+    Inspired by https://bugs.python.org/issue1230540
+    """
+    old_init = threading.Thread.__init__
+    def new_init(self, *args, **kwargs):
+        old_init(self, *args, **kwargs)
+        old_run = self.run
+        def run_with_our_excepthook(*args, **kwargs):
+            try:
+                old_run(*args, **kwargs)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                sys.excepthook(*sys.exc_info(), thread_name=threading.current_thread().name)
+        self.run = run_with_our_excepthook
+    threading.Thread.__init__ = new_init
+
+    
+patch_threading_excepthook()
+
+
+def excepthook(exc_type, exc_value, exc_traceback, thread_name):
+    log.critical(f"Exception at thread {thread_name}", exc_info=(exc_type, exc_value, exc_traceback))
+
+
+sys.excepthook = excepthook
+
 # initialize state
 state.update(["image_sources"], {})
 
-image_sources = [
-    instantiate_class(
+image_sources = {
+    src_id: instantiate_class(
         src_config["class"], src_id, src_config, state_root=["image_sources"]
     )
     for (src_id, src_config) in config.image_sources.items()
+}
+
+image_observers = [
+    instantiate_class(obs_config["class"], image_sources[obs_config["src_id"]],
+                      **obs_config["args"])
+    for obs_config in config.image_observers
 ]
 
-video_record.init(image_sources)
+video_record.init(image_sources.values())
 experiment.init(log)
 
-"""
-def store_detection(det, image_timestamp, detection_timestamp):
-    if det is None:
-        det = [None] * 5
-    det.insert(0, image_timestamp / 1e9)
-    storage.insert_bbox_position(db_conn, det)
+for img_obs in image_observers:
+    img_obs.start()
 
-
-   
-detector_obs = DetectorImageObserver(image_sources[config["detector_source"]],
-                                     YOLOv4Detector(conf_thres=0.8, return_neareast_detection=True),
-                                     detection_buffer=detection_buffer,
-                                     on_detect=store_detection,
-                                     buffer_size=20)
-"""
-
-
-# detector_obs.start()
-
-for img_src in image_sources:
+for img_src in image_sources.values():
     img_src.start()
 
 
@@ -117,7 +133,7 @@ def route_config(attribute):
 
 @app.route("/video_stream/<src_id>")
 def route_video_stream(src_id, width=None, height=None):
-    img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
+    img_src = image_sources[src_id]
     if img_src.src_id in config.image_sources:
         src_config = config.image_sources[img_src.src_id]
     else:
@@ -177,7 +193,7 @@ def route_video_stream(src_id, width=None, height=None):
 
 @app.route("/stop_stream/<src_id>")
 def route_stop_stream(src_id):
-    img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
+    img_src = image_sources[src_id]
     img_src.stop_streaming()
     return flask.Response("ok")
 
@@ -190,6 +206,12 @@ def route_state():
 @app.route("/list_experiments")
 def route_list_experiments():
     return flask.jsonify(list(experiment.experiment_specs.keys()))
+
+
+@app.route("/refresh_experiment_list")
+def route_refresh_experiment_list():
+    experiment.refresh_experiment_list()
+    return route_list_experiments()
 
 
 @app.route("/set_experiment/<name>")
@@ -267,17 +289,6 @@ def root():
 
 
 """
-@app.after_request
-def after_request(response):
-    print("After request")
-    header = response.headers
-    header["Access-Control-Allow-Origin"] = "*"
-    header["Access-Control-Allow-Headers"] = "*"
-    header["Access-Control-Allow-Methods"] = "POST, GET"
-    print(response.data)
-    return response
-"""
-"""
 @app.errorhandler(500)
 def server_error(e):
     print(str(e), type(e))
@@ -285,17 +296,19 @@ def server_error(e):
 """
 
 app_log = logging.getLogger("werkzeug")
-app_log.setLevel(logging.ERROR)
+app_log.addHandler(handler)
+app_log.setLevel(logging.WARNING)
+app.logger.setLevel(logging.WARNING)
+app.logger.addHandler(handler)
 socketio.run(app, use_reloader=False)
 
 # After flask server is terminated due to KeyboardInterrupt:
 log.info("System shutting down...")
 stop_state_emitter()
 experiment.shutdown()
-logger.shutdown()
 
-for img_src in image_sources:
+for img_src in image_sources.values():
     img_src.join()
 
-
+logger.shutdown()
 state.shutdown()

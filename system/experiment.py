@@ -3,6 +3,7 @@ import state
 import paho.mqtt.client as paho
 import json
 import threading
+import sys
 from dynamic_loading import load_module, find_subclass, reload_module
 
 
@@ -92,8 +93,12 @@ def run(params):
     )
 
     mqttc.loop_start()
-    cur_experiment.run()
-
+    try:
+        cur_experiment.run()
+    except Exception:
+        log.critical("Exception while calling running experiment:", exc_info=sys.exc_info())
+        end()
+        
 
 def end():
     if state.get_path(("experiment", "is_running")) is False:
@@ -161,18 +166,29 @@ def load_experiments(experiments_dir=config.experiments_dir):
 
 
 def init(logger):
-    global log, experiment_specs
+    global log
+
     log = logger
-    experiment_specs = load_experiments()
-    log.info(
-        f"Loaded {len(experiment_specs)} experiment(s): {', '.join(experiment_specs.keys())}"
-    )
+    refresh_experiment_list()
 
     mqttc.connect(**config.mqtt)
     threading.Thread(target=state_dispatcher.listen).start()
 
 
+def refresh_experiment_list():
+    global experiment_specs
+    experiment_specs = load_experiments()
+    log.info(
+        f"Loaded {len(experiment_specs)} experiment(s): {', '.join(experiment_specs.keys())}"
+    )
+
+
 def shutdown():
+    if cur_experiment is not None:
+        if state.get_path(("experiment", "is_running")):
+            end()
+        set_experiment(None)
+        
     state_dispatcher.stop()
     mqttc.disconnect()
 

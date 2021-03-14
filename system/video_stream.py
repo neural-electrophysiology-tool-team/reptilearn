@@ -3,6 +3,8 @@ import multiprocessing as mp
 import cv2 as cv
 import time
 import state
+import logger
+import logging
 
 # TODO
 # - consider using imageio for VideoImageSource
@@ -13,13 +15,11 @@ class AcquireException(Exception):
 
 
 class ImageSource(mp.Process):
-    def __init__(
-        self, src_id, image_shape, state_root=None, buf_len=1, logger=mp.get_logger()
-    ):
+    def __init__(self, src_id, image_shape, state_root=None, buf_len=1):
         super().__init__()
         self.image_shape = image_shape
         self.buf_len = buf_len
-        self.log = logger
+        self.log = logging.getLogger(__name__)
         self.src_id = src_id
 
         if state_root is not None:
@@ -88,6 +88,7 @@ class ImageSource(mp.Process):
         self.log.info(f"Stopped streaming from {self.src_id}.")
 
     def run(self):
+        logger.logger_configurer(__name__)
         if not self.on_begin():
             return
 
@@ -145,21 +146,21 @@ class ImageSource(mp.Process):
 
 
 class ImageObserver(mp.Process):
-    def __init__(self, img_src: ImageSource, logger=mp.get_logger()):
+    def __init__(self, img_src: ImageSource):
         super().__init__()
-        self.log = logger
+        self.log = logging.getLogger(__name__)
         self.img_src = img_src
         self.update_event = mp.Event()
         img_src.add_observer_event(self.update_event)
         self.name = type(self).__name__
 
     def run(self):
+        logger.logger_configurer(__name__)
         self.on_begin()
 
         try:
             while True:
                 if self.img_src.end_event.is_set():
-                    self.log.info("End event is set")
                     break
 
                 self.update_event.wait()
@@ -184,7 +185,7 @@ class ImageObserver(mp.Process):
 
 
 class VideoImageSource(ImageSource):
-    def __init__(self, src_id, config, state_root=None, logger=mp.get_logger()):
+    def __init__(self, src_id, config, state_root=None):
         self.video_path = config["video_path"]
         self.frame_rate = config.get("frame_rate", 60)
         self.start_frame = config.get("start_frame", 0)
@@ -208,7 +209,7 @@ class VideoImageSource(ImageSource):
 
         vcap.release()
 
-        super().__init__(src_id, image_shape, state_root, logger=logger)
+        super().__init__(src_id, image_shape, state_root)
 
     def on_begin(self):
         self.vcap = cv.VideoCapture(str(self.video_path))

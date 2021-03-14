@@ -92,6 +92,19 @@ image_sources = dict(
     },
 )
 
+
+image_observers = [
+    {
+        "src_id": "test_video",
+        "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
+        "args": {
+            "conf_thres": 0.8,
+            "return_neareast_detection": True,
+            "buffer_size": 20,
+        },
+    }
+]
+
 # these parameters are passed to imageio.get_writer function
 # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
 video_encoding = {

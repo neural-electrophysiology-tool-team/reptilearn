@@ -8,6 +8,8 @@ from datetime import datetime
 import imageio
 import time
 import state
+import logger
+import logging
 
 # TODO:
 # - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
@@ -117,7 +119,6 @@ class VideoWriter(mp.Process):
         write_path=Path("."),
         codec="mp4v",
         file_ext="mp4",
-        logger=mp.get_logger(),
     ):
         super().__init__()
         self.codec = codec
@@ -127,7 +128,7 @@ class VideoWriter(mp.Process):
 
         self.write_path = write_path
         self.file_ext = file_ext
-        self.log = logger
+        self.log = logging.getLogger(__name__)
         self.update_event = mp.Event()
         img_src.add_observer_event(self.update_event)
 
@@ -182,6 +183,7 @@ class VideoWriter(mp.Process):
         self.ts_file.close()
 
     def run(self):
+        logger.logger_configurer(__name__)
         cmd = None
 
         while True:
