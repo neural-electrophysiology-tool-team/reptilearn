@@ -18,7 +18,6 @@ import {VideoRecordView} from './video_record_view.js';
 import {SocketContext} from './socket.js';
 import {LogView} from './log_view.js';
 import {api_url} from './config.js';
-import {layout} from './default_layout.js';
 
 const App = () => {
     const [ctrlState, setCtrlState] = React.useState(null);
@@ -27,7 +26,7 @@ const App = () => {
     const socket = React.useContext(SocketContext);
     
     const handle_new_state = React.useCallback((old_state, new_state) => {
-	setCtrlState(new_state);
+	setCtrlState(JSON.parse(new_state));
     }, []);
 
     const handle_disconnect = React.useCallback(() => setCtrlState(null), []);
@@ -52,19 +51,28 @@ const App = () => {
     return (
 	<div className="App">
           <ReflexContainer orientation="horizontal">
+            
             <ReflexElement>
               <ReflexContainer orientation="vertical">                
 
-                <ReflexElement className="component" flex="0.65">
-                  <StreamGroupView image_sources={Object.keys(ctrlState.image_sources)}
-			           sources_config={sourcesConfig} />
-
+                <ReflexElement flex="0.65">
+                  <ReflexContainer orientation="horizontal">
+                    <ReflexElement size="30" className="reptilearn_header" maxSize="30" minSize="30">
+                      <div>ReptiLearn</div>
+                    </ReflexElement>
+                    
+                    <ReflexElement className="component">
+                    <StreamGroupView image_sources={Object.keys(ctrlState.image_sources)}
+			             sources_config={sourcesConfig} />       
+                    </ReflexElement>
+             
+                  </ReflexContainer>
                 </ReflexElement>
                 <ReflexSplitter/>
 
                 <ReflexElement>
                   <ReflexContainer orientation="horizontal">
-                    <ReflexElement className="component" flex="0.15">
+                    <ReflexElement className="component" flex="0.15" minSize="100">
                       	  <VideoRecordView ctrl_state={ctrlState} />
                     </ReflexElement>
                     

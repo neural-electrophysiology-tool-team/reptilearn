@@ -27,9 +27,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 class SocketIOHandler(logging.Handler):
     def emit(self, record):
         socketio.emit("log", self.format(record))
-        socketio.sleep(0)
 
-        
+
 logger.init(SocketIOHandler())
 
 log = logging.getLogger("Main")
@@ -99,10 +98,20 @@ for img_src in image_sources.values():
 #### Flask API ####
 
 
+def convert_for_json(v):
+    if hasattr(v, "tolist"):
+        return v.tolist()
+    if isinstance(v, Path):
+        return str(v)
+    raise TypeError(v)
+
+
 # Broadcast state updates
 def send_state(old, new):
     # logger.info("Emitting state update")
-    socketio.emit("state", (old, new))
+    old_json = json.dumps(old, default=convert_for_json)
+    new_json = json.dumps(new, default=convert_for_json)
+    socketio.emit("state", (old_json, new_json))
 
     
 state_listen, stop_state_emitter = state.register_listener(send_state)
@@ -113,20 +122,14 @@ state_emitter_process.start()
 @socketio.on("connect")
 def handle_connect():
     log.info("New SocketIO connection. Emitting state")
-    emit("state", (None, state.get()))
+    blob = json.dumps(state.get(), default=convert_for_json)
+    emit("state", (None, blob))
 
 
 @app.route("/config/<attribute>")
 def route_config(attribute):
-    def convert(v):
-        if hasattr(v, "tolist"):
-            return v.tolist()
-        if isinstance(v, Path):
-            return str(v)
-        raise TypeError(v)
-
     return flask.Response(
-        json.dumps(getattr(config, attribute), default=convert),
+        json.dumps(getattr(config, attribute), default=convert_for_json),
         mimetype="application/json",
     )
 
@@ -280,6 +283,13 @@ def route_start_trigger():
 @app.route("/video_record/stop_trigger")
 def route_stop_trigger():
     video_record.stop_trigger()
+    return flask.Response("ok")
+
+
+@app.route("/video_record/set_prefix/")
+@app.route("/video_record/set_prefix/<prefix>")
+def route_set_prefix(prefix=""):
+    state.update(("video_recorder", "filename_prefix"), prefix)
     return flask.Response("ok")
 
 

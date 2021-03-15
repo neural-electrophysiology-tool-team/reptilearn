@@ -44,7 +44,6 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
                       selected={src_idx}
                       disabled={is_streaming}
                       disabled_options={used_img_srcs}/>
-            <button onClick={toggle_stream}>{stream_btn_title}</button>
             <br/>
             <div className="stream" style={stream_div_style}>
               {stream}
@@ -59,7 +58,7 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
                    checked={undistort}
                    onChange={(e) => set_undistort(idx, e.target.checked)}
                    disabled={is_streaming}/>
-            <label htmlFor="undistort_checkbox">Undistort </label>            
+            <label htmlFor="undistort_checkbox">Undistort </label>                        <button onClick={toggle_stream}>{stream_btn_title}</button>
           </div>
     );
 };
@@ -93,7 +92,7 @@ export class StreamGroupView extends React.Component {
     add_stream = () => {
         const new_stream = {
             src_idx: this.unused_src_idxs()[0],  // there must be at least one, otherwise button is disabled.
-            width: 480,
+            width: 360,
             undistort: false,
             is_streaming: false,
         };

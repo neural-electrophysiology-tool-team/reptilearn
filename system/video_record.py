@@ -24,14 +24,22 @@ _mqtt_client = mqtt.Client()
 def init(image_sources):
     for img_src in image_sources:
         video_writers[img_src.src_id] = VideoWriter(
-            img_src, frame_rate=60, write_path=Path("videos")
+            img_src,
+            frame_rate=config.video_record["frame_rate"],
         )
 
     _mqtt_client.connect()
     # need to stop trigger and match with state
-    state.update(["video_recorder"], {"selected_sources": [ims.src_id for ims in image_sources],
-                                      "ttl_trigger": False,
-                                      "is_recording": False})
+    state.update(
+        ["video_recorder"],
+        {
+            "selected_sources": [ims.src_id for ims in image_sources],
+            "ttl_trigger": False,
+            "is_recording": False,
+            "write_dir": Path("videos"),
+            "filename_prefix": "",
+        },
+    )
     for w in video_writers.values():
         w.start()
 
@@ -67,7 +75,7 @@ def stop_trigger():
     state.update(("video_recorder", "ttl_trigger"), False)
     _mqtt_client.publish("arena/ttl_trigger/stop")
 
-    
+
 do_restore_trigger = False
 
 
@@ -111,22 +119,34 @@ def stop_record(src_ids=None):
     Timer(0.5, stop).start()
 
 
+def _get_new_write_paths(src_id):
+    filename_prefix = state.get_path(("video_recorder", "filename_prefix"))
+    write_dir = state.get_path(("video_recorder", "write_dir"))
+    file_ext = config.video_record["file_ext"]
+    if len(filename_prefix.strip()) > 0:
+        filename_prefix += "_"
+        
+    base = (
+        filename_prefix + src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
+    )
+    return (
+        write_dir / (base + file_ext),
+        write_dir / (base + "csv"),
+    )
+
+
 class VideoWriter(mp.Process):
     def __init__(
         self,
         img_src: ImageSource,
         frame_rate,
-        write_path=Path("."),
-        codec="mp4v",
         file_ext="mp4",
     ):
         super().__init__()
-        self.codec = codec
         self.frame_rate = frame_rate
         self.img_src = img_src
         self.img_src.set_state({"writing": False})
 
-        self.write_path = write_path
         self.file_ext = file_ext
         self.log = logging.getLogger(__name__)
         self.update_event = mp.Event()
@@ -142,21 +162,12 @@ class VideoWriter(mp.Process):
         self.parent_pipe.send("stop")
         self.img_src.set_state({"writing": False})
 
-    def _get_new_write_paths(self):
-        base = (
-            self.img_src.src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
-        )
-        return (
-            self.write_path / (base + self.file_ext),
-            self.write_path / (base + "csv"),
-        )
-
     def _begin_writing(self):
         if not self.img_src.get_state("acquiring"):
             self.log.error("Can't write video. Image source is not acquiring.")
             return
 
-        vid_path, ts_path = self._get_new_write_paths()
+        vid_path, ts_path = _get_new_write_paths(self.img_src.src_id)
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(
@@ -164,7 +175,7 @@ class VideoWriter(mp.Process):
             format="FFMPEG",
             mode="I",
             fps=self.frame_rate,
-            **config.video_encoding,
+            **config.video_record["video_encoding"],
         )
 
         self.ts_file = open(str(ts_path), "w")

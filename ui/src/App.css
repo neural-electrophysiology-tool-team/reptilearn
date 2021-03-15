@@ -60,7 +60,19 @@
 .log_view {
     box-sizing: border-box;
     white-space: pre;
-    height: 100%;
+    height: calc(100% - 3px);
     width: 100%;
     border-style: none; 
+}
+
+.video_record_view {
+    display: block;
+    overflow: auto;
+}
+
+.reptilearn_header {
+    background-color: lightgrey;
+    padding: 0px;
+    border-bottom: 3px solid grey;
+    vertical-align: center;
 }

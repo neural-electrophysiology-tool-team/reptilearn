@@ -2,6 +2,8 @@ import React from 'react';
 import {api_url} from './config.js';
 
 export const VideoRecordView = ({ctrl_state}) => {
+    const prefix_input_ref = React.useRef();
+    
     if (ctrl_state == null)
 	return null;
 
@@ -15,7 +17,10 @@ export const VideoRecordView = ({ctrl_state}) => {
             fetch(api_url + "/video_record/stop");
         }
         else {
-            fetch(api_url + "/video_record/start");
+            const prefix = prefix_input_ref.current.value;
+            fetch(api_url + `/video_record/set_prefix/${prefix}`)
+                .then(res => fetch(api_url + "/video_record/start"),
+                      error => console.log("error"));
         }
     };
 
@@ -38,7 +43,7 @@ export const VideoRecordView = ({ctrl_state}) => {
             fetch(api_url + `/video_record/unselect_source/${src_id}`);
         }
     };
-          
+
     const source_checkboxes = image_sources.map(src_id => {
         return (
             <span key={src_id}>
@@ -53,8 +58,15 @@ export const VideoRecordView = ({ctrl_state}) => {
     });
     
     return (
-        <div className="pane-content">
+        <div className="pane-content video_record_view">
 	  {source_checkboxes}
+          <br/>
+	  <input type="text"
+                 name="prefix_input"
+                 placeholder="video name"
+                 ref={prefix_input_ref}
+                 disabled={is_recording}
+          />
           <br/>
           <button onClick={toggle_recording}>{rec_btn_title}</button>
           <button onClick={toggle_ttl_trigger}>{ttl_btn_title}</button>

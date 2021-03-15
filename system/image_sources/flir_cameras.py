@@ -135,8 +135,9 @@ def factory_reset(cam_id):
         raise Exception(f"Camera {cam_id} was not found.")
 
     cam = filtered[0]
+    cam.Init()
     cam.FactoryReset.Execute()
-
+    cam.DeInit()
     cameras.Clear()
     system.ReleaseInstance()
 

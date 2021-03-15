@@ -105,12 +105,16 @@ image_observers = [
     }
 ]
 
-# these parameters are passed to imageio.get_writer function
+# These parameters are passed to imageio.get_writer function
 # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
-video_encoding = {
-    "codec": "libx264",
-    "quality": 5,
-    "macro_block_size": 8,  # to work with 1440x1080 image size
+video_record = {
+    "video_encoding": {
+        "codec": "libx264",
+        "quality": 5,
+        "macro_block_size": 8,  # to work with 1440x1080 image size
+    },
+    "frame_rate": 60,
+    "file_ext": "mp4",
 }
 
 mqtt = {
