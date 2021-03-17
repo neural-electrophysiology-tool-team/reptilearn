@@ -1,5 +1,6 @@
 import experiment as exp
 import state
+import mqtt
 
 
 class YoloExperiment(exp.Experiment):
@@ -8,9 +9,9 @@ class YoloExperiment(exp.Experiment):
 
     def run(self):
         self.det_count = 0
-        exp.mqtt_subscribe(
+        mqtt.client.subscribe_callback(
             "reptilearn/pogona_head_bbox",
-            exp.mqtt_json_callback(self.on_yolo_detection),
+            mqtt.mqtt_json_callback(self.on_yolo_detection),
         )
         self.log.info("YOLO Experiment is running.")
 
@@ -30,12 +31,12 @@ class YoloExperiment(exp.Experiment):
                 self.log.info("Pogona moved to lower half " + str(det))
 
         if self.det_count % 60 == 0:
-            state.update(("experiment", "lask_known_position"), payload)
+            exp.exp_state.update("last_known_position", payload)
             
         self.det_count += 1
         if det is not None and len(det) != 0:
             self.prev_det = det
 
     def end(self):
-        # remove last_known_position from state here
-        pass
+        mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
+        exp.exp_state.remove("last_known_position")

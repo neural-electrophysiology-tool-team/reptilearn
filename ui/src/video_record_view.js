@@ -7,10 +7,10 @@ export const VideoRecordView = ({ctrl_state}) => {
     if (ctrl_state == null)
 	return null;
 
-    const is_recording = ctrl_state.video_recorder.is_recording;
+    const is_recording = ctrl_state.video_record.is_recording;
     const image_sources = Object.keys(ctrl_state.image_sources);
     const rec_btn_title = is_recording ? "Stop Recording" : "Start Recording";
-    const ttl_btn_title = ctrl_state.video_recorder.ttl_trigger ? "Stop Trigger" : "Start Trigger";
+    const ttl_btn_title = ctrl_state.video_record.ttl_trigger ? "Stop Trigger" : "Start Trigger";
     
     const toggle_recording = (e) => {
         if (is_recording) {
@@ -25,7 +25,7 @@ export const VideoRecordView = ({ctrl_state}) => {
     };
 
     const toggle_ttl_trigger = (e) => {
-        if (ctrl_state.video_recorder.ttl_trigger) {
+        if (ctrl_state.video_record.ttl_trigger) {
             fetch(api_url + "/video_record/stop_trigger");
         }
         else {
@@ -50,7 +50,7 @@ export const VideoRecordView = ({ctrl_state}) => {
               <input type="checkbox"
                      onChange={src_changed}
                      name={src_id}
-                     checked={ctrl_state.video_recorder.selected_sources.indexOf(src_id) !== -1}
+                     checked={ctrl_state.video_record.selected_sources.indexOf(src_id) !== -1}
               />
               {src_id}
             </span>

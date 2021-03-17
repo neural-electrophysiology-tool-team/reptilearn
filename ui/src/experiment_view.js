@@ -7,26 +7,41 @@ export const ExperimentView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
     const [experimentParams, setExperimentParams] = React.useState({});
     const [error, setError] = React.useState(null);
-    
-    React.useEffect(() => {
-	fetch(api_url + "/list_experiments")
-	    .then(res => res.json())
-            .then(
-                (res) => {
-                    setExperimentList(res);
-                },
-                (error) => {
-                    setError(error.toString());
-                }
-            );               
-    }, []);
 
-    const set_experiment = val => {
-	fetch(api_url + `/set_experiment/${val}`);
+    const exp_url = api_url + "/experiment";
+
+    const update_params = (prev_params) => {
+	fetch(exp_url + "/default_params")
+	    .then(res => res.json())
+	    .then(new_params => {
+		if (new_params === null)
+		    setExperimentParams(null);
+		else {
+		    Object.keys(new_params).forEach(param => {
+			if (prev_params !== null && prev_params[param] !== undefined)
+			    new_params[param] = prev_params[param];
+		    });
+		    
+		    setExperimentParams(new_params);
+		}
+	    });
+    };
+
+    const reset_params = () => {
+        update_params({});
+    };
+    
+    const set_experiment = exp_name => {
+	if (exp_name !== ctrl_state.experiment.cur_experiment) {
+	    setExperimentParams({});
+	}
+	
+	fetch(exp_url + `/set/${exp_name}`)
+	    .then((res) => update_params(experimentParams));
     };
 
     const refresh_experiment_list = (e) => {
-        fetch(api_url + "/refresh_experiment_list")
+        fetch(exp_url + "/refresh_list")
             .then(res => res.json())
             .then(
                 res => setExperimentList(res),
@@ -34,7 +49,7 @@ export const ExperimentView = ({ctrl_state}) => {
     };
     
     const run_experiment = () => {
-	fetch(api_url + "/run_experiment", {
+	fetch(exp_url + "/run", {
 	    method: "POST",
 	    headers: {
 		"Accept": "application/json",
@@ -49,7 +64,7 @@ export const ExperimentView = ({ctrl_state}) => {
     };
 
     const end_experiment = () => {
-	fetch(api_url + "/end_experiment")
+	fetch(exp_url + "/end")
 	    .then(res => console.log(res));
     };
 
@@ -57,6 +72,21 @@ export const ExperimentView = ({ctrl_state}) => {
 	setExperimentParams(e.updated_src);
     };
 
+    React.useEffect(() => {
+	fetch(exp_url + "/list")
+	    .then(res => res.json())
+            .then(
+                (res) => {
+                    setExperimentList(res);
+		    update_params(experimentParams);
+                },
+                (error) => {
+                    setError(error.toString());
+                }
+            );               
+    }, []);
+
+    
     if (!ctrl_state)
 	return null;
 
@@ -73,8 +103,25 @@ export const ExperimentView = ({ctrl_state}) => {
     
     const run_end_btn = is_running ?
           <button onClick={end_experiment}>End Experiment</button>
-	          : <button onClick={run_experiment}>Run Experiment</button>;
+	  : <button onClick={run_experiment}>Run Experiment</button>;
+
+    const reset_params_btn = experimentParams !== null ?
+          <button onClick={reset_params} disabled={is_running}>Reset Params</button>
+          : null;
     
+    const params_div = experimentParams !== null ?
+          (
+              <div>
+                <label>Parameters:</label>
+	        <ReactJson src={experimentParams}
+		           name={null}
+		           onEdit={on_params_changed}
+		           onAdd={on_params_changed}
+                           onDelete={on_params_changed}
+	        />
+              </div>
+          ) : null;
+                           
     return (
 	<div className="pane-content">
           Experiment:
@@ -83,14 +130,10 @@ export const ExperimentView = ({ctrl_state}) => {
 		    on_select={set_experiment}
 	            disabled={ctrl_state.experiment.is_running}/>
 	  {reload_btn}
-          <button onClick={refresh_experiment_list}>Refresh list...</button>
+          <button onClick={refresh_experiment_list} disabled={is_running}>Refresh list...</button>
+          {reset_params_btn}
 	  <br/>
-	  <label>Parameters:</label>
-	  <ReactJson src={experimentParams}
-		     name={null}
-		     onEdit={on_params_changed}
-		     onAdd={on_params_changed}
-	  />
+	  {params_div}
 	  {run_end_btn}
 	</div>
     );

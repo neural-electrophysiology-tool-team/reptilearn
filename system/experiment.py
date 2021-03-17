@@ -1,8 +1,5 @@
 import config
 import state
-import paho.mqtt.client as paho
-import json
-import threading
 import sys
 from dynamic_loading import load_module, find_subclass, reload_module
 
@@ -11,63 +8,12 @@ class ExperimentException(Exception):
     pass
 
 
-state.update(["experiment"], {"is_running": False})
+state.update("experiment", {})
+exp_state = state.Cursor("experiment")
+exp_state.update((), {"is_running": False})
+
 cur_experiment = None
 state_dispatcher = state.Dispatcher()
-
-
-# Initialize MQTT client
-def on_mqtt_connect(client, userdata, flags, rc):
-    if rc == 0:
-        log.info(
-            f"MQTT connected successfully to {config.mqtt['host']}:{config.mqtt['port']}."
-        )
-    else:
-        log.error(f"MQTT connection refused (rc code {rc}).")
-
-
-mqttc = paho.Client()
-mqttc.on_connect = on_mqtt_connect
-mqtt_subscribed_topics = []
-
-
-def mqtt_subscribe(topic, callback):
-    mqtt_subscribed_topics.append(topic)
-    mqttc.subscribe(topic)
-    mqttc.message_callback_add(topic, callback)
-
-
-def mqtt_unsubscribe(topic):
-    if topic not in mqtt_subscribed_topics:
-        return
-
-    mqttc.unsubscribe(topic)
-    mqttc.message_callback_remove(topic)
-    mqtt_subscribed_topics.remove(topic)
-
-
-def mqtt_unsubscribe_all():
-    for topic in mqtt_subscribed_topics:
-        mqttc.message_callback_remove(topic)
-        mqttc.unsubscribe(topic)
-
-    mqtt_subscribed_topics.clear()
-
-
-def mqtt_json_callback(callback):
-    def cb(client, userdata, message):
-        payload = message.payload.decode("utf-8")
-        if len(payload) == 0:
-            payload = None
-        if payload is not None:
-            try:
-                payload = json.loads(payload)
-            except json.decoder.JSONDecodeError:
-                pass
-
-        callback(message.topic, payload)
-
-    return cb
 
 
 # experiment can be running or not. stop either because it ended or because we asked it to.
@@ -75,16 +21,16 @@ def mqtt_json_callback(callback):
 # the experiment should have a params dict that's overriden by block params.
 # should have cur params with the right params for block (assoc cur block params into global params and put here)
 # make it easy to make the flow time based.
-def run(params):
-    if state.get_path(("experiment", "is_running")) is True:
+def run(exp_params):
+    if is_running() is True:
         raise ExperimentException("Experiment is already running.")
 
     if cur_experiment is None:
         raise ExperimentException("Can't run experiment. No experiment was set.")
 
-    state.update(("experiment", "params"), params)
-    state.assoc(
-        ["experiment"],
+    params.set(exp_params)
+    exp_state.assoc(
+        (),
         {
             "is_running": True,
             "cur_block": 0,
@@ -92,64 +38,65 @@ def run(params):
         },
     )
 
-    mqttc.loop_start()
     try:
         cur_experiment.run()
     except Exception:
-        log.critical("Exception while calling running experiment:", exc_info=sys.exc_info())
+        log.critical(
+            "Exception while calling running experiment:", exc_info=sys.exc_info()
+        )
         end()
-        
+
 
 def end():
-    if state.get_path(("experiment", "is_running")) is False:
+    if is_running() is False:
         raise ExperimentException("Experiment is not running.")
 
-    state.update(["experiment", "is_running"], False)
-
     cur_experiment.end()
-    mqttc.loop_stop()
+    exp_state.update("is_running", False)
+    exp_state.remove("params")
+    exp_state.remove("cur_trial")
+    exp_state.remove("cur_block")
 
 
 def set_phase(block, trial):
-    # basically only works after running experiment because run resets cur phase.
-    blocks = state.get_path(["experiment", "blocks"])
-    if blocks == state.path_not_found:
-        raise ExperimentException(
-            "Bad experiment description. Blocks definition not found."
-        )
-    if len(blocks) <= block:
-        raise ExperimentException(f"Block {block} is not defined.")
+    blocks = exp_state.get_path("blocks")
+
+    if blocks != state.path_not_found:
+        if len(blocks) <= block:
+            raise ExperimentException(f"Block {block} is not defined.")
+    elif block != 0:
+        raise ExperimentException("Experiment doesn't have block definitions.")    
 
     if "num_trials" in blocks[block] and trial >= blocks[block]["num_trials"]:
         raise ExperimentException(f"Trial {trial} is out of range for block {block}.")
 
-    state.assoc(["experiment"], {"cur_block": block, "cur_trial": trial})
+    exp_state.assoc((), {"cur_block": block, "cur_trial": trial})
 
 
 def next_trial():
-    cur_state = state.get_path(["experiment"])
-    if "blocks" not in cur_state:
-        raise ExperimentException(
-            "Bad experiment description. Blocks definition not found."
-        )
-
-    cur_block_num = cur_state["cur_block"]
-    cur_block = cur_state["blocks"][cur_block_num]
-
-    cur_trial = cur_state["cur_trial"]
-
-    num_trials = cur_block.get("num_trials")
-    num_blocks = len(cur_state["blocks"])
+    cur_trial = exp_state.get_path("cur_trial", None)
+    num_trials = exp_state.get_path("num_trials", None)
+    cur_block = exp_state.get_path("cur_block", None)
+    num_blocks = len(exp_state.get_path("blocks")) if exp_state.contains((), "blocks") else None
 
     if num_trials is not None and cur_trial + 1 >= num_trials:
         # next block
-        if cur_block_num + 1 < num_blocks:
-            set_phase(cur_block_num + 1, 0)
+        if num_blocks is not None and cur_block + 1 < num_blocks:
+            set_phase(cur_block + 1, 0)
         else:
             end()
     else:
         # next trial
-        set_phase(cur_block_num, cur_trial + 1)
+        set_phase(cur_block, cur_trial + 1)
+
+
+def next_block():
+    num_blocks = len(exp_state.get_path("blocks")) if exp_state.contains((), "blocks") else None
+    cur_block = exp_state.get_path("cur_block")
+    if num_blocks is not None and cur_block + 1 >= num_blocks:
+        end()
+    else:
+        set_phase(cur_block + 1, 0)
 
 
 def load_experiments(experiments_dir=config.experiments_dir):
@@ -165,16 +112,6 @@ def load_experiments(experiments_dir=config.experiments_dir):
     return experiment_specs
 
 
-def init(logger):
-    global log
-
-    log = logger
-    refresh_experiment_list()
-
-    mqttc.connect(**config.mqtt)
-    threading.Thread(target=state_dispatcher.listen).start()
-
-
 def refresh_experiment_list():
     global experiment_specs
     experiment_specs = load_experiments()
@@ -183,20 +120,10 @@ def refresh_experiment_list():
     )
 
 
-def shutdown():
-    if cur_experiment is not None:
-        if state.get_path(("experiment", "is_running")):
-            end()
-        set_experiment(None)
-        
-    state_dispatcher.stop()
-    mqttc.disconnect()
-
-
 def set_experiment(name):
     global cur_experiment
 
-    if state.get_path(("experiment", "is_running")) is True:
+    if is_running() is True:
         raise ExperimentException(
             "Can't set experiment while an experiment is running."
         )
@@ -205,7 +132,6 @@ def set_experiment(name):
         raise ExperimentException(f"Unknown experiment name: {name}")
 
     if cur_experiment is not None:
-        mqtt_unsubscribe_all()
         cur_experiment.release()
 
     if name is not None:
@@ -223,6 +149,8 @@ def set_experiment(name):
 
 
 class Experiment:
+    default_params = {}
+
     def __init__(self, logger):
         self.log = logger
         self.setup()
@@ -238,3 +166,31 @@ class Experiment:
 
     def release(self):
         pass
+
+
+# Convenience functions
+
+
+def is_running():
+    return state.get_path(("experiment", "is_running"), False)
+
+params = state.Cursor(("experiment", "params"))
+
+
+########################
+
+
+def init(logger):
+    global log
+
+    log = logger
+    refresh_experiment_list()
+
+
+def shutdown():
+    if cur_experiment is not None:
+        if is_running():
+            end()
+        set_experiment(None)
+
+    state_dispatcher.stop()

@@ -113,8 +113,9 @@ video_record = {
         "quality": 5,
         "macro_block_size": 8,  # to work with 1440x1080 image size
     },
-    "frame_rate": 60,
+    "video_frame_rate": 60,
     "file_ext": "mp4",
+    "start_trigger_on_startup": False,
 }
 
 mqtt = {

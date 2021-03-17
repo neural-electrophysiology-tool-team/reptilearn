@@ -11,7 +11,6 @@ _formatter = logging.Formatter(
 
 
 def listener_configurer(handler):
-    print(handler)
     log = logging.getLogger("mp_log_listener")
     # h = logging.handlers.RotatingFileHandler("mptest.log", "a", 300, 10)
     handler.setFormatter(_formatter)

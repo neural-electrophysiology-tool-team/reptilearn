@@ -1,4 +1,3 @@
-import multiprocessing as mp
 import threading
 import logger
 import logging
@@ -8,10 +7,10 @@ from flask_socketio import SocketIO, emit
 import cv2
 import json
 from pathlib import Path
-
+import sys
+import mqtt
+import arena
 import storage
-from detector import DetectorImageObserver
-from YOLOv4.detector import YOLOv4Detector
 import undistort
 import image_utils
 import state
@@ -31,10 +30,10 @@ class SocketIOHandler(logging.Handler):
     def emit(self, record):
         socketio.emit("log", self.format(record))
 
-        
+
 logger.init(SocketIOHandler())
 
-log = logging.getLogger()
+log = logging.getLogger("Main")
 handler = SocketIOHandler()
 handler.setFormatter(logger._formatter)
 log.addHandler(handler)
@@ -44,49 +43,84 @@ log.addHandler(stderr_handler)
 log.setLevel(logging.DEBUG)
 
 
+def patch_threading_excepthook():
+    """Installs our exception handler into the threading modules Thread object
+    Inspired by https://bugs.python.org/issue1230540
+    """
+    old_init = threading.Thread.__init__
+
+    def new_init(self, *args, **kwargs):
+        old_init(self, *args, **kwargs)
+        old_run = self.run
+        def run_with_our_excepthook(*args, **kwargs):
+            try:
+                old_run(*args, **kwargs)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                sys.excepthook(*sys.exc_info(), thread_name=threading.current_thread().name)
+        self.run = run_with_our_excepthook
+    threading.Thread.__init__ = new_init
+
+    
+patch_threading_excepthook()
+
+
+def excepthook(exc_type, exc_value, exc_traceback, thread_name=None):
+    if thread_name is None:
+        msg = "Exception on main thread:"
+    else:
+        msg = f"Exception at thread {thread_name}:"
+    log.critical(msg, exc_info=(exc_type, exc_value, exc_traceback))
+
+
+sys.excepthook = excepthook
+
 # initialize state
 state.update(["image_sources"], {})
 
-image_sources = [
-    instantiate_class(
+image_sources = {
+    src_id: instantiate_class(
         src_config["class"], src_id, src_config, state_root=["image_sources"]
     )
     for (src_id, src_config) in config.image_sources.items()
+}
+
+image_observers = [
+    instantiate_class(obs_config["class"], image_sources[obs_config["src_id"]],
+                      **obs_config["args"])
+    for obs_config in config.image_observers
 ]
 
-video_record.init(image_sources)
+mqtt.init(log)
+arena.init(log)
+video_record.init(image_sources.values())
 experiment.init(log)
 
-"""
-def store_detection(det, image_timestamp, detection_timestamp):
-    if det is None:
-        det = [None] * 5
-    det.insert(0, image_timestamp / 1e9)
-    storage.insert_bbox_position(db_conn, det)
+for img_obs in image_observers:
+    img_obs.start()
 
-
-   
-detector_obs = DetectorImageObserver(image_sources[config["detector_source"]],
-                                     YOLOv4Detector(conf_thres=0.8, return_neareast_detection=True),
-                                     detection_buffer=detection_buffer,
-                                     on_detect=store_detection,
-                                     buffer_size=20)
-"""
-
-
-# detector_obs.start()
-
-for img_src in image_sources:
+for img_src in image_sources.values():
     img_src.start()
 
 
 #### Flask API ####
 
 
+def convert_for_json(v):
+    if hasattr(v, "tolist"):
+        return v.tolist()
+    if isinstance(v, Path):
+        return str(v)
+    raise TypeError(v)
+
+
 # Broadcast state updates
 def send_state(old, new):
     # logger.info("Emitting state update")
-    socketio.emit("state", (old, new))
+    old_json = json.dumps(old, default=convert_for_json)
+    new_json = json.dumps(new, default=convert_for_json)
+    socketio.emit("state", (old_json, new_json))
 
     
 state_listen, stop_state_emitter = state.register_listener(send_state)
@@ -97,27 +131,21 @@ state_emitter_process.start()
 @socketio.on("connect")
 def handle_connect():
     log.info("New SocketIO connection. Emitting state")
-    emit("state", (None, state.get()))
+    blob = json.dumps(state.get(), default=convert_for_json)
+    emit("state", (None, blob))
 
 
 @app.route("/config/<attribute>")
 def route_config(attribute):
-    def convert(v):
-        if hasattr(v, "tolist"):
-            return v.tolist()
-        if isinstance(v, Path):
-            return str(v)
-        raise TypeError(v)
-
     return flask.Response(
-        json.dumps(getattr(config, attribute), default=convert),
+        json.dumps(getattr(config, attribute), default=convert_for_json),
         mimetype="application/json",
     )
 
 
 @app.route("/video_stream/<src_id>")
 def route_video_stream(src_id, width=None, height=None):
-    img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
+    img_src = image_sources[src_id]
     if img_src.src_id in config.image_sources:
         src_config = config.image_sources[img_src.src_id]
     else:
@@ -177,7 +205,7 @@ def route_video_stream(src_id, width=None, height=None):
 
 @app.route("/stop_stream/<src_id>")
 def route_stop_stream(src_id):
-    img_src = next(filter(lambda s: s.src_id == src_id, image_sources))
+    img_src = image_sources[src_id]
     img_src.stop_streaming()
     return flask.Response("ok")
 
@@ -187,21 +215,33 @@ def route_state():
     return flask.jsonify(state.get())
 
 
-@app.route("/list_experiments")
-def route_list_experiments():
+@app.route("/experiment/list")
+def route_experiment_list():
     return flask.jsonify(list(experiment.experiment_specs.keys()))
 
 
-@app.route("/set_experiment/<name>")
-def route_set_experiment(name):
+@app.route("/experiment/refresh_list")
+def route_experiment_refresh_list():
+    experiment.refresh_experiment_list()
+    return route_experiment_list()
+
+
+@app.route("/experiment/set/<name>")
+def route_experiment_set(name):
     if name == "None":
         name = None
     experiment.set_experiment(name)
     return flask.Response("ok")
 
 
-@app.route("/run_experiment", methods=["POST"])
-def route_run_experiment():
+@app.route("/experiment/default_params")
+def route_experiment_default_params():
+    if experiment.cur_experiment is None:
+        return flask.jsonify(None)
+    return flask.jsonify(experiment.cur_experiment.default_params)
+
+@app.route("/experiment/run", methods=["POST"])
+def route_experiment_run():
     params = flask.request.json
 
     if not isinstance(params, dict):
@@ -214,8 +254,8 @@ def route_run_experiment():
         flask.abort(500, e)
 
 
-@app.route("/end_experiment")
-def route_end_experiment():
+@app.route("/experiment/end")
+def route_experiment_end():
     try:
         experiment.end()
         return flask.Response("ok")
@@ -261,22 +301,18 @@ def route_stop_trigger():
     return flask.Response("ok")
 
 
+@app.route("/video_record/set_prefix/")
+@app.route("/video_record/set_prefix/<prefix>")
+def route_set_prefix(prefix=""):
+    state.update(("video_record", "filename_prefix"), prefix)
+    return flask.Response("ok")
+
+
 @app.route("/")
 def root():
     return "ReptiLearn Controller"
 
 
-"""
-@app.after_request
-def after_request(response):
-    print("After request")
-    header = response.headers
-    header["Access-Control-Allow-Origin"] = "*"
-    header["Access-Control-Allow-Headers"] = "*"
-    header["Access-Control-Allow-Methods"] = "POST, GET"
-    print(response.data)
-    return response
-"""
 """
 @app.errorhandler(500)
 def server_error(e):
@@ -285,17 +321,24 @@ def server_error(e):
 """
 
 app_log = logging.getLogger("werkzeug")
-app_log.setLevel(logging.ERROR)
+app_log.addHandler(handler)
+app_log.setLevel(logging.WARNING)
+app.logger.setLevel(logging.WARNING)
+app.logger.addHandler(handler)
 socketio.run(app, use_reloader=False)
 
 # After flask server is terminated due to KeyboardInterrupt:
 log.info("System shutting down...")
 stop_state_emitter()
 experiment.shutdown()
-logger.shutdown()
 
-for img_src in image_sources:
+video_record.start_trigger()
+
+for img_src in image_sources.values():
     img_src.join()
 
+video_record.stop_trigger()
 
+mqtt.shutdown()
+logger.shutdown()
 state.shutdown()

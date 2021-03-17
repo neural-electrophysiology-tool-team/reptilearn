@@ -1,7 +1,6 @@
 import multiprocessing as mp
 from copy import deepcopy
-import dict_transform as dt
-from dict_transform import path_not_found
+import dicttools as dt
 
 _mgr = mp.Manager()
 _ns = _mgr.Namespace()
@@ -9,12 +8,22 @@ _ns.state = _mgr.dict()
 _did_update_events = _mgr.list()
 _state_lock = _mgr.Lock()
 
+path_not_found = dt.path_not_found
+
+
+def mutating_fn(f):
+    def mutating(*args, **kwargs):
+        with _state_lock:
+            set(f(get(), *args, **kwargs))
+
+    return mutating
+
 
 def get():
     return deepcopy(_ns.state)
 
 
-def get_path(path, default=None):
+def get_path(path, default=path_not_found):
     return dt.get_path(get(), path, default)
 
 
@@ -24,16 +33,13 @@ def set(new_state):
         e.set()
 
 
-def update(path, value):
-    _state_lock.acquire()
-    set(dt.update(get(), path, value))
-    _state_lock.release()
+update = mutating_fn(dt.update)
+assoc = mutating_fn(dt.assoc)
+remove = mutating_fn(dt.remove)
 
 
-def assoc(path, kvs):
-    _state_lock.acquire()
-    set(dt.assoc(get(), path, kvs))
-    _state_lock.release()
+def contains(path, v):
+    return dt.contains(get(), path, v)
 
 
 def register_listener(on_update):
@@ -68,7 +74,7 @@ def shutdown():
     _mgr.shutdown()
 
 
-class Dispatcher():
+class Dispatcher:
     def __init__(self):
         super().__init__()
         self._dispatch_table = dict()
@@ -88,3 +94,38 @@ class Dispatcher():
 
     def remove_callback(self, path):
         return self._dispatch_table.pop(path)
+
+
+def partial_path_fn(f, path_prefix):
+    def fn(path, *args, **kwargs):
+        if isinstance(path, str):
+            path = (path,)
+
+        return f(path_prefix + path, *args, **kwargs)
+
+    return fn
+
+
+class Cursor:
+    def __init__(self, path):
+        if isinstance(path, str):
+            path = (path,)
+
+        self.path = path
+        self.get_path = partial_path_fn(get_path, path)
+        self.update = partial_path_fn(update, path)
+        self.assoc = partial_path_fn(assoc, path)
+        self.remove = partial_path_fn(remove, path)
+        self.contains = partial_path_fn(contains, path)
+
+    def get(self, *args, **kwargs):
+        return get_path(self.path, *args, **kwargs)
+
+    def set(self, value):
+        return update(self.path, value)
+
+    def parent(self):
+        if len(self.path) == 0:
+            raise KeyError(f"path {self.path} has no parent.")
+
+        return Cursor(self.path[:-1])

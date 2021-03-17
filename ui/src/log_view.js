@@ -9,12 +9,17 @@ export const LogView = () => {
     const socket = React.useContext(SocketContext);
 
     React.useEffect(() => {
-	socket.on("log", msg => {	   
+        const listener = msg => {	   
             logContainer.current += "\n" + msg ;
             setLogMsg(msg);
 	    if (textarea_ref.current !== null)
 		textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
-        });
+        };
+        
+	socket.on("log", listener);
+        return () => { // cleanup
+            socket.off("log", listener);
+        };
     }, [socket]);
 
     return (

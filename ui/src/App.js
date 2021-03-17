@@ -50,14 +50,14 @@ const App = () => {
 
     return (
 	<div className="App">
-          <ReflexContainer orientation="horizontal">
+          <ReflexContainer orientation="horizontal" windowResizeAware={true}>
             
             <ReflexElement>
-              <ReflexContainer orientation="vertical">                
+              <ReflexContainer orientation="vertical" windowResizeAware={true}>    
 
-                <ReflexElement flex="0.65">
-                  <ReflexContainer orientation="horizontal">
-                    <ReflexElement size="30" className="reptilearn_header" maxSize="30" minSize="30">
+                <ReflexElement flex={0.65}>
+                  <ReflexContainer orientation="horizontal" windowResizeAware={true}>
+                    <ReflexElement size={20} className="reptilearn_header" maxSize={20} minSize={20}>
                       <div>ReptiLearn</div>
                     </ReflexElement>
                     
@@ -71,8 +71,8 @@ const App = () => {
                 <ReflexSplitter/>
 
                 <ReflexElement>
-                  <ReflexContainer orientation="horizontal">
-                    <ReflexElement className="component" flex="0.15" minSize="100">
+                  <ReflexContainer orientation="horizontal" windowResizeAware={true}>
+                    <ReflexElement className="component" size={100} minSize={100} maxSize={100}>
                       	  <VideoRecordView ctrl_state={ctrlState} />
                     </ReflexElement>
                     
@@ -94,22 +94,12 @@ const App = () => {
 
             <ReflexSplitter/>
 
-            <ReflexElement className="component" minSize="60" flex="0.2">  
+            <ReflexElement className="component" minSize={60} flex="0.2">  
               <LogView/>
             </ReflexElement>                     
           </ReflexContainer>
 	</div>
     );
-    /*
-    return (
-        <div className="App">
-	  <ExperimentView ctrl_state={ctrlState}/>
-          <div className="flex_box">
-	    <StateView ctrl_state={ctrlState}/>
-            <LogView/>
-          </div>
-        </div>
-    );*/
 };
 
 export default App;

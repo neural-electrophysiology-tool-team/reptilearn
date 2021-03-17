@@ -15,26 +15,29 @@ import logging
 # - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
 #   current frame twice, etc.
 # - take fps from image source if possible, allow custom fps
-
+# - maybe set trigger pulse len according to video_frame_rate or the other way around.
 
 video_writers = {}
-_mqtt_client = mqtt.Client()
 
 
 def init(image_sources):
     for img_src in image_sources:
         video_writers[img_src.src_id] = VideoWriter(
             img_src,
-            frame_rate=config.video_record["frame_rate"],
+            frame_rate=config.video_record["video_frame_rate"],
         )
 
-    _mqtt_client.connect()
-    # need to stop trigger and match with state
+    ttl_trigger = config.video_record["start_trigger_on_startup"]
+    if ttl_trigger:
+        start_trigger(update_state=False)
+    else:
+        stop_trigger(update_state=False)
+
     state.update(
-        ["video_recorder"],
+        ["video_record"],
         {
             "selected_sources": [ims.src_id for ims in image_sources],
-            "ttl_trigger": False,
+            "ttl_trigger": ttl_trigger,
             "is_recording": False,
             "write_dir": Path("videos"),
             "filename_prefix": "",
@@ -45,35 +48,37 @@ def init(image_sources):
 
 
 def set_selected_sources(src_ids):
-    state.update(("video_recorder", "selected_sources"), src_ids)
+    state.update(("video_record", "selected_sources"), src_ids)
 
 
 def select_source(src_id):
-    selected_sources = state.get_path(("video_recorder", "selected_sources"))
+    selected_sources = state.get_path(("video_record", "selected_sources"))
     if src_id in selected_sources:
         return
 
     selected_sources.append(src_id)
-    state.update(("video_recorder", "selected_sources"), selected_sources)
+    state.update(("video_record", "selected_sources"), selected_sources)
 
 
 def unselect_source(src_id):
-    selected_sources = state.get_path(("video_recorder", "selected_sources"))
+    selected_sources = state.get_path(("video_record", "selected_sources"))
     if src_id not in selected_sources:
         return
 
     selected_sources.remove(src_id)
-    state.update(("video_recorder", "selected_sources"), selected_sources)
+    state.update(("video_record", "selected_sources"), selected_sources)
 
 
-def start_trigger(pulse_len=17):
-    state.update(("video_recorder", "ttl_trigger"), True)
-    _mqtt_client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
+def start_trigger(pulse_len=17, update_state=True):
+    if update_state:
+        state.update(("video_record", "ttl_trigger"), True)
+    mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
 
 
-def stop_trigger():
-    state.update(("video_recorder", "ttl_trigger"), False)
-    _mqtt_client.publish("arena/ttl_trigger/stop")
+def stop_trigger(update_state=True):
+    if update_state:
+        state.update(("video_record", "ttl_trigger"), False)
+    mqtt.client.publish("arena/ttl_trigger/stop")
 
 
 do_restore_trigger = False
@@ -82,50 +87,50 @@ do_restore_trigger = False
 def start_record(src_ids=None):
     global do_restore_trigger
     if src_ids is None:
-        src_ids = state.get_path(("video_recorder", "selected_sources"))
+        src_ids = state.get_path(("video_record", "selected_sources"))
 
     if len(src_ids) == 0:
         return
 
     def standby():
-        state.update(("video_recorder", "is_recording"), True)
+        state.update(("video_record", "is_recording"), True)
         for src_id in src_ids:
             video_writers[src_id].start_writing()
 
-    if state.get_path(("video_recorder", "ttl_trigger")):
+    if state.get_path(("video_record", "ttl_trigger")):
         do_restore_trigger = True
-        stop_trigger()
-        Timer(1, start_trigger).start()
+        stop_trigger(update_state=False)
+        Timer(1, start_trigger, kwargs={"update_state": False}).start()
 
     Timer(0.5, standby).start()
 
 
 def stop_record(src_ids=None):
     if src_ids is None:
-        src_ids = state.get_path(("video_recorder", "selected_sources"))
+        src_ids = state.get_path(("video_record", "selected_sources"))
 
     if len(src_ids) == 0:
         return
 
     def stop():
-        state.update(("video_recorder", "is_recording"), False)
+        state.update(("video_record", "is_recording"), False)
         for src_id in src_ids:
             video_writers[src_id].stop_writing()
 
     if do_restore_trigger:
-        stop_trigger()
-        Timer(1, start_trigger).start()
+        stop_trigger(update_state=False)
+        Timer(1, start_trigger, kwargs={"update_state": False}).start()
 
     Timer(0.5, stop).start()
 
 
 def _get_new_write_paths(src_id):
-    filename_prefix = state.get_path(("video_recorder", "filename_prefix"))
-    write_dir = state.get_path(("video_recorder", "write_dir"))
+    filename_prefix = state.get_path(("video_record", "filename_prefix"))
+    write_dir = state.get_path(("video_record", "write_dir"))
     file_ext = config.video_record["file_ext"]
     if len(filename_prefix.strip()) > 0:
         filename_prefix += "_"
-        
+
     base = (
         filename_prefix + src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
     )
@@ -228,7 +233,6 @@ class VideoWriter(mp.Process):
                                 self.avg_write_time = (
                                     self.avg_write_time * (self.frame_count - 1) + dt
                                 ) / self.frame_count
-
                 except KeyboardInterrupt:
                     break
                 finally:
