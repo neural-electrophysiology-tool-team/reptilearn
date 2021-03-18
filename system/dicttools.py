@@ -1,3 +1,7 @@
+from collections import Sequence
+from numbers import Number
+
+
 class _PathNotFound:
     pass
 
@@ -11,9 +15,16 @@ def get_path(d, path, default=path_not_found):
         
     c = d
     for k in path:
-        c = c.get(k, default)
-        if c == default:
-            break
+        if isinstance(c, dict):
+            c = c.get(k, default)
+            if c == default:
+                break
+        elif isinstance(c, Sequence):
+            if type(k) is not int:
+                raise KeyError(f"Expecting an integer key {k} for path {path}")
+            if k >= len(c):
+                return default
+            c = c[k]
 
     return c
 

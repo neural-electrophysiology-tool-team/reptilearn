@@ -1,0 +1,1 @@
+stty 115200 -F /dev/ttyACM1 & cat /dev/ttyACM1

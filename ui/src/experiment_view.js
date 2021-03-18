@@ -6,23 +6,61 @@ import {api_url} from './config.js';
 export const ExperimentView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
     const [experimentParams, setExperimentParams] = React.useState({});
+    const [experimentBlocks, setExperimentBlocks] = React.useState([]);
     const [error, setError] = React.useState(null);
 
     const exp_url = api_url + "/experiment";
 
-    const update_params = (prev_params) => {
+    const update_params = (old_defaults) => {
 	fetch(exp_url + "/default_params")
 	    .then(res => res.json())
-	    .then(new_params => {
-		if (new_params === null)
+	    .then(new_defaults => {
+                // THIS IS CRAZY....
+                console.log("new", new_defaults);
+		if (new_defaults === null || new_defaults === undefined) {
 		    setExperimentParams(null);
+		    setExperimentBlocks(null);
+		}
 		else {
-		    Object.keys(new_params).forEach(param => {
-			if (prev_params !== null && prev_params[param] !== undefined)
-			    new_params[param] = prev_params[param];
-		    });
-		    
-		    setExperimentParams(new_params);
+                    if (old_defaults === null || old_defaults === undefined) {
+                        if (new_defaults.params !== undefined)
+                            setExperimentParams(new_defaults.params);
+                        if (new_defaults.blocks !== undefined)
+                            setExperimentBlocks(new_defaults.blocks);
+                    }
+                    else {
+		        const assign_keep_old = (o, n) => {
+                            if (o === null || o === undefined)
+                                return n;
+                            if (n === null || n === undefined)
+                                return o;                        
+			    Object.keys(n).forEach(param => {
+			        if (o[param] !== undefined)
+				    n[param] = o[param];
+			    });
+			    return n;
+		        };
+                        
+		        const params = assign_keep_old(old_defaults.params, new_defaults.params);
+		        setExperimentParams(params);
+                    
+		        const old_blocks = old_defaults.blocks;
+		        const new_blocks = new_defaults.blocks;
+                        
+                        if (old_blocks !== null && old_blocks !== undefined) {
+                            const blocks = [];
+		            new_blocks.forEach((new_block, i) => {
+			        if (i < old_blocks.length)
+			            blocks.push(assign_keep_old(old_blocks[i], new_block));
+			        else
+			            blocks.push(new_block);			
+		            });
+                            setExperimentBlocks(blocks);
+                        }
+                        else {
+                            setExperimentBlocks(new_blocks);
+                        }
+                    }
 		}
 	    });
     };
@@ -45,7 +83,7 @@ export const ExperimentView = ({ctrl_state}) => {
             .then(res => res.json())
             .then(
                 res => setExperimentList(res),
-                error => setError(error.toString()));              
+                error => setError(error.toString()));
     };
     
     const run_experiment = () => {
@@ -55,7 +93,8 @@ export const ExperimentView = ({ctrl_state}) => {
 		"Accept": "application/json",
 		"Content-Type": "application/json"
 	    },
-	    body: JSON.stringify(experimentParams)
+	    body: JSON.stringify({"params": experimentParams,
+				  "blocks": experimentBlocks})
 	}).then(res => {
 	    if (!res.ok)
 		res.text().then(json => console.log(json));
@@ -106,13 +145,13 @@ export const ExperimentView = ({ctrl_state}) => {
 	  : <button onClick={run_experiment}>Run Experiment</button>;
 
     const reset_params_btn = experimentParams !== null ?
-          <button onClick={reset_params} disabled={is_running}>Reset Params</button>
+          <button onClick={reset_params} disabled={is_running}>Reset</button>
           : null;
     
     const params_div = experimentParams !== null ?
           (
               <div>
-                <label>Parameters:</label>
+                <label>Parameters:</label>{reset_params_btn}
 	        <ReactJson src={experimentParams}
 		           name={null}
 		           onEdit={on_params_changed}
@@ -131,10 +170,9 @@ export const ExperimentView = ({ctrl_state}) => {
 	            disabled={ctrl_state.experiment.is_running}/>
 	  {reload_btn}
           <button onClick={refresh_experiment_list} disabled={is_running}>Refresh list...</button>
-          {reset_params_btn}
+          {run_end_btn}
 	  <br/>
 	  {params_div}
-	  {run_end_btn}
 	</div>
     );
 };

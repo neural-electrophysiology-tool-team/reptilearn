@@ -129,3 +129,16 @@ class Cursor:
             raise KeyError(f"path {self.path} has no parent.")
 
         return Cursor(self.path[:-1])
+
+    def absolute_path(self, rel_path):
+        if isinstance(rel_path, str):
+            rel_path = (rel_path,)
+
+        return self.path + rel_path
+
+    def get_cursor(self, path):
+        return Cursor(self.absolute_path(path))
+
+    def exists(self):
+        v = get_path(self.path)
+        return v is not path_not_found

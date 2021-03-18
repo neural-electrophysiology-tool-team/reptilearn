@@ -48,6 +48,8 @@ const App = () => {
 	    </div>
 	);
 
+    const valid_image_sources = Object.keys(ctrlState.image_sources).filter(key => ctrlState.image_sources[key].acquiring);
+    
     return (
 	<div className="App">
           <ReflexContainer orientation="horizontal" windowResizeAware={true}>
@@ -62,7 +64,7 @@ const App = () => {
                     </ReflexElement>
                     
                     <ReflexElement className="component">
-                    <StreamGroupView image_sources={Object.keys(ctrlState.image_sources)}
+                    <StreamGroupView image_sources={valid_image_sources}
 			             sources_config={sourcesConfig} />       
                     </ReflexElement>
              

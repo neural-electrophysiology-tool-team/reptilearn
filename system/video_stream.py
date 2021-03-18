@@ -89,6 +89,7 @@ class ImageSource(mp.Process):
 
     def run(self):
         logger.logger_configurer(__name__)
+
         if not self.on_begin():
             return
 

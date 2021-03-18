@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 import mqtt
 import arena
+import schedule
 import storage
 import undistort
 import image_utils
@@ -238,19 +239,24 @@ def route_experiment_set(name):
 def route_experiment_default_params():
     if experiment.cur_experiment is None:
         return flask.jsonify(None)
-    return flask.jsonify(experiment.cur_experiment.default_params)
+    return flask.jsonify({"params": experiment.cur_experiment.default_params,
+                          "blocks": experiment.cur_experiment.default_blocks})
+
 
 @app.route("/experiment/run", methods=["POST"])
 def route_experiment_run():
-    params = flask.request.json
-
+    params = flask.request.json["params"]
+    
     if not isinstance(params, dict):
         return flask.abort(400, "Invalid params json.")
 
+    blocks = flask.request.json.get("blocks", [])
+    
     try:
-        experiment.run(params)
+        experiment.run(params, blocks)
         return flask.Response("ok")
     except Exception as e:
+        log.exception("Exception while running experiment", sys.exc_info())
         flask.abort(500, e)
 
 
@@ -338,7 +344,7 @@ for img_src in image_sources.values():
     img_src.join()
 
 video_record.stop_trigger()
-
+schedule.cancel_all()
 mqtt.shutdown()
 logger.shutdown()
 state.shutdown()

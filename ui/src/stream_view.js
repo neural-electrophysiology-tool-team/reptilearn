@@ -99,32 +99,52 @@ export class StreamGroupView extends React.Component {
         this.setState({streams: [...this.state.streams, new_stream]});
     }
 
+    copy_streams_state = () => {
+        return this.state.streams.map(s => ({...s}));
+    }
+    
     set_streaming = (idx, is_streaming) => {
-        const streams = this.state.streams;
+        const streams = this.copy_streams_state();
         streams[idx].is_streaming = is_streaming;
         this.setState({streams: streams});
     }
 
     set_src_idx = (idx, src_idx) => {
-        const streams = this.state.streams;
+        const streams = this.copy_streams_state();
         streams[idx].src_idx = src_idx;
         this.setState({streams: streams});        
     }
 
     set_width = (idx, width) => {
-        const streams = this.state.streams;
+        const streams = this.copy_streams_state();
         streams[idx].width = width;
         this.setState({streams: streams});
     }
 
     set_undistort = (idx, undistort) => {
-        const streams = this.state.streams;
+        const streams = this.copy_streams_state();
         streams[idx].undistort = undistort;
         this.setState({streams: streams});        
     }
 
     stop_streaming = (src_id) => {
         return fetch(api_url + `/stop_stream/${src_id}`);
+    }
+
+    shouldComponentUpdate(next_props, next_state) {
+        if (JSON.stringify(next_state) !== JSON.stringify(this.state))
+            return true;
+            
+        const next_srcs = next_props.image_sources;
+        const prev_srcs = this.props.image_sources;
+        if (next_srcs.length !== prev_srcs.length)
+            return true;
+        
+        for (let i=0; i<next_srcs.length; i++)
+            if (next_srcs[i] !== prev_srcs[i])
+                return true;
+
+        return false;
     }
     
     render() {
