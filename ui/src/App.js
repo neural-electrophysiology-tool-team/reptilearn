@@ -59,10 +59,14 @@ const App = () => {
 
                 <ReflexElement flex={0.65}>
                   <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-                    <ReflexElement size={20} className="reptilearn_header" maxSize={20} minSize={20}>
-                      <div>ReptiLearn</div>
+                    <ReflexElement size={20} className="section_header" maxSize={20} minSize={20}>
+                      <span className="title">ReptiLearn</span>
                     </ReflexElement>
-                    
+
+                    <ReflexElement className="subsection_header" size={30} minSize={30} maxSize={30}>
+                      	  <VideoRecordView ctrl_state={ctrlState} />
+                    </ReflexElement>
+		    
                     <ReflexElement className="component">
                     <StreamGroupView image_sources={valid_image_sources}
 			             sources_config={sourcesConfig} />       
@@ -74,10 +78,6 @@ const App = () => {
 
                 <ReflexElement>
                   <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-                    <ReflexElement className="component" size={100} minSize={100} maxSize={100}>
-                      	  <VideoRecordView ctrl_state={ctrlState} />
-                    </ReflexElement>
-                    
                     <ReflexElement className="component">
                       <ExperimentView ctrl_state={ctrlState}/>                  
                     </ReflexElement>

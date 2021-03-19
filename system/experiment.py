@@ -56,6 +56,8 @@ def end():
 
     cur_experiment.end()
     exp_state.update("is_running", False)
+    exp_state.remove("cur_trial")
+    exp_state.remove("cur_block")
     log.info(f"Experiment {cur_experiment_name} has ended.")
 
 
@@ -84,6 +86,8 @@ def set_phase(block, trial):
 
 
 def next_trial():
+    if not is_running():
+        log.warning("experiment.py: Attempted to run next_trial() while experiment is not running")
     cur_trial = exp_state.get_path("cur_trial", None)
     cur_block = exp_state.get_path("cur_block", None)
 
@@ -101,6 +105,9 @@ def next_trial():
 
 
 def next_block():
+    if not is_running():
+        log.warning("experiment.py: Attempted to run next_block() while experiment is not running")
+ 
     num_blocks = (
         len(exp_state.get_path("blocks")) if exp_state.contains((), "blocks") else None
     )
@@ -202,7 +209,7 @@ def merged_params():
 
 
 def cur_block_params():
-    if blocks.exists() and exp_state.contains((), "cur_block"):
+    if blocks.exists() and len(blocks.get()) > 0 and exp_state.contains((), "cur_block"):
         cur_block = exp_state.get_path("cur_block")
         return exp_state.get_cursor(("blocks", cur_block))
     else:

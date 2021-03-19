@@ -59,17 +59,17 @@ export const VideoRecordView = ({ctrl_state}) => {
     
     return (
         <div className="pane-content video_record_view">
-	  {source_checkboxes}
-          <br/>
-	  <input type="text"
+          <span className="title">Video</span>
+          <button onClick={toggle_recording}>{rec_btn_title}</button>
+          <input type="text"
                  name="prefix_input"
                  placeholder="video name"
                  ref={prefix_input_ref}
                  disabled={is_recording}
           />
-          <br/>
-          <button onClick={toggle_recording}>{rec_btn_title}</button>
+
           <button onClick={toggle_ttl_trigger}>{ttl_btn_title}</button>
+	  Sources: {source_checkboxes}
         </div>
     );
 };

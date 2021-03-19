@@ -171,9 +171,13 @@ export class StreamGroupView extends React.Component {
         
         return (
 	    <div className="stream_group_view pane-content">
-	      <button onClick={this.add_stream}
-                      disabled={this.state.streams.length === this.image_sources.length}>Add stream</button>
-	      <br/>
+              <div className="section_header">
+                <span className="title">Streaming</span>
+                <button onClick={this.add_stream}
+                        disabled={this.state.streams.length === this.image_sources.length}>
+                  Add stream
+                </button>
+              </div>
               <div className="">
                 {stream_views}
               </div>

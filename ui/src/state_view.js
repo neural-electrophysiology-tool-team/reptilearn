@@ -1,11 +1,13 @@
 import React from 'react';
-import ReactJson from 'react-json-view'
+import ReactJson from 'react-json-view';
 
 export const StateView = ({ctrl_state}) => {
     return (
 	//	<div className="component flex_col">	
 	<div className="pane-content">
-	    State:<br/>
+	  <div className="section_header">
+            <span className="title">State</span>
+          </div>
 	    <ReactJson src={ctrl_state} name={null} />
 	</div>
     );

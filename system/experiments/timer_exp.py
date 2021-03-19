@@ -23,7 +23,8 @@ class TimerExperiment(exp.Experiment):
         self.log.info(f"new block: {exp.exp_state.get_path('cur_block')} {params}")
         if self.cancel_timer is not None:
             self.cancel_timer()
-
+            
+        self.log.info(params)
         interval = params["interval"]
         self.log.info(f"Set timer every {interval} sec.")
         self.cancel_timer = schedule.repeat(self.timer_fn, interval)

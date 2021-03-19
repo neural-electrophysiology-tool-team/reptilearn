@@ -1,6 +1,8 @@
 from datetime import datetime, time, timedelta
 import threading
 import logging
+from numbers import Number
+from collections import Sequence
 
 # one-shot timer, repeating timer, time of day scheduling (thread based)
 
@@ -18,7 +20,11 @@ def _gen_schedule_fn(thread_fn):
 
         def target():
             cancel_fns.append(cancel)
-            thread_fn(callback, cancel_event, *args, **kwargs)
+            try:
+                thread_fn(callback, cancel_event, *args, **kwargs)
+            except Exception as e:
+                cancel_fns.remove(cancel)
+                raise e
 
             if logging_enabled:
                 name = threading.current_thread().name
@@ -61,7 +67,10 @@ def next_timeofday(base: datetime, timeofday: time):
         return same_day
 
 
-def sched_once(callback, cancel_event, interval):
+def sched_once(callback, cancel_event, interval: Number):
+    #if not isinstance(interval, Number):
+    #    raise TypeError(f"Invalid interval value {interval} type {type(interval)}")
+    
     if interval is None or interval == 0:
         callback()
     else:
@@ -70,7 +79,8 @@ def sched_once(callback, cancel_event, interval):
             callback()
 
 
-def sched_repeat(callback, cancel_event, interval, repeats=None):
+def sched_repeat(callback, cancel_event, interval: Number, repeats=True):
+
     repeat_count = 0
 
     while not cancel_event.is_set():
@@ -81,14 +91,17 @@ def sched_repeat(callback, cancel_event, interval, repeats=None):
             break
 
         repeat_count += 1
-        if repeats is not None and repeat_count >= repeats:
+        if repeats is not True and repeat_count >= repeats:
             break
 
 
 def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
     """repeats=None -> never stop"""
     if not isinstance(timeofday, time):
-        timeofday = time(*timeofday)
+        if isinstance(timeofday, Sequence):
+            timeofday = time(*timeofday)
+        else:
+            raise TypeError("Invalid timeofday type ({type(timeofday)})")
 
     repeat_count = 0
     start_time = datetime.now()
@@ -96,7 +109,6 @@ def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
     interval = (first_sched - start_time).total_seconds()
 
     while not cancel_event.is_set():
-        print(f"sleeping for {interval}")
         cancel_event.wait(interval)
         if not cancel_event.is_set():
             callback()
@@ -104,19 +116,18 @@ def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
             break
 
         repeat_count += 1
-        if repeats is not None and repeat_count >= repeats:
+        if repeats is not True and repeat_count >= repeats:
             break
 
         tomorrow = datetime.now() + timedelta(days=1)
         next_time = replace_timeofday(tomorrow, timeofday)
         interval = (next_time - datetime.now()).total_seconds()
-        print("tomorrow interval")
 
 
-def sched_sequence(callback, cancel_event, intervals, repeats=1):
+def sched_sequence(callback, cancel_event, intervals: Sequence, repeats=1):
     cur_interval = 0
     repeat_count = 0
-    
+
     while not cancel_event.is_set():
         cancel_event.wait(intervals[cur_interval])
         if not cancel_event.is_set():
@@ -128,7 +139,7 @@ def sched_sequence(callback, cancel_event, intervals, repeats=1):
         if cur_interval >= len(intervals):
             cur_interval = 0
             repeat_count += 1
-            if repeats is not None and repeat_count >= repeats:
+            if repeats is not True and repeat_count >= repeats:
                 break
 
 

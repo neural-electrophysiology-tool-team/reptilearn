@@ -1,5 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Mono&family=Open+Sans&display=swap');
+
 .App {
     height: 100vh;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 13.333px;
+}
+
+button {
+    font-family: 'Open Sans', sans-serif;
+    margin: 1px;
+    vertical-align: middle;
+}
+
+label {
+    vertical-align: middle;
+}
+
+input, select {
+    font-family: 'Open Sans', sans-serif;
+    vertical-align: middle;
+    margin: 1px;
 }
 
 .stream {
@@ -62,7 +82,8 @@
     white-space: pre;
     height: calc(100% - 3px);
     width: 100%;
-    border-style: none; 
+    border-style: none;
+    font-family: monospace;
 }
 
 .video_record_view {
@@ -70,9 +91,38 @@
     overflow: auto;
 }
 
-.reptilearn_header {
+.section_header {
     background-color: lightgrey;
     padding: 0px;
     border-bottom: 3px solid grey;
     vertical-align: center;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+.section_header .title {
+    font-weight: bold;
+    padding-left: 2px;
+    padding-right: 5px;
+}
+
+.subsection_header {
+    padding: 0px;
+    border-bottom: 1px solid grey;
+    vertical-align: center;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+.subsection {
+    padding-bottom: 2px;
+    border-bottom: 1px solid grey;
+}
+
+.subsection_header .title {
+    font-weight: bold;
+    padding-left: 2px;
+    padding-right: 5px;
 }

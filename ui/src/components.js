@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Selector = ({options, selected, on_select, disabled, disabled_options}) => {
+export const Selector = ({options, selected, on_select, disabled, disabled_options, name}) => {
     if (!disabled_options)
 	disabled_options = [];
 
@@ -18,8 +18,12 @@ export const Selector = ({options, selected, on_select, disabled, disabled_optio
 
     const on_change = (e) => {
         const i = parseInt(e.target.value);
-        on_select(options[i], i);
+	if (on_select)
+            on_select(options[i], i);
     };
                             
-    return <select onChange={on_change} disabled={disabled} value={selected}>{option_items}</select>;
+    return <select onChange={on_change}
+		   disabled={disabled}
+		   value={selected}
+		   name={name}>{option_items}</select>;
 };
