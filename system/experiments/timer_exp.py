@@ -18,18 +18,13 @@ class TimerExperiment(exp.Experiment):
     def setup(self):
         self.cancel_timer = None
         
-    def new_block(self):
-        params = exp.merged_params()
+    def run_block(self, params):
         self.log.info(f"new block: {exp.exp_state.get_path('cur_block')} {params}")
-        if self.cancel_timer is not None:
-            self.cancel_timer()
-            
-        self.log.info(params)
         interval = params["interval"]
         self.log.info(f"Set timer every {interval} sec.")
         self.cancel_timer = schedule.repeat(self.timer_fn, interval)
 
-    def new_trial(self):
+    def run_trial(self, params):
         self.log.info(f"new trial: {exp.exp_state.get_path('cur_trial')}")
 
     def timer_fn(self):
@@ -37,8 +32,10 @@ class TimerExperiment(exp.Experiment):
         # self.log.info("Tick")
         exp.next_trial()
 
-    def end(self):
+    def end_block(self, params):
         if self.cancel_timer is not None:
             self.cancel_timer()
+
+    def end(self, params):
         self.log.info("Stopped timer")
 

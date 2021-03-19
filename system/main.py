@@ -266,6 +266,27 @@ def route_experiment_end():
         experiment.end()
         return flask.Response("ok")
     except Exception as e:
+        log.exception("Exception while ending experiment", sys.exc_info())
+        flask.abort(500, e)
+
+
+@app.route("/experiment/next_block")
+def route_experiment_next_block():
+    try:
+        experiment.next_block()
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while moving to next block", sys.exc_info())
+        flask.abort(500, e)
+
+
+@app.route("/experiment/next_trial")
+def route_experiment_next_trial():
+    try:
+        experiment.next_trial()
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while moving to next trial", sys.exc_info())
         flask.abort(500, e)
 
 

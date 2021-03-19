@@ -44,17 +44,18 @@ def run(exp_params, exp_blocks=[]):
     )
 
     try:
-        cur_experiment.run()
+        cur_experiment.run(params)
         set_phase(0, 0)
     except Exception:
         log.exception("Exception while running experiment:")
-
+        exp_state.update("is_running", False)
 
 def end():
     if is_running() is False:
         raise ExperimentException("Experiment is not running.")
-
-    cur_experiment.end()
+    cur_experiment.end_trial(merged_params())
+    cur_experiment.end_block(merged_params())
+    cur_experiment.end(params)
     exp_state.update("is_running", False)
     exp_state.remove("cur_trial")
     exp_state.remove("cur_block")
@@ -68,21 +69,30 @@ def set_phase(block, trial):
     elif block != 0:
         raise ExperimentException("Experiment doesn't have block definitions.")
 
-    is_new_block = exp_state.get_path("cur_block") != block
-    is_new_trial = is_new_block or exp_state.get_path("cur_trial") != trial
-
     num_trials = merged_params().get("num_trials", None)
     if num_trials is not None and trial >= num_trials:
         raise ExperimentException(f"Trial {trial} is out of range for block {block}.")
 
-    exp_state.assoc((), {"cur_block": block, "cur_trial": trial})
+    if not is_running():
+        exp_state.assoc((), {"cur_block": block, "cur_trial": trial})
+        return
+    else:
+        cur_trial = exp_state.get_path("cur_trial")
+        cur_block = exp_state.get_path("cur_block")
+        
+        if cur_trial is not state.path_not_found and cur_trial != trial:
+            cur_experiment.end_trial(merged_params())
 
-    if cur_experiment is not None:
-        if is_new_block:
-            cur_experiment.new_block()
+        if cur_block is not state.path_not_found and cur_block != block:
+            cur_experiment.end_block(merged_params())
 
-        if is_new_trial:
-            cur_experiment.new_trial()
+        exp_state.assoc((), {"cur_block": block, "cur_trial": trial})
+
+        if cur_block != block:
+            cur_experiment.run_block(merged_params())
+
+        if cur_trial != trial or cur_block != block:
+            cur_experiment.run_trial(merged_params())
 
 
 def next_trial():
@@ -175,18 +185,24 @@ class Experiment:
         self.log = logger
         self.setup()
 
-    def run(self):
+    def run(self, params):
         pass
 
-    def new_block(self):
+    def run_block(self, params):
         pass
 
-    def new_trial(self):
+    def run_trial(self, params):
         pass
 
-    def end(self):
+    def end(self, params):
         pass
 
+    def end_block(self, params):
+        pass
+
+    def end_trial(self, params):
+        pass
+    
     def setup(self):
         pass
 

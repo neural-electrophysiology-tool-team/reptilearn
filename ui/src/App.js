@@ -1,17 +1,10 @@
 import './App.css';
 import React from 'react';
-
+import 'semantic-ui-css/semantic.min.css';
 import 'react-reflex/styles.css';
-
-// then you can import the components
-import {
-    ReflexContainer,
-    ReflexSplitter,
-    ReflexElement
-} from 'react-reflex';
-
-
+import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {ExperimentView} from './experiment_view.js';
+import {MainPanelView} from './main_panel_view.js';
 import {StreamGroupView} from './stream_view.js';
 import {StateView} from './state_view.js';
 import {VideoRecordView} from './video_record_view.js';
@@ -22,7 +15,7 @@ import {api_url} from './config.js';
 const App = () => {
     const [ctrlState, setCtrlState] = React.useState(null);
     const [sourcesConfig, setSourcesConfig] = React.useState(null);
-
+    const [forceState, setForceState] = React.useState(Date());
     const socket = React.useContext(SocketContext);
     
     const handle_new_state = React.useCallback((old_state, new_state) => {
@@ -53,39 +46,27 @@ const App = () => {
     return (
 	<div className="App">
           <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-            
             <ReflexElement>
               <ReflexContainer orientation="vertical" windowResizeAware={true}>    
-
-                <ReflexElement flex={0.65}>
-                  <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-                    <ReflexElement size={20} className="section_header" maxSize={20} minSize={20}>
-                      <span className="title">ReptiLearn</span>
-                    </ReflexElement>
-
-                    <ReflexElement className="subsection_header" size={30} minSize={30} maxSize={30}>
-                      	  <VideoRecordView ctrl_state={ctrlState} />
-                    </ReflexElement>
-		    
-                    <ReflexElement className="component">
-                    <StreamGroupView image_sources={valid_image_sources}
-			             sources_config={sourcesConfig} />       
-                    </ReflexElement>
-             
-                  </ReflexContainer>
-                </ReflexElement>
+                
+                <ReflexElement flex={0.65} className="main_panel_container">
+	          <MainPanelView ctrl_state={ctrlState}
+			         image_sources={valid_image_sources}
+			         sources_config={sourcesConfig} />
+	        </ReflexElement>            
+		  
                 <ReflexSplitter/>
 
                 <ReflexElement>
                   <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-                    <ReflexElement className="component">
-                      <ExperimentView ctrl_state={ctrlState}/>                  
+                    <ReflexElement className="" minSize={26} onStopResize={() => setForceState(Date())}>
+                      <ExperimentView ctrl_state={ctrlState} force={forceState}/>
                     </ReflexElement>
                     
                     <ReflexSplitter/>
                     
-                    <ReflexElement className="component">  
-                      <StateView ctrl_state={ctrlState}/>                 
+                    <ReflexElement className="" minSize={26}>  
+                      <StateView ctrl_state={ctrlState}/>
                     </ReflexElement>
 
                   </ReflexContainer>
@@ -96,7 +77,7 @@ const App = () => {
 
             <ReflexSplitter/>
 
-            <ReflexElement className="component" minSize={60} flex="0.2">  
+            <ReflexElement className="round_corners" minSize={60} flex="0.2">  
               <LogView/>
             </ReflexElement>                     
           </ReflexContainer>

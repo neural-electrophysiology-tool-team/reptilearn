@@ -1,7 +1,6 @@
 from datetime import datetime, time, timedelta
 import threading
 import logging
-from numbers import Number
 from collections import Sequence
 
 # one-shot timer, repeating timer, time of day scheduling (thread based)
@@ -67,10 +66,7 @@ def next_timeofday(base: datetime, timeofday: time):
         return same_day
 
 
-def sched_once(callback, cancel_event, interval: Number):
-    #if not isinstance(interval, Number):
-    #    raise TypeError(f"Invalid interval value {interval} type {type(interval)}")
-    
+def sched_once(callback, cancel_event, interval):
     if interval is None or interval == 0:
         callback()
     else:
@@ -79,7 +75,7 @@ def sched_once(callback, cancel_event, interval: Number):
             callback()
 
 
-def sched_repeat(callback, cancel_event, interval: Number, repeats=True):
+def sched_repeat(callback, cancel_event, interval, repeats=True):
 
     repeat_count = 0
 

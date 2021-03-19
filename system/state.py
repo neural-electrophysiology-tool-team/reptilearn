@@ -142,3 +142,6 @@ class Cursor:
     def exists(self):
         v = get_path(self.path)
         return v is not path_not_found
+
+    def __getitem__(self, path):
+        return self.get_path(path)

@@ -1,5 +1,6 @@
 import React from 'react';
 import {api_url} from './config.js';
+import { Dropdown } from 'semantic-ui-react';
 
 export const VideoRecordView = ({ctrl_state}) => {
     const prefix_input_ref = React.useRef();
@@ -33,43 +34,46 @@ export const VideoRecordView = ({ctrl_state}) => {
         }      
     };
     
-    const src_changed = (e) => {
-        const src_id = e.target.name;
-        
-        if (e.target.checked) {
+    const src_changed = (src_id) => {
+        console.log(ctrl_state.video_record.selected_sources);
+        console.log(ctrl_state.video_record.selected_sources[src_id]);
+        if (ctrl_state.video_record.selected_sources.indexOf(src_id) === -1) {
+            console.log("select", src_id);
             fetch(api_url + `/video_record/select_source/${src_id}`);
         }
         else {
+            console.log("unselect", src_id);
             fetch(api_url + `/video_record/unselect_source/${src_id}`);
         }
     };
 
-    const source_checkboxes = image_sources.map(src_id => {
+    const select_sources = (() => {
+        const items = image_sources.map(src_id => {
+            const selected = ctrl_state.video_record.selected_sources.indexOf(src_id) !== -1;
+            return <Dropdown.Item text={src_id}
+                                  icon={selected ? "check" : null}
+                                  onClick={() => src_changed(src_id)}/>;
+        });
         return (
-            <span key={src_id}>
-              <input type="checkbox"
-                     onChange={src_changed}
-                     name={src_id}
-                     checked={ctrl_state.video_record.selected_sources.indexOf(src_id) !== -1}
-              />
-              {src_id}
-            </span>
+            <Dropdown text='Record Sources'>
+              <Dropdown.Menu>
+                {items}
+              </Dropdown.Menu>
+            </Dropdown>
         );
-    });
-    
+    })();
+
     return (
-        <div className="pane-content video_record_view">
-          <span className="title">Video</span>
-          <button onClick={toggle_recording}>{rec_btn_title}</button>
+        <span className="video_record_view">
+          {select_sources}
           <input type="text"
                  name="prefix_input"
                  placeholder="video name"
                  ref={prefix_input_ref}
                  disabled={is_recording}
           />
-
+          <button onClick={toggle_recording}>{rec_btn_title}</button>
           <button onClick={toggle_ttl_trigger}>{ttl_btn_title}</button>
-	  Sources: {source_checkboxes}
-        </div>
+        </span>
     );
 };

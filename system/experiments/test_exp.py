@@ -9,18 +9,22 @@ class TestExperiment(exp.Experiment):
         "run_msg": "TestExperiment is running",
         "end_msg": "TestExperiment has ended",
     }
+
+    default_blocks = [
+        {"run_msg": f"block {i}", "end_msg": f"end block {i}"} for i in range(5)
+    ]
     
-    def setup(self):
-        exp.state_dispatcher.add_callback(("experiment", "cur_trial"), lambda o, n: print("cur_trial:", n))
+    def run_trial(self, params):
+        self.log.info("new trial")
 
-    def run(self):
-        self.log.info(exp.params.get_path("run_msg"))
-        arena.signal_led(True)
+    def run_block(self, params):
+        self.log.info(params["run_msg"])
+
+    def run(self, params):
+        self.log.info(params["run_msg"])
         
-    def end(self):
-        self.log.info(exp.params.get_path("end_msg"))
-        mqtt.client.publish("reptilearn/testexp/ended")
-        arena.signal_led(False)
+    def end_block(self, params):
+        self.log.info(params["end_msg"])
 
-    def release(self):
-        exp.state_dispatcher.remove_callback(("experiment", "cur_trial"))
+    def end(self, params):
+        self.log.info(params["end_msg"])

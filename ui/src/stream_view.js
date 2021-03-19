@@ -2,13 +2,14 @@ import React from 'react';
 import {Selector} from './components.js';
 import {api_url} from './config.js';
 
-const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove_stream, image_sources, sources_config, unused_src_idxs, set_streaming, set_src_idx, set_width, set_undistort, stop_streaming}) => {
+const StreamView = ({idx, streams, remove_stream, image_sources, sources_config, unused_src_idxs, set_streaming, set_src_idx, set_width, set_undistort, stop_streaming, shift_left, shift_right}) => {
+    const {src_idx, width, undistort, is_streaming} = streams[idx];
     const source_id = image_sources[src_idx];
     const src_width = sources_config[source_id].image_shape[1];
     const src_height = sources_config[source_id].image_shape[0];
     
-    const stream_height = src_height * (stream_width / src_width);
-    const stream_url = api_url + `/video_stream/${source_id}?width=${stream_width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
+    const stream_height = src_height * (width / src_width);
+    const stream_url = api_url + `/video_stream/${source_id}?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
 
     const toggle_stream = (e) => {
         if (is_streaming)
@@ -17,12 +18,12 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
         set_streaming(idx, !is_streaming);
     };
     
-    const stream_div_style = {width: stream_width + "px", height: stream_height + "px"};
+    const stream_div_style = {width: width + "px", height: stream_height + "px"};
 
     const stream = is_streaming ?
 	  (
               <img src={stream_url}
-                   width={stream_width}
+                   width={width}
                    height={stream_height}
                    alt="source stream"
               />
@@ -36,30 +37,38 @@ const StreamView = ({idx, src_idx, stream_width, undistort, is_streaming, remove
         return unused_src_idxs.indexOf(idx) === -1 && idx !== src_idx;
     });
 
+    const shift_right_disabled = idx === streams.length - 1;
+    const shift_left_disabled = idx === 0;
+    
     return (
-          <div className="stream_view">
-            <button onClick={(e) => remove_stream(idx)} disabled={is_streaming}>x</button>
+        <div className="stream_view">
+          <div>
+            <button onClick={(e) => remove_stream(idx)} disabled={false}>x</button>
             <Selector options={image_sources}
                       on_select={(_, i) => set_src_idx(idx, i)}
                       selected={src_idx}
-                      disabled={is_streaming}
+                      disabled={false}
                       disabled_options={used_img_srcs}/>
-            <br/>
-            <div className="stream" style={stream_div_style}>
-              {stream}
-            </div>
+            <button onClick={() => shift_left(idx)} disabled={shift_left_disabled}>&lt;</button>
+            <button onClick={() => shift_right(idx)} disabled={shift_right_disabled}>&gt;</button>
+          </div>
+          <div className="stream" style={stream_div_style}>
+            {stream}
+          </div>
+          <div className="toolbar">
             <label htmlFor="width_selector">Width: </label>
             <Selector options={width_options}
                       on_select={(w) => set_width(idx, w)}
-                      selected={width_options.indexOf(stream_width)}
-                      disabled={is_streaming}/>
+                      selected={width_options.indexOf(width)}
+                      disabled={false}/>
             <input type="checkbox"
                    name="undistort_checkbox"
                    checked={undistort}
                    onChange={(e) => set_undistort(idx, e.target.checked)}
-                   disabled={is_streaming}/>
+                   disabled={false}/>
             <label htmlFor="undistort_checkbox">Undistort </label>                        <button onClick={toggle_stream}>{stream_btn_title}</button>
           </div>
+        </div>
     );
 };
 
@@ -87,6 +96,8 @@ export class StreamGroupView extends React.Component {
         const new_views = this.state.streams.slice(0, idx)
               .concat(this.state.streams.slice(idx + 1, this.state.streams.length));
         this.setState({streams: new_views});
+        if (this.remove_stream_cb)
+            this.remove_stream_cb(new_views.length);
     }
 
     add_stream = () => {
@@ -94,7 +105,7 @@ export class StreamGroupView extends React.Component {
             src_idx: this.unused_src_idxs()[0],  // there must be at least one, otherwise button is disabled.
             width: 360,
             undistort: false,
-            is_streaming: false,
+            is_streaming: true,
         };
         this.setState({streams: [...this.state.streams, new_stream]});
     }
@@ -131,6 +142,26 @@ export class StreamGroupView extends React.Component {
         return fetch(api_url + `/stop_stream/${src_id}`);
     }
 
+    on_remove_stream = (cb) => {
+        this.remove_stream_cb = cb;
+    }
+
+    shift_left = (idx) => {
+        const streams = this.copy_streams_state();
+        const s = streams[idx];
+        streams.splice(idx, 1);
+        streams.splice(idx - 1, 0, s);
+        this.setState({streams: streams});
+    }
+
+    shift_right = (idx) => {
+        const streams = this.copy_streams_state();
+        const s = streams[idx];
+        streams.splice(idx, 1);
+        streams.splice(idx + 1, 0, s);
+        this.setState({streams: streams});
+    }
+    
     shouldComponentUpdate(next_props, next_state) {
         if (JSON.stringify(next_state) !== JSON.stringify(this.state))
             return true;
@@ -151,10 +182,7 @@ export class StreamGroupView extends React.Component {
         const stream_views = this.state.streams.map(
             (stream, idx) => <StreamView
                                idx={idx}
-                               src_idx={stream.src_idx}
-                               stream_width={stream.width}
-                               undistort={stream.undistort}
-                               is_streaming={stream.is_streaming}
+                               streams={this.state.streams}
                                remove_stream={this.remove_stream}
                                image_sources={this.image_sources}
                                sources_config={this.sources_config}
@@ -164,6 +192,8 @@ export class StreamGroupView extends React.Component {
                                set_width={this.set_width}
                                set_undistort={this.set_undistort}
                                stop_streaming={this.stop_streaming}
+                               shift_left={this.shift_left}
+                               shift_right={this.shift_right}
                                key={idx}
                                />
 
@@ -171,16 +201,7 @@ export class StreamGroupView extends React.Component {
         
         return (
 	    <div className="stream_group_view pane-content">
-              <div className="section_header">
-                <span className="title">Streaming</span>
-                <button onClick={this.add_stream}
-                        disabled={this.state.streams.length === this.image_sources.length}>
-                  Add stream
-                </button>
-              </div>
-              <div className="">
-                {stream_views}
-              </div>
+              {stream_views}
             </div>
         );     
     }

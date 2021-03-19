@@ -2,6 +2,7 @@ import React from 'react';
 import {Selector} from './components.js';
 import ReactJson from 'react-json-view';
 import {api_url} from './config.js';
+import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 
 const assign_keep_old = (o, n) => {
     if (o === null || o === undefined)
@@ -105,6 +106,11 @@ export const ExperimentView = ({ctrl_state}) => {
     };
     
     const set_experiment = exp_name => {
+        if (is_running) {
+            update_defaults(false);
+            return;
+        }
+        
         const new_exp = exp_name !== ctrl_state.experiment.cur_experiment;
 	if (new_exp) {
 	    setExperimentParams({});
@@ -153,6 +159,14 @@ export const ExperimentView = ({ctrl_state}) => {
         blocks[block_idx] = e.updated_src;
         setExperimentBlocks(blocks);
     };
+
+    const next_block = () => {
+        fetch(exp_url + "/next_block");
+    };
+
+    const next_trial = () => {
+        fetch(exp_url + "/next_trial");
+    };
     
     React.useEffect(() => {
 	fetch(exp_url + "/list")
@@ -190,6 +204,16 @@ export const ExperimentView = ({ctrl_state}) => {
           <button onClick={end_experiment}>End Experiment</button>
 	  : <button onClick={run_experiment}>Run Experiment</button>;
 
+    const run_state_element = !is_running ? null :
+          <ReflexElement size={26} minSize={26} maxSize={26} className="subsection_header">
+            <label>block:</label>
+            <input type="text" readOnly value={ctrl_state.experiment.cur_block} size="2"/>
+            <button onClick={next_block}>+</button>
+            <label> trial:</label>
+            <input type="text" readOnly value={ctrl_state.experiment.cur_trial} size="2"/>
+            <button onClick={next_trial}>+</button>
+          </ReflexElement>;
+
     const params_div = experimentParams !== null ?
           (
           <React.Fragment>
@@ -225,9 +249,12 @@ export const ExperimentView = ({ctrl_state}) => {
           experimentBlocks.map((block, idx) => (
               <div key={idx}>
                 <div className="subsection_header">
-                  <span className="title">Block {idx}: </span>
+                  <span className="title">
+                    <button onClick={(e) => remove_block(idx)} disabled={is_running}>x</button>
+                    
+                    Block {idx}:
+                  </span>
                   <button onClick={(e) => reset_block(idx)} disabled={is_running}>Reset</button>
-                  <button onClick={(e) => remove_block(idx)} disabled={is_running}>Remove</button>
                   {block_override_selector(idx)}
                 </div>
                 <div className="subsection">
@@ -240,10 +267,10 @@ export const ExperimentView = ({ctrl_state}) => {
                 </div>
               </div>
           )) : null;
-    
+
     return (
-	<div className="pane-content">
-          <div className="section_header">
+        <ReflexContainer orientation="horizontal" key={Date()}>
+          <ReflexElement size={26} minSize={26} maxSize={26} className="section_header">
             <span className="title">Experiment</span>
 	    <Selector options={["None"].concat(experimentList)}
 		      selected={cur_exp_idx}
@@ -252,14 +279,17 @@ export const ExperimentView = ({ctrl_state}) => {
 	    {reload_btn}
             <button onClick={refresh_experiment_list} disabled={is_running}>Refresh list</button>
             {run_end_btn}
-          </div>
-	  {params_div}
-          <div className="section_header">
-            <span className="title">Blocks</span>
-            <button onClick={add_block} disabled={is_running}>Add block</button>
-            <button onClick={reset_all_blocks} disabled={is_running}>Reset blocks</button>
-          </div>
-          {block_divs}
-	</div>
+          </ReflexElement>
+          {run_state_element}
+          <ReflexElement>
+            {params_div}
+            <div className="subsection_header">
+              <span className="title">Blocks</span>
+              <button onClick={add_block} disabled={is_running}>Add block</button>
+              <button onClick={reset_all_blocks} disabled={is_running}>Reset blocks</button>
+            </div>
+            {block_divs}
+          </ReflexElement>
+        </ReflexContainer>       
     );
 };

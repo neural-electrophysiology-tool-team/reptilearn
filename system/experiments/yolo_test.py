@@ -1,5 +1,4 @@
 import experiment as exp
-import state
 import mqtt
 
 
@@ -7,7 +6,7 @@ class YoloExperiment(exp.Experiment):
     def setup(self):
         self.prev_det = None
 
-    def run(self):
+    def run(self, params):
         self.det_count = 0
         mqtt.client.subscribe_callback(
             "reptilearn/pogona_head_bbox",
@@ -37,6 +36,6 @@ class YoloExperiment(exp.Experiment):
         if det is not None and len(det) != 0:
             self.prev_det = det
 
-    def end(self):
+    def end(self, params):
         mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
         exp.exp_state.remove("last_known_position")

@@ -11,6 +11,9 @@
     "react-json-view": "^1.21.2",
     "react-reflex": "^4.0.0",
     "react-scripts": "4.0.1",
+    "react-select": "^4.2.1",
+    "semantic-ui-css": "^2.4.1",
+    "semantic-ui-react": "^2.0.3",
     "socket.io-client": "^3.1.2",
     "web-vitals": "^0.2.4"
   },

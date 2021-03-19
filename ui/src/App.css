@@ -9,6 +9,9 @@
 button {
     font-family: 'Open Sans', sans-serif;
     margin: 1px;
+    margin-left: 4px !important;
+    margin-right: 4px !important;
+
     vertical-align: middle;
 }
 
@@ -22,14 +25,7 @@ input, select {
     margin: 1px;
 }
 
-.stream {
-    background-color: darkgrey;
-    border-style: solid;
-    border-width: 2px;
-    border-color: lightgrey;
-}
-
-.component {
+.round_corners {
     padding: 5px;
     border-radius: 5px;
     border: 1px solid;
@@ -52,14 +48,34 @@ input, select {
     height: 100%;
 }
 
+.stream_group_view {
+    padding: 0px 2px;
+}
+
+.main_panel_container {
+    background-color: #555555;
+}
+
 .stream_view {
+    background-color: white;
     display: inline-block;
     vertical-align: middle;
-    margin-right: 5px;
-    margin-top: 5px;
-    padding: 5px;
-    border-radius: 5px;
+    margin-top: 0px;
+    margin-right: 1px;
+    padding: 5px 0px;
     border: 1px solid;
+}
+
+.stream_view .toolbar {
+    margin: 0px 2px;
+}
+
+.stream {
+    background-color: darkgrey;
+    border-style: solid;
+    border-width: 2px;
+    margin: 2px 0px;
+    border-color: lightgrey;
 }
 
 .column {
@@ -80,15 +96,13 @@ input, select {
 .log_view {
     box-sizing: border-box;
     white-space: pre;
-    height: calc(100% - 3px);
+    height: calc(100% - 8px);
     width: 100%;
     border-style: none;
     font-family: monospace;
 }
 
 .video_record_view {
-    display: block;
-    overflow: auto;
 }
 
 .section_header {
@@ -121,8 +135,19 @@ input, select {
     border-bottom: 1px solid grey;
 }
 
+input {
+    margin-left: 4px !important;
+    margin-right: 4px !important;
+}
+
 .subsection_header .title {
     font-weight: bold;
     padding-left: 2px;
     padding-right: 5px;
 }
+
+.placeholder {
+    padding-left: 20px;
+    font-size: 0px;
+}
+
