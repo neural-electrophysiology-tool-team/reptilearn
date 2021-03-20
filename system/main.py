@@ -14,7 +14,8 @@ import schedule
 import storage
 import undistort
 import image_utils
-import state
+from state import state
+import state as state_mod
 import experiment
 import video_record
 import config
@@ -78,12 +79,11 @@ def excepthook(exc_type, exc_value, exc_traceback, thread_name=None):
 sys.excepthook = excepthook
 
 # initialize state
-state.update(["image_sources"], {})
+state["image_sources"] = {}
 
 image_sources = {
     src_id: instantiate_class(
-        src_config["class"], src_id, src_config, state_root=["image_sources"]
-    )
+        src_config["class"], src_id, src_config, state_cursor=state.get_cursor(("image_sources", src_id)))
     for (src_id, src_config) in config.image_sources.items()
 }
 
@@ -124,7 +124,7 @@ def send_state(old, new):
     socketio.emit("state", (old_json, new_json))
 
     
-state_listen, stop_state_emitter = state.register_listener(send_state)
+state_listen, stop_state_emitter = state_mod.register_listener(send_state)
 state_emitter_process = threading.Thread(target=state_listen)
 state_emitter_process.start()
 
@@ -132,7 +132,7 @@ state_emitter_process.start()
 @socketio.on("connect")
 def handle_connect():
     log.info("New SocketIO connection. Emitting state")
-    blob = json.dumps(state.get(), default=convert_for_json)
+    blob = json.dumps(state.get_self(), default=convert_for_json)
     emit("state", (None, blob))
 
 
@@ -213,7 +213,7 @@ def route_stop_stream(src_id):
 
 @app.route("/state")
 def route_state():
-    return flask.jsonify(state.get())
+    return flask.jsonify(state.get_self())
 
 
 @app.route("/experiment/list")
@@ -331,7 +331,7 @@ def route_stop_trigger():
 @app.route("/video_record/set_prefix/")
 @app.route("/video_record/set_prefix/<prefix>")
 def route_set_prefix(prefix=""):
-    state.update(("video_record", "filename_prefix"), prefix)
+    state[("video_record", "filename_prefix")] = prefix
     return flask.Response("ok")
 
 
@@ -368,4 +368,4 @@ video_record.stop_trigger()
 schedule.cancel_all()
 mqtt.shutdown()
 logger.shutdown()
-state.shutdown()
+state_mod.shutdown()

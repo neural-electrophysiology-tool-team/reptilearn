@@ -8,23 +8,9 @@ _ns.state = _mgr.dict()
 _did_update_events = _mgr.list()
 _state_lock = _mgr.Lock()
 
-path_not_found = dt.path_not_found
-
-
-def mutating_fn(f):
-    def mutating(*args, **kwargs):
-        with _state_lock:
-            set(f(get(), *args, **kwargs))
-
-    return mutating
-
 
 def get():
     return deepcopy(_ns.state)
-
-
-def get_path(path, default=path_not_found):
-    return dt.get_path(get(), path, default)
 
 
 def set(new_state):
@@ -33,13 +19,28 @@ def set(new_state):
         e.set()
 
 
-update = mutating_fn(dt.update)
-assoc = mutating_fn(dt.assoc)
-remove = mutating_fn(dt.remove)
+def _mutating_fn(f):
+    def mutating(*args, **kwargs):
+        with _state_lock:
+            set(f(get(), *args, **kwargs))
+
+    return mutating
 
 
-def contains(path, v):
-    return dt.contains(get(), path, v)
+def _querying_fn(f):
+    def querying(*args, **kwargs):
+        return f(get(), *args, **kwargs)
+
+    return querying
+
+
+getitem = _querying_fn(dt.getitem)
+setitem = _mutating_fn(dt.setitem)
+update = _mutating_fn(dt.update)
+remove = _mutating_fn(dt.remove)
+append = _mutating_fn(dt.append)
+contains = _querying_fn(dt.contains)
+exists = _querying_fn(dt.exists)
 
 
 def register_listener(on_update):
@@ -74,15 +75,15 @@ def shutdown():
     _mgr.shutdown()
 
 
-class Dispatcher:
+class StateDispatcher:
     def __init__(self):
         super().__init__()
         self._dispatch_table = dict()
 
         def on_update(old, new):
             for path, on_update in self._dispatch_table.items():
-                old_val = dt.get_path(old, path, dt.path_not_found)
-                new_val = dt.get_path(new, path, dt.path_not_found)
+                old_val = dt.getitem(old, path)
+                new_val = dt.getitem(new, path)
 
                 if not old_val == new_val:
                     on_update(old_val, new_val)
@@ -112,17 +113,25 @@ class Cursor:
             path = (path,)
 
         self.path = path
-        self.get_path = partial_path_fn(get_path, path)
+        self.get = partial_path_fn(getitem, path)
+        self.setitem = partial_path_fn(setitem, path)
         self.update = partial_path_fn(update, path)
-        self.assoc = partial_path_fn(assoc, path)
         self.remove = partial_path_fn(remove, path)
+        self.append = partial_path_fn(append, path)
         self.contains = partial_path_fn(contains, path)
+        self.exists = partial_path_fn(exists, path)
 
-    def get(self, *args, **kwargs):
-        return get_path(self.path, *args, **kwargs)
+    def get_self(self, *args, **kwargs):
+        if self.path == ():
+            return get(*args, **kwargs)
+        else:
+            return getitem(self.path, *args, **kwargs)
 
-    def set(self, value):
-        return update(self.path, value)
+    def set_self(self, value):
+        if self.path == ():
+            return set(value)
+        else:
+            return setitem(self.path, value)
 
     def parent(self):
         if len(self.path) == 0:
@@ -139,9 +148,23 @@ class Cursor:
     def get_cursor(self, path):
         return Cursor(self.absolute_path(path))
 
-    def exists(self):
-        v = get_path(self.path)
-        return v is not path_not_found
-
     def __getitem__(self, path):
-        return self.get_path(path)
+        return self.get(path)
+
+    def __setitem__(self, path, v):
+        return self.setitem(path, v)
+
+    def __str__(self):
+        return str(self.get_self())
+
+    def __contains__(self, k):
+        if type(k) is tuple:
+            if len(k) > 1:
+                return self.exists(self.path + k)
+            else:
+                k = k[0]
+
+        return contains(self.path, k)
+
+
+state = Cursor(())

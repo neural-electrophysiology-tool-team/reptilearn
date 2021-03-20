@@ -2,7 +2,6 @@ import numpy as np
 import multiprocessing as mp
 import cv2 as cv
 import time
-import state
 import logger
 import logging
 
@@ -15,16 +14,15 @@ class AcquireException(Exception):
 
 
 class ImageSource(mp.Process):
-    def __init__(self, src_id, image_shape, state_root=None, buf_len=1):
+    def __init__(self, src_id, image_shape, state_cursor, buf_len=1):
         super().__init__()
         self.image_shape = image_shape
         self.buf_len = buf_len
         self.log = logging.getLogger(__name__)
         self.src_id = src_id
 
-        if state_root is not None:
-            self.state_path = state_root + [src_id]
-            state.update(self.state_path, {"acquiring": False})
+        self.state = state_cursor
+        self.state.set_self({"acquiring": False})
 
         self.buf_shape = image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
@@ -41,13 +39,6 @@ class ImageSource(mp.Process):
         self.stop_streaming_events = []
         self.add_observer_event(self.stream_obs_event)
         self.name = f"{type(self).__name__}:{self.src_id}"
-
-    def set_state(self, new_state):
-        if self.state_path is not None:
-            state.assoc(self.state_path, new_state)
-
-    def get_state(self, key):
-        return state.get_path(self.state_path + [key])
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
@@ -93,7 +84,7 @@ class ImageSource(mp.Process):
         if not self.on_begin():
             return
 
-        self.set_state({"acquiring": True})
+        self.state["acquiring"] = True
 
         try:
             while True:
@@ -124,7 +115,7 @@ class ImageSource(mp.Process):
         except KeyboardInterrupt:
             pass
         finally:
-            self.set_state({"acquiring": False})
+            self.state["acquiring"] = False
             self.on_finish()
 
         for obs in self.observer_events:
@@ -186,7 +177,7 @@ class ImageObserver(mp.Process):
 
 
 class VideoImageSource(ImageSource):
-    def __init__(self, src_id, config, state_root=None):
+    def __init__(self, src_id, config, state_cursor=None):
         self.video_path = config["video_path"]
         self.frame_rate = config.get("frame_rate", 60)
         self.start_frame = config.get("start_frame", 0)
@@ -210,7 +201,7 @@ class VideoImageSource(ImageSource):
 
         vcap.release()
 
-        super().__init__(src_id, image_shape, state_root)
+        super().__init__(src_id, image_shape, state_cursor)
 
     def on_begin(self):
         self.vcap = cv.VideoCapture(str(self.video_path))

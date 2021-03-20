@@ -1,13 +1,12 @@
 import PySpin
 from video_stream import ImageSource
 import re
-import multiprocessing as mp
 import time
 
 
 class FLIRImageSource(ImageSource):
-    def __init__(self, src_id, config, state_root=None):
-        super().__init__(src_id, config["image_shape"], state_root)
+    def __init__(self, src_id, config, state_cursor):
+        super().__init__(src_id, config["image_shape"], state_cursor)
         self.cam_id = config["cam_id"]
         self.config = config
 

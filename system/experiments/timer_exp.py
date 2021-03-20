@@ -1,31 +1,35 @@
 import experiment as exp
 import schedule
 import mqtt
+import time
 
 
 class TimerExperiment(exp.Experiment):
     default_params = {
         "interval": 1,
-        "num_trials": 5,
     }
 
     default_blocks = [
         {"num_trials": 2},
         {"num_trials": 3, "interval": 2},
         {"num_trials": 6, "interval": 0.5},
+        {"interval": 0.2},
     ]
 
     def setup(self):
         self.cancel_timer = None
-        
+
     def run_block(self, params):
-        self.log.info(f"new block: {exp.exp_state.get_path('cur_block')} {params}")
+        self.log.info(f"new block: {exp.exp_state['cur_block']} {params}")
         interval = params["interval"]
         self.log.info(f"Set timer every {interval} sec.")
-        self.cancel_timer = schedule.repeat(self.timer_fn, interval)
+
+        self.cancel_timer = schedule.repeat(
+            self.timer_fn, interval, params.get("num_trials", True)
+        )
 
     def run_trial(self, params):
-        self.log.info(f"new trial: {exp.exp_state.get_path('cur_trial')}")
+        self.log.info(f"{exp.exp_state['cur_trial']}: {time.time()}")
 
     def timer_fn(self):
         mqtt.client.publish("reptilearn/timer", "tick")
@@ -33,9 +37,10 @@ class TimerExperiment(exp.Experiment):
         exp.next_trial()
 
     def end_block(self, params):
+        pass
+
+    def end(self, params):
         if self.cancel_timer is not None:
             self.cancel_timer()
 
-    def end(self, params):
         self.log.info("Stopped timer")
-

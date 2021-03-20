@@ -1,6 +1,5 @@
 import config
-import state
-import sys
+from state import state, StateDispatcher
 from dynamic_loading import load_module, find_subclass, reload_module
 
 
@@ -8,15 +7,17 @@ class ExperimentException(Exception):
     pass
 
 
-state.update("experiment", {})
-exp_state = state.Cursor("experiment")
-exp_state.update((), {"is_running": False})
+state["experiment"] = {
+    "is_running": False,
+}
+
+exp_state = state.get_cursor("experiment")
 params = exp_state.get_cursor("params")
 blocks = exp_state.get_cursor("blocks")
 
 cur_experiment = None
 cur_experiment_name = None
-state_dispatcher = state.Dispatcher()
+state_dispatcher = StateDispatcher()
 
 
 # experiment can be running or not. stop either because it ended or because we asked it to.
@@ -25,7 +26,7 @@ state_dispatcher = state.Dispatcher()
 # should have cur params with the right params for block (assoc cur block params into global params and put here)
 # make it easy to make the flow time based.
 def run(exp_params, exp_blocks=[]):
-    if is_running() is True:
+    if exp_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
     if cur_experiment is None:
@@ -34,37 +35,37 @@ def run(exp_params, exp_blocks=[]):
     log.info("")
     log.info(f"Running experiment {cur_experiment_name}")
     log.info("========================================")
-    
-    params.set(exp_params)
-    blocks.set(exp_blocks)
 
-    exp_state.assoc(
-        (),
-        {"is_running": True},
-    )
+    params.set_self(exp_params)
+    blocks.set_self(exp_blocks)
+
+    exp_state["is_running"] = True
 
     try:
-        cur_experiment.run(params)
+        cur_experiment.run(params.get_self())
         set_phase(0, 0)
     except Exception:
         log.exception("Exception while running experiment:")
-        exp_state.update("is_running", False)
+        exp_state["is_running"] = False
+
 
 def end():
-    if is_running() is False:
+    if exp_state["is_running"] is False:
         raise ExperimentException("Experiment is not running.")
     cur_experiment.end_trial(merged_params())
     cur_experiment.end_block(merged_params())
-    cur_experiment.end(params)
-    exp_state.update("is_running", False)
+    cur_experiment.end(params.get_self())
+
+    exp_state["is_running"] = False
     exp_state.remove("cur_trial")
     exp_state.remove("cur_block")
+
     log.info(f"Experiment {cur_experiment_name} has ended.")
 
 
 def set_phase(block, trial):
-    if blocks.exists():
-        if len(blocks.get()) <= block and block != 0:
+    if blocks.exists(()):
+        if len(blocks.get_self()) <= block and block != 0:
             raise ExperimentException(f"Block {block} is not defined.")
     elif block != 0:
         raise ExperimentException("Experiment doesn't have block definitions.")
@@ -73,20 +74,20 @@ def set_phase(block, trial):
     if num_trials is not None and trial >= num_trials:
         raise ExperimentException(f"Trial {trial} is out of range for block {block}.")
 
-    if not is_running():
-        exp_state.assoc((), {"cur_block": block, "cur_trial": trial})
+    if not exp_state["is_running"]:
+        exp_state.update((), {"cur_block": block, "cur_trial": trial})
         return
     else:
-        cur_trial = exp_state.get_path("cur_trial")
-        cur_block = exp_state.get_path("cur_block")
-        
-        if cur_trial is not state.path_not_found and cur_trial != trial:
+        cur_trial = exp_state.get("cur_trial", None)
+        cur_block = exp_state.get("cur_block", None)
+
+        if cur_trial is not None and cur_trial != trial:
             cur_experiment.end_trial(merged_params())
 
-        if cur_block is not state.path_not_found and cur_block != block:
+        if cur_block is not None and cur_block != block:
             cur_experiment.end_block(merged_params())
 
-        exp_state.assoc((), {"cur_block": block, "cur_trial": trial})
+        exp_state.update((), {"cur_block": block, "cur_trial": trial})
 
         if cur_block != block:
             cur_experiment.run_block(merged_params())
@@ -96,36 +97,34 @@ def set_phase(block, trial):
 
 
 def next_trial():
-    if not is_running():
-        log.warning("experiment.py: Attempted to run next_trial() while experiment is not running")
-    cur_trial = exp_state.get_path("cur_trial", None)
-    cur_block = exp_state.get_path("cur_block", None)
+    if not exp_state["is_running"]:
+        log.warning(
+            "experiment.py: Attempted to run next_trial() while experiment is not running"
+        )
+
+    cur_trial = exp_state["cur_trial"]
+    cur_block = exp_state["cur_block"]
 
     num_trials = merged_params().get("num_trials", None)
 
     if num_trials is not None and cur_trial + 1 >= num_trials:
-        # next block
-        if num_blocks() is not None and cur_block + 1 < num_blocks():
-            set_phase(cur_block + 1, 0)
-        else:
-            end()
+        next_block()
     else:
         # next trial
         set_phase(cur_block, cur_trial + 1)
 
 
 def next_block():
-    if not is_running():
-        log.warning("experiment.py: Attempted to run next_block() while experiment is not running")
- 
-    num_blocks = (
-        len(exp_state.get_path("blocks")) if exp_state.contains((), "blocks") else None
-    )
-    cur_block = exp_state.get_path("cur_block")
-    if num_blocks is not None and cur_block + 1 >= num_blocks:
-        end()
-    else:
+    if not exp_state["is_running"]:
+        log.warning(
+            "experiment.py: Attempted to run next_block() while experiment is not running"
+        )
+
+    cur_block = exp_state["cur_block"]
+    if cur_block + 1 < get_num_blocks():
         set_phase(cur_block + 1, 0)
+    else:
+        end()
 
 
 def load_experiments(experiments_dir=config.experiments_dir):
@@ -152,7 +151,7 @@ def refresh_experiment_list():
 def set_experiment(name):
     global cur_experiment, cur_experiment_name
 
-    if is_running() is True:
+    if exp_state["is_running"] is True:
         raise ExperimentException(
             "Can't set experiment while an experiment is running."
         )
@@ -174,7 +173,7 @@ def set_experiment(name):
         cur_experiment = None
         log.info("Unloaded experiment.")
 
-    state.update(("experiment", "cur_experiment"), name)
+    exp_state["cur_experiment"] = name
 
 
 class Experiment:
@@ -202,7 +201,7 @@ class Experiment:
 
     def end_trial(self, params):
         pass
-    
+
     def setup(self):
         pass
 
@@ -213,31 +212,22 @@ class Experiment:
 # Convenience functions
 
 
-def is_running():
-    return exp_state.get_path("is_running", False)
-
-
 def merged_params():
-    block_params = cur_block_params().get()
-    params_dict = params.get()
+    if blocks.exists(()) and len(blocks.get_self()) > 0 and "cur_block" in exp_state:
+        block_params = exp_state[("blocks", exp_state["cur_block"])]
+    else:
+        block_params = exp_state["params"]
+
+    params_dict = params.get_self()
     params_dict.update(block_params)
     return params_dict
 
 
-def cur_block_params():
-    if blocks.exists() and len(blocks.get()) > 0 and exp_state.contains((), "cur_block"):
-        cur_block = exp_state.get_path("cur_block")
-        return exp_state.get_cursor(("blocks", cur_block))
+def get_num_blocks():
+    if "blocks" in exp_state:
+        return len(exp_state["blocks"])
     else:
-        return exp_state.get_cursor("params")
-
-
-def num_blocks():
-    blocks = exp_state.get_path("blocks")
-    if blocks is not state.path_not_found:
-        return len(blocks)
-    else:
-        return 0
+        return 1
 
 
 ########################
@@ -252,7 +242,7 @@ def init(logger):
 
 def shutdown():
     if cur_experiment is not None:
-        if is_running():
+        if exp_state["is_running"]:
             end()
         set_experiment(None)
 

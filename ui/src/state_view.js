@@ -1,14 +1,16 @@
 import React from 'react';
 import ReactJson from 'react-json-view';
+import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 
 export const StateView = ({ctrl_state}) => {
     return (
-	//	<div className="component flex_col">	
-	<div className="pane-content">
-	  <div className="section_header">
+        <React.Fragment>
+          <ReflexElement className="section_header pane-content">
             <span className="title">State</span>
-          </div>
-	    <ReactJson src={ctrl_state} name={null} />
-	</div>
+          </ReflexElement>
+          <ReflexElement>
+            <ReactJson src={ctrl_state} name={null} />
+          </ReflexElement>
+	</React.Fragment>
     );
 }

@@ -1,5 +1,5 @@
 import mqtt
-import state
+from state import state
 import time
 
 sensors_once_callback = None
@@ -42,7 +42,7 @@ def on_sensors(_, reading):
     
     reading["timestamp"] = time.time()
 
-    state.update(("sensors",), reading)
+    state["sensors"] = reading
     if sensors_once_callback is not None:
         sensors_once_callback(reading)
         sensors_once_callback = None
@@ -51,6 +51,6 @@ def on_sensors(_, reading):
 def init(logger):
     global log
     log = logger
-    state.update(("sensors",), None)
+    state["sensors"] = None
     mqtt.client.subscribe_callback("arena/sensors", mqtt.mqtt_json_callback(on_sensors))
 

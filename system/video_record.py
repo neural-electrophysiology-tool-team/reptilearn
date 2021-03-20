@@ -7,7 +7,7 @@ from threading import Timer
 from datetime import datetime
 import imageio
 import time
-import state
+from state import state
 import logger
 import logging
 
@@ -33,51 +33,49 @@ def init(image_sources):
     else:
         stop_trigger(update_state=False)
 
-    state.update(
-        ["video_record"],
-        {
-            "selected_sources": [ims.src_id for ims in image_sources],
-            "ttl_trigger": ttl_trigger,
-            "is_recording": False,
-            "write_dir": Path("videos"),
-            "filename_prefix": "",
-        },
-    )
+    state["video_record"] = {
+        "selected_sources": [ims.src_id for ims in image_sources],
+        "ttl_trigger": ttl_trigger,
+        "is_recording": False,
+        "write_dir": Path("videos"),
+        "filename_prefix": "",
+    }
+
     for w in video_writers.values():
         w.start()
 
 
 def set_selected_sources(src_ids):
-    state.update(("video_record", "selected_sources"), src_ids)
+    state[("video_record", "selected_sources")] = src_ids
 
 
 def select_source(src_id):
-    selected_sources = state.get_path(("video_record", "selected_sources"))
+    selected_sources = state[("video_record", "selected_sources")]
     if src_id in selected_sources:
         return
 
     selected_sources.append(src_id)
-    state.update(("video_record", "selected_sources"), selected_sources)
+    state[("video_record", "selected_sources")] = selected_sources
 
 
 def unselect_source(src_id):
-    selected_sources = state.get_path(("video_record", "selected_sources"))
+    selected_sources = state[("video_record", "selected_sources")]
     if src_id not in selected_sources:
         return
 
     selected_sources.remove(src_id)
-    state.update(("video_record", "selected_sources"), selected_sources)
+    state[("video_record", "selected_sources")] = selected_sources
 
 
 def start_trigger(pulse_len=17, update_state=True):
     if update_state:
-        state.update(("video_record", "ttl_trigger"), True)
+        state[("video_record", "ttl_trigger")] = True
     mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
 
 
 def stop_trigger(update_state=True):
     if update_state:
-        state.update(("video_record", "ttl_trigger"), False)
+        state[("video_record", "ttl_trigger")] = False
     mqtt.client.publish("arena/ttl_trigger/stop")
 
 
@@ -87,17 +85,17 @@ do_restore_trigger = False
 def start_record(src_ids=None):
     global do_restore_trigger
     if src_ids is None:
-        src_ids = state.get_path(("video_record", "selected_sources"))
+        src_ids = state[("video_record", "selected_sources")]
 
     if len(src_ids) == 0:
         return
 
     def standby():
-        state.update(("video_record", "is_recording"), True)
+        state[("video_record", "is_recording")] = True
         for src_id in src_ids:
             video_writers[src_id].start_writing()
 
-    if state.get_path(("video_record", "ttl_trigger")):
+    if state[("video_record", "ttl_trigger")]:
         do_restore_trigger = True
         stop_trigger(update_state=False)
         Timer(1, start_trigger, kwargs={"update_state": False}).start()
@@ -107,13 +105,13 @@ def start_record(src_ids=None):
 
 def stop_record(src_ids=None):
     if src_ids is None:
-        src_ids = state.get_path(("video_record", "selected_sources"))
+        src_ids = state[("video_record", "selected_sources")]
 
     if len(src_ids) == 0:
         return
 
     def stop():
-        state.update(("video_record", "is_recording"), False)
+        state[("video_record", "is_recording")] = False
         for src_id in src_ids:
             video_writers[src_id].stop_writing()
 
@@ -125,8 +123,8 @@ def stop_record(src_ids=None):
 
 
 def _get_new_write_paths(src_id):
-    filename_prefix = state.get_path(("video_record", "filename_prefix"))
-    write_dir = state.get_path(("video_record", "write_dir"))
+    filename_prefix = state[("video_record", "filename_prefix")]
+    write_dir = state[("video_record", "write_dir")]
     file_ext = config.video_record["file_ext"]
     if len(filename_prefix.strip()) > 0:
         filename_prefix += "_"
@@ -150,7 +148,7 @@ class VideoWriter(mp.Process):
         super().__init__()
         self.frame_rate = frame_rate
         self.img_src = img_src
-        self.img_src.set_state({"writing": False})
+        self.img_src.state["writing"] = False
 
         self.file_ext = file_ext
         self.log = logging.getLogger(__name__)
@@ -165,10 +163,10 @@ class VideoWriter(mp.Process):
 
     def stop_writing(self):
         self.parent_pipe.send("stop")
-        self.img_src.set_state({"writing": False})
+        self.img_src.state["writing"] = False
 
     def _begin_writing(self):
-        if not self.img_src.get_state("acquiring"):
+        if not self.img_src.state["acquiring"]:
             self.log.error("Can't write video. Image source is not acquiring.")
             return
 
@@ -186,7 +184,7 @@ class VideoWriter(mp.Process):
         self.ts_file = open(str(ts_path), "w")
         self.ts_file.write("timestamp\n")
 
-        self.img_src.set_state({"writing": True})
+        self.img_src.state["writing"] = True
 
     def _write(self):
         img, timestamp = self.img_src.get_image()

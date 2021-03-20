@@ -30,7 +30,7 @@ class YoloExperiment(exp.Experiment):
                 self.log.info("Pogona moved to lower half " + str(det))
 
         if self.det_count % 60 == 0:
-            exp.exp_state.update("last_known_position", payload)
+            exp.exp_state["last_position"] = payload
             
         self.det_count += 1
         if det is not None and len(det) != 0:
@@ -38,4 +38,4 @@ class YoloExperiment(exp.Experiment):
 
     def end(self, params):
         mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
-        exp.exp_state.remove("last_known_position")
+        exp.exp_state.remove("last_position")

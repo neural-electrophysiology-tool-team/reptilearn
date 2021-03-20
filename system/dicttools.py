@@ -1,5 +1,4 @@
 from collections import Sequence
-from numbers import Number
 
 
 class _PathNotFound:
@@ -9,83 +8,77 @@ class _PathNotFound:
 path_not_found = _PathNotFound()
 
 
-def get_path(d, path, default=path_not_found):
+def getitem(d, path, default=path_not_found):
     if isinstance(path, str):
         path = (path,)
-        
+
     c = d
     for k in path:
         if isinstance(c, dict):
             c = c.get(k, default)
             if c == default:
-                break
+                if c is path_not_found:
+                    raise KeyError(f"Path {path} does not exist.")
+                else:
+                    break
+
         elif isinstance(c, Sequence):
             if type(k) is not int:
                 raise KeyError(f"Expecting an integer key {k} for path {path}")
             if k >= len(c):
+                if default is path_not_found:
+                    raise KeyError(f"Path {path} does not exist.")
                 return default
             c = c[k]
 
     return c
 
 
-def update(d, path, value):
-    if isinstance(path, str):
-        path = (path,)
-    
-    c = get_path(d, path[:-1] if len(path) > 0 else ())
+def _path_element_fn(element_fn, return_from_fn=False):
+    def fn(d, path, *args, **kwargs):
+        if isinstance(path, str):
+            path = (path,)
+        if len(path) == 0:
+            raise KeyError("An empty path was supplied.")
 
-    if c is path_not_found:
-        raise KeyError(f"update: path {path} does not exist.")
+        c = getitem(d, path[:-1])
 
-    c[path[-1]] = value
-    return d
+        if not (isinstance(c, dict) or isinstance(c, list)):
+            raise KeyError(f"path {path} does not point to a dictionary or list.")
+
+        ret = element_fn(c, path[-1], *args, **kwargs)
+        return ret if return_from_fn else d
+
+    return fn
 
 
-def assoc(d, path, kvs):
-    if isinstance(path, str):
-        path = (path,)
+def _path_coll_fn(dict_fn, return_from_fn=False):
+    def fn(d, path, key, *args, **kwargs):
+        if isinstance(path, str):
+            path = (path,)
 
-    c = get_path(d, path[:-1] if len(path) > 0 else ())
+        c = getitem(d, path)
 
-    if c is path_not_found:
-        raise KeyError(f"assoc: path {path} does not exist.")
+        ret = dict_fn(c, key, *args, **kwargs)
+        return ret if return_from_fn else d
 
-    if not (isinstance(c, dict) or isinstance(c, list)):
-        raise KeyError(f"assoc: path {path} does not point to a dictionary or list.")
+    return fn
 
-    if len(path) > 0:
-        c[path[-1]] = dict(c[path[-1]], **kvs)
+
+def _setitem_coll(c, k, v):
+    c[k] = v
+
+
+def _exists_coll(c, k):
+    if isinstance(c, dict):
+        return k in c
     else:
-        for k, v in kvs.items():
-            d[k] = v
-            
-    return d
+        return len(c) > k
 
 
-def remove(d, path):
-    if isinstance(path, str):
-        path = (path,)
-
-    c = get_path(d, path[:-1])
-    if c is path_not_found:
-        raise KeyError(f"remove: path {path} does not exist.")
-    if not (isinstance(c, dict) or isinstance(c, list)):
-        raise KeyError(f"remove: path {path} does not point to a dictionary or list.")
-
-    c.pop(path[-1])
-    return d
-
-
-def contains(d, path, v):
-    if isinstance(path, str):
-        path = (path,)
-
-    c = get_path(d, path)
-
-    if c is path_not_found:
-        raise KeyError(f"contains: path {path} does not exist.")
-    if not (isinstance(c, dict) or isinstance(c, list)):
-        raise KeyError(f"contains: path {path} does not point to a dictionary or list.")
-
-    return v in c
+setitem = _path_element_fn(_setitem_coll)
+update = _path_coll_fn(lambda c, kvs: c.update(kvs))
+remove = _path_element_fn(lambda c, k: c.pop(k))
+append = _path_coll_fn(lambda c, v: c.append(v))
+exists = _path_element_fn(_exists_coll, return_from_fn=True)
+contains = _path_coll_fn(lambda c, k: k in c, return_from_fn=True)
