@@ -89,6 +89,7 @@ def init(logger):
     client = MQTTClient()
     client.log = logger
     client.loop_start()
+    logger.info("Connecting to MQTT server...")
     client.connect()
 
 

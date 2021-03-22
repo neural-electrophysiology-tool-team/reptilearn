@@ -6,7 +6,6 @@ import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {ExperimentView} from './experiment_view.js';
 import {MainPanelView} from './main_panel_view.js';
 import {StreamGroupView} from './stream_view.js';
-import {StateView} from './state_view.js';
 import {VideoRecordView} from './video_record_view.js';
 import {SocketContext} from './socket.js';
 import {LogView} from './log_view.js';
@@ -46,7 +45,7 @@ const App = () => {
     return (
 	<div className="App">
           <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-            <ReflexElement>
+            <ReflexElement onStopResize={() => setForceState(Date())}>
               <ReflexContainer orientation="vertical" windowResizeAware={true}>    
                 
                 <ReflexElement flex={0.65} className="main_panel_container">
@@ -57,19 +56,9 @@ const App = () => {
 		  
                 <ReflexSplitter/>
 
-                <ReflexElement>
-                  <ReflexContainer orientation="horizontal" windowResizeAware={true}>
-                    <ReflexElement className="" minSize={26} onStopResize={() => setForceState(Date())}>
-                      <ExperimentView ctrl_state={ctrlState} force={forceState}/>
-                    </ReflexElement>
-                    
-                    <ReflexSplitter/>
-                    
-                    <ReflexElement className="" minSize={26}>  
-                      <StateView ctrl_state={ctrlState}/>
-                    </ReflexElement>
 
-                  </ReflexContainer>
+                <ReflexElement onStopResize={() => setForceState(Date())}>
+                  <ExperimentView ctrl_state={ctrlState} force={forceState}/>
                 </ReflexElement>
                 
               </ReflexContainer>
@@ -77,7 +66,7 @@ const App = () => {
 
             <ReflexSplitter/>
 
-            <ReflexElement className="round_corners" minSize={60} flex="0.2">  
+            <ReflexElement minSize={60} flex="0.2" style={{overflow: "hidden"}}>  
               <LogView/>
             </ReflexElement>                     
           </ReflexContainer>

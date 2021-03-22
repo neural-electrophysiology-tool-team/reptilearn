@@ -1,5 +1,5 @@
 import threading
-import logger
+import rl_logging
 import logging
 import flask
 import flask_cors
@@ -7,11 +7,11 @@ from flask_socketio import SocketIO, emit
 import cv2
 import json
 from pathlib import Path
+from collections import Sequence
 import sys
 import mqtt
 import arena
 import schedule
-import storage
 import undistort
 import image_utils
 from state import state
@@ -21,75 +21,52 @@ import video_record
 import config
 from dynamic_loading import instantiate_class
 
+
 app = flask.Flask("API")
 flask_cors.CORS(app)
 app.config["SECRET_KEY"] = "reptilearn"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 
-# Boradcast logs
+# Setup Logging
+
 class SocketIOHandler(logging.Handler):
     def emit(self, record):
         socketio.emit("log", self.format(record))
 
 
-logger.init(SocketIOHandler())
-
-log = logging.getLogger("Main")
-handler = SocketIOHandler()
-handler.setFormatter(logger._formatter)
-log.addHandler(handler)
+socketio_handler = SocketIOHandler()
+socketio_handler.setFormatter(rl_logging.formatter)
 stderr_handler = logging.StreamHandler(sys.stderr)
-stderr_handler.setFormatter(logger._formatter)
-log.addHandler(stderr_handler)
-log.setLevel(logging.DEBUG)
+stderr_handler.setFormatter(rl_logging.formatter)
+# h = logging.handlers.RotatingFileHandler("mptest.log", "a", 300, 10)
 
+log = rl_logging.init((socketio_handler, stderr_handler))
 
-def patch_threading_excepthook():
-    """Installs our exception handler into the threading modules Thread object
-    Inspired by https://bugs.python.org/issue1230540
-    """
-    old_init = threading.Thread.__init__
+app_log = logging.getLogger("werkzeug")
+app_log.addHandler(socketio_handler)
+app_log.setLevel(logging.WARNING)
+app.logger.addHandler(socketio_handler)
+app.logger.setLevel(logging.WARNING)
 
-    def new_init(self, *args, **kwargs):
-        old_init(self, *args, **kwargs)
-        old_run = self.run
-        def run_with_our_excepthook(*args, **kwargs):
-            try:
-                old_run(*args, **kwargs)
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except:
-                sys.excepthook(*sys.exc_info(), thread_name=threading.current_thread().name)
-        self.run = run_with_our_excepthook
-    threading.Thread.__init__ = new_init
-
-    
-patch_threading_excepthook()
-
-
-def excepthook(exc_type, exc_value, exc_traceback, thread_name=None):
-    if thread_name is None:
-        msg = "Exception on main thread:"
-    else:
-        msg = f"Exception at thread {thread_name}:"
-    log.critical(msg, exc_info=(exc_type, exc_value, exc_traceback))
-
-
-sys.excepthook = excepthook
 
 # initialize state
 state["image_sources"] = {}
 
 image_sources = {
     src_id: instantiate_class(
-        src_config["class"], src_id, src_config, state_cursor=state.get_cursor(("image_sources", src_id)))
+        src_config["class"],
+        src_id,
+        src_config,
+        state_cursor=state.get_cursor(("image_sources", src_id)),
+    )
     for (src_id, src_config) in config.image_sources.items()
 }
 
 image_observers = [
-    instantiate_class(obs_config["class"], image_sources[obs_config["src_id"]],
-                      **obs_config["args"])
+    instantiate_class(
+        obs_config["class"], image_sources[obs_config["src_id"]], **obs_config["args"]
+    )
     for obs_config in config.image_observers
 ]
 
@@ -123,7 +100,7 @@ def send_state(old, new):
     new_json = json.dumps(new, default=convert_for_json)
     socketio.emit("state", (old_json, new_json))
 
-    
+
 state_listen, stop_state_emitter = state_mod.register_listener(send_state)
 state_emitter_process = threading.Thread(target=state_listen)
 state_emitter_process.start()
@@ -239,24 +216,29 @@ def route_experiment_set(name):
 def route_experiment_default_params():
     if experiment.cur_experiment is None:
         return flask.jsonify(None)
-    return flask.jsonify({"params": experiment.cur_experiment.default_params,
-                          "blocks": experiment.cur_experiment.default_blocks})
+    return flask.jsonify(
+        {
+            "params": experiment.cur_experiment.default_params,
+            "blocks": experiment.cur_experiment.default_blocks,
+        }
+    )
 
 
 @app.route("/experiment/run", methods=["POST"])
 def route_experiment_run():
     params = flask.request.json["params"]
-    
+
     if not isinstance(params, dict):
         return flask.abort(400, "Invalid params json.")
 
     blocks = flask.request.json.get("blocks", [])
+    exp_id = flask.request.json["id"]
     
     try:
-        experiment.run(params, blocks)
+        experiment.run(exp_id, params, blocks)
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while running experiment", sys.exc_info())
+        log.exception("Exception while running experiment")
         flask.abort(500, e)
 
 
@@ -266,7 +248,7 @@ def route_experiment_end():
         experiment.end()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while ending experiment", sys.exc_info())
+        log.exception("Exception while ending experiment.")
         flask.abort(500, e)
 
 
@@ -276,7 +258,7 @@ def route_experiment_next_block():
         experiment.next_block()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while moving to next block", sys.exc_info())
+        log.exception("Exception while moving to next block.")
         flask.abort(500, e)
 
 
@@ -286,7 +268,7 @@ def route_experiment_next_trial():
         experiment.next_trial()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while moving to next trial", sys.exc_info())
+        log.exception("Exception while moving to next trial.")
         flask.abort(500, e)
 
 
@@ -304,10 +286,6 @@ def route_unselect_source(src_id):
 
 @app.route("/video_record/<cmd>")
 def route_video_record(cmd):
-    # src_ids = flask.request.args.getlist("src")
-    # if len(src_ids) == 0:
-    #    src_ids = None
-
     if cmd == "start":
         video_record.start_record()
     elif cmd == "stop":
@@ -335,6 +313,22 @@ def route_set_prefix(prefix=""):
     return flask.Response("ok")
 
 
+@app.route("/arena/<cmd>/<value>")
+@app.route("/arena/<cmd>/")
+def route_arena(cmd, value="unused"):
+    f = getattr(arena, cmd)
+    if value == "false":
+        f(False)
+    elif value == "true":
+        f(True)
+    elif value == "unused":
+        f()
+    elif value == "None":
+        f(None)
+
+    return flask.Response("ok")
+
+
 @app.route("/")
 def root():
     return "ReptiLearn Controller"
@@ -347,15 +341,10 @@ def server_error(e):
     return flask.jsonify(error=str(e)), 500
 """
 
-app_log = logging.getLogger("werkzeug")
-app_log.addHandler(handler)
-app_log.setLevel(logging.WARNING)
-app.logger.setLevel(logging.WARNING)
-app.logger.addHandler(handler)
 socketio.run(app, use_reloader=False)
 
 # After flask server is terminated due to KeyboardInterrupt:
-log.info("System shutting down...")
+log.info("System is shutting down...")
 stop_state_emitter()
 experiment.shutdown()
 
@@ -367,5 +356,5 @@ for img_src in image_sources.values():
 video_record.stop_trigger()
 schedule.cancel_all()
 mqtt.shutdown()
-logger.shutdown()
+rl_logging.shutdown()
 state_mod.shutdown()

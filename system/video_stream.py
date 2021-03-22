@@ -2,8 +2,8 @@ import numpy as np
 import multiprocessing as mp
 import cv2 as cv
 import time
-import logger
 import logging
+import rl_logging
 
 # TODO
 # - consider using imageio for VideoImageSource
@@ -18,7 +18,6 @@ class ImageSource(mp.Process):
         super().__init__()
         self.image_shape = image_shape
         self.buf_len = buf_len
-        self.log = logging.getLogger(__name__)
         self.src_id = src_id
 
         self.state = state_cursor
@@ -54,7 +53,7 @@ class ImageSource(mp.Process):
             e.set()
 
     def stream_gen(self, frame_rate=15):
-        self.log.info(f"Streaming from {self.src_id}.")
+        rl_logging.main_logger.info(f"Streaming from {self.src_id}.")
 
         self.stop_streaming()
 
@@ -76,10 +75,10 @@ class ImageSource(mp.Process):
                 dt = time.time() - t1
                 time.sleep(max(1 / frame_rate - dt, 0))
 
-        self.log.info(f"Stopped streaming from {self.src_id}.")
+        rl_logging.main_logger.info(f"Stopped streaming from {self.src_id}.")
 
     def run(self):
-        logger.logger_configurer(__name__)
+        self.log = rl_logging.logger_configurer(self.name)
 
         if not self.on_begin():
             return
@@ -140,14 +139,13 @@ class ImageSource(mp.Process):
 class ImageObserver(mp.Process):
     def __init__(self, img_src: ImageSource):
         super().__init__()
-        self.log = logging.getLogger(__name__)
         self.img_src = img_src
         self.update_event = mp.Event()
         img_src.add_observer_event(self.update_event)
         self.name = type(self).__name__
 
     def run(self):
-        logger.logger_configurer(__name__)
+        self.log = rl_logging.logger_configurer(self.name)
         self.on_begin()
 
         try:

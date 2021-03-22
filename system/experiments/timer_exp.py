@@ -1,7 +1,7 @@
 import experiment as exp
 import schedule
-import mqtt
 import time
+import arena
 
 
 class TimerExperiment(exp.Experiment):
@@ -18,7 +18,7 @@ class TimerExperiment(exp.Experiment):
 
     def setup(self):
         self.cancel_timer = None
-
+        
     def run_block(self, params):
         self.log.info(f"new block: {exp.exp_state['cur_block']} {params}")
         interval = params["interval"]
@@ -32,8 +32,6 @@ class TimerExperiment(exp.Experiment):
         self.log.info(f"{exp.exp_state['cur_trial']}: {time.time()}")
 
     def timer_fn(self):
-        mqtt.client.publish("reptilearn/timer", "tick")
-        # self.log.info("Tick")
         exp.next_trial()
 
     def end_block(self, params):

@@ -1,6 +1,11 @@
+from datetime import datetime
+import threading
+
 import config
 from state import state, StateDispatcher
 from dynamic_loading import load_module, find_subclass, reload_module
+import video_record
+import re
 
 
 class ExperimentException(Exception):
@@ -20,26 +25,39 @@ cur_experiment_name = None
 state_dispatcher = StateDispatcher()
 
 
-# experiment can be running or not. stop either because it ended or because we asked it to.
-# should have cur block, trial and num_blocks num_trials
-# the experiment should have a params dict that's overriden by block params.
-# should have cur params with the right params for block (assoc cur block params into global params and put here)
-# make it easy to make the flow time based.
-def run(exp_params, exp_blocks=[]):
+def get_data_path(exp_id):
+    exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    return config.experiment_data_root / exp_dir
+
+
+def run(exp_id, exp_params, exp_blocks=[]):
     if exp_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
     if cur_experiment is None:
         raise ExperimentException("Can't run experiment. No experiment was set.")
 
+    if len(exp_id.strip()) == 0 or len(re.findall(r'[^A-Za-z0-9_]', exp_id)) != 0:
+        raise ExperimentException(f"Invalid experiment id: '{exp_id}'")
+
+    data_path = get_data_path(exp_id)
+    
     log.info("")
-    log.info(f"Running experiment {cur_experiment_name}")
-    log.info("========================================")
+    log.info(f"Running experiment {cur_experiment_name}:")
+    log.info("=================================================")
+    log.info(f"Data dir: {data_path}")
 
     params.set_self(exp_params)
     blocks.set_self(exp_blocks)
 
     exp_state["is_running"] = True
+    exp_state["data_dir"] = data_path
+    state["video_record", "write_dir"] = data_path
+
+    try:
+        data_path.mkdir()
+    except FileExistsError:
+        raise ExperimentException("Experiment data directory already exists!")
 
     try:
         cur_experiment.run(params.get_self())
@@ -52,13 +70,19 @@ def run(exp_params, exp_blocks=[]):
 def end():
     if exp_state["is_running"] is False:
         raise ExperimentException("Experiment is not running.")
-    cur_experiment.end_trial(merged_params())
-    cur_experiment.end_block(merged_params())
-    cur_experiment.end(params.get_self())
 
+    try:
+        cur_experiment.end_trial(merged_params())
+        cur_experiment.end_block(merged_params())
+        cur_experiment.end(params.get_self())
+    except Exception:
+        log.exception("Exception while running experiment:")
+        return
+    
     exp_state["is_running"] = False
-    exp_state.remove("cur_trial")
-    exp_state.remove("cur_block")
+    exp_state.delete("cur_trial")
+    exp_state.delete("cur_block")
+    video_record.restore_rec_dir()
 
     log.info(f"Experiment {cur_experiment_name} has ended.")
 
@@ -127,7 +151,7 @@ def next_block():
         end()
 
 
-def load_experiments(experiments_dir=config.experiments_dir):
+def load_experiments(experiments_dir=config.experiment_modules_dir):
     experiment_specs = {}
     experiment_pys = experiments_dir.glob("*.py")
 
@@ -238,6 +262,7 @@ def init(logger):
 
     log = logger
     refresh_experiment_list()
+    threading.Thread(target=state_dispatcher.listen).start()
 
 
 def shutdown():

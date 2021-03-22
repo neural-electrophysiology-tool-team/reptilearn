@@ -1,7 +1,8 @@
 import React from 'react';
 import {VideoRecordView} from './video_record_view.js';
 import {StreamGroupView} from './stream_view.js';
-         
+import {ArenaControlView} from './arena_control_view.js';
+
 export const MainPanelView = ({ctrl_state, image_sources, sources_config}) => {
     const stream_group_view = React.useRef();
     const [streamCount, setStreamCount] = React.useState(0);
@@ -27,6 +28,7 @@ export const MainPanelView = ({ctrl_state, image_sources, sources_config}) => {
             </button>
             <span className="placeholder"/>
             <VideoRecordView ctrl_state={ctrl_state}/>
+            <ArenaControlView ctrl_state={ctrl_state}/>
           </div>
           <div>
             <StreamGroupView image_sources={image_sources}

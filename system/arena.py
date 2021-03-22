@@ -1,9 +1,10 @@
 import mqtt
 from state import state
 import time
+import config
 
-sensors_once_callback = None
-log = None
+_sensors_once_callback = None
+_log = None
 
 
 def dispense_reward():
@@ -11,24 +12,23 @@ def dispense_reward():
 
 
 def signal_led(on):
-    msg = "on" if on else "off"
-    mqtt.client.publish("arena/signal_led", msg)
+    mqtt.client.publish_json("arena/signal_led", on)
+    state["arena", "signal_led"] = on
 
 
 def day_lights(on):
-    msg = "on" if on else "off"
-    mqtt.client.publish("arena/day_lights", msg)
+    mqtt.client.publish_json("arena/day_lights", on)
+    state["arena", "day_lights"] = on
 
 
 def line(idx, on):
-    msg = "on" if on else "off"
-    mqtt.client.publish(f"arena/line/{idx}", msg)
+    mqtt.client.publish_json(f"arena/line/{idx}", on)
 
 
 def sensors_poll(callback_once):
-    global sensors_once_callback
+    global _sensors_once_callback
 
-    sensors_once_callback = callback_once
+    _sensors_once_callback = callback_once
     mqtt.client.publish("arena/sensors/poll")
 
 
@@ -37,20 +37,30 @@ def sensors_set_interval(seconds):
     mqtt.client.publish("arena/sensors/set_interval", seconds)
 
 
-def on_sensors(_, reading):
-    global sensors_once_callback
-    
+def _on_sensors(_, reading):
+    global _sensors_once_callback
+
     reading["timestamp"] = time.time()
 
-    state["sensors"] = reading
-    if sensors_once_callback is not None:
-        sensors_once_callback(reading)
-        sensors_once_callback = None
+    state["arena", "sensors"] = reading
+    if _sensors_once_callback is not None:
+        _sensors_once_callback(reading)
+        _sensors_once_callback = None
 
 
 def init(logger):
-    global log
-    log = logger
-    state["sensors"] = None
-    mqtt.client.subscribe_callback("arena/sensors", mqtt.mqtt_json_callback(on_sensors))
+    global _log
+    _log = logger
 
+    state["arena"] = {"sensors": None}
+
+    while not mqtt.client.is_connected:
+        time.sleep(0.01)
+
+    _log.info("Sending arena defaults.")
+    signal_led(config.arena_defaults["signal_led"])
+    day_lights(config.arena_defaults["day_lights"])
+
+    mqtt.client.subscribe_callback(
+        "arena/sensors", mqtt.mqtt_json_callback(_on_sensors)
+    )

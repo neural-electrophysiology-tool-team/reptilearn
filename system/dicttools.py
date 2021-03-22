@@ -76,9 +76,16 @@ def _exists_coll(c, k):
         return len(c) > k
 
 
+def _remove_coll(c, k):
+    if not isinstance(c, list):
+        raise KeyError("path does not point to a list.")
+    return c.remove(k)
+
+    
 setitem = _path_element_fn(_setitem_coll)
 update = _path_coll_fn(lambda c, kvs: c.update(kvs))
-remove = _path_element_fn(lambda c, k: c.pop(k))
+delete = _path_element_fn(lambda c, k: c.pop(k))
+remove = _path_coll_fn(_remove_coll)
 append = _path_coll_fn(lambda c, v: c.append(v))
 exists = _path_element_fn(_exists_coll, return_from_fn=True)
 contains = _path_coll_fn(lambda c, k: k in c, return_from_fn=True)

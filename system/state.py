@@ -37,6 +37,7 @@ def _querying_fn(f):
 getitem = _querying_fn(dt.getitem)
 setitem = _mutating_fn(dt.setitem)
 update = _mutating_fn(dt.update)
+delete = _mutating_fn(dt.delete)
 remove = _mutating_fn(dt.remove)
 append = _mutating_fn(dt.append)
 contains = _querying_fn(dt.contains)
@@ -82,8 +83,8 @@ class StateDispatcher:
 
         def on_update(old, new):
             for path, on_update in self._dispatch_table.items():
-                old_val = dt.getitem(old, path)
-                new_val = dt.getitem(new, path)
+                old_val = dt.getitem(old, path, None)
+                new_val = dt.getitem(new, path, None)
 
                 if not old_val == new_val:
                     on_update(old_val, new_val)
@@ -116,6 +117,7 @@ class Cursor:
         self.get = partial_path_fn(getitem, path)
         self.setitem = partial_path_fn(setitem, path)
         self.update = partial_path_fn(update, path)
+        self.delete = partial_path_fn(delete, path)
         self.remove = partial_path_fn(remove, path)
         self.append = partial_path_fn(append, path)
         self.contains = partial_path_fn(contains, path)

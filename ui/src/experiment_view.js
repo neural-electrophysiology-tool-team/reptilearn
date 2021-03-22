@@ -2,7 +2,7 @@ import React from 'react';
 import {Selector} from './components.js';
 import ReactJson from 'react-json-view';
 import {api_url} from './config.js';
-import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
+import {ReflexContainer, ReflexSplitter, ReflexElement, ReflexHandle} from 'react-reflex';
 
 const assign_keep_old = (o, n) => {
     if (o === null || o === undefined)
@@ -23,6 +23,7 @@ export const ExperimentView = ({ctrl_state}) => {
     const [defaultParams, setDefaultParams] = React.useState(null);
     const [defaultBlocks, setDefaultBlocks] = React.useState(null);
     const [error, setError] = React.useState(null);
+    const experimentIdInput = React.useRef();
     
     const exp_url = api_url + "/experiment";
 
@@ -42,7 +43,8 @@ export const ExperimentView = ({ctrl_state}) => {
                     setDefaultParams(new_default_params);
                     setDefaultBlocks(new_default_blocks);
                     merge_params(new_default_params);
-                    if (override_blocks || new_default_blocks.length === experimentBlocks.length)
+                    if (override_blocks || new_default_blocks.length === experimentBlocks.length ||
+                        experimentBlocks.length == 0)
                         merge_all_blocks(new_default_blocks);
                 }
             });
@@ -101,43 +103,65 @@ export const ExperimentView = ({ctrl_state}) => {
     const add_block_param = (block_idx, key) => {
         const blocks = [...experimentBlocks];
         console.log(blocks, block_idx);
-        blocks[block_idx][key] = experimentParams[key];
+        if (experimentParams[key] === undefined)
+            blocks[block_idx][key] = null;
+        else
+            blocks[block_idx][key] = experimentParams[key];
         setExperimentBlocks(blocks);
     };
     
-    const set_experiment = exp_name => {
+    const set_experiment = (exp_name, override_blocks) => {
         if (is_running) {
             update_defaults(false);
             return;
         }
-        
-        const new_exp = exp_name !== ctrl_state.experiment.cur_experiment;
+
+        const new_exp = override_blocks !== undefined || exp_name !== ctrl_state.experiment.cur_experiment;
 	if (new_exp) {
 	    setExperimentParams({});
             setExperimentBlocks([]);
 	}
-	
+
 	fetch(exp_url + `/set/${exp_name}`)
-	    .then((res) => update_defaults(new_exp));
+	    .then((res) => {
+                update_defaults(new_exp);
+            });
     };
 
-    const refresh_experiment_list = (e) => {
+    const refresh_experiment_list = () => {
         fetch(exp_url + "/refresh_list")
             .then(res => res.json())
             .then(
                 res => setExperimentList(res),
                 error => setError(error.toString()));
     };
+
+    const select_experiment = (opt, idx) => {
+        if (idx >= experimentList.length) {
+            if (opt === "None")
+                set_experiment("None");
+            else
+                refresh_experiment_list();
+        }
+        else {
+            set_experiment(opt);
+        }
+    };
     
     const run_experiment = () => {
+        const id = experimentIdInput.current.value.trim() === "" ?
+              cur_exp_name : experimentIdInput.current.value;
+        
 	fetch(exp_url + "/run", {
 	    method: "POST",
 	    headers: {
 		"Accept": "application/json",
 		"Content-Type": "application/json"
 	    },
-	    body: JSON.stringify({"params": experimentParams,
-				  "blocks": experimentBlocks})
+	    body: JSON.stringify({
+                "id": id,
+                "params": experimentParams,
+		"blocks": experimentBlocks})
 	}).then(res => {
 	    if (!res.ok)
 		res.text().then(json => console.log(json));
@@ -176,7 +200,7 @@ export const ExperimentView = ({ctrl_state}) => {
                     setExperimentList(res);
                     if (ctrl_state !== null && ctrl_state.experiment.cur_experiment !== null
                        && ctrl_state.experiment.cur_experiment !== undefined) {
-                        set_experiment(ctrl_state.experiment.cur_experiment);
+                        set_experiment(ctrl_state.experiment.cur_experiment, true);
                     }
                 },
                 (error) => {
@@ -190,68 +214,92 @@ export const ExperimentView = ({ctrl_state}) => {
 	return null;
 
     const cur_exp_name = ctrl_state.experiment.cur_experiment;
-    const cur_exp_idx = experimentList.indexOf(cur_exp_name) + 1;
+    const cur_exp_idx = cur_exp_name ? experimentList.indexOf(cur_exp_name) : null;
     const is_running = ctrl_state.experiment.is_running;
-    
-    const reload_btn = cur_exp_name ? (
-	<button onClick={(e) => set_experiment(cur_exp_name)}
-		disabled={is_running}>
-	  Reload
-	</button>)
-                : null;
+
+    const experiment_selector = (() => {
+        const sep = "\u2500\u2500\u2500\u2500\u2500";
+        const select_idx = cur_exp_idx!==null ? cur_exp_idx : experimentList.length + 1;
+        return <Selector
+                 options={experimentList.concat([sep, "None", "Refresh list"])}
+		 selected={select_idx}
+		 on_select={select_experiment}
+                 disabled_options={[sep]}
+	         disabled={ctrl_state.experiment.is_running}
+               />;
+    })();
     
     const run_end_btn = is_running ?
-          <button onClick={end_experiment}>End Experiment</button>
-	  : <button onClick={run_experiment}>Run Experiment</button>;
+          <button onClick={end_experiment}>End</button>
+	  : <button onClick={run_experiment}>Run</button>;
+
+    const exp_controls = cur_exp_name ? (
+        <React.Fragment>
+          <button onClick={(e) => set_experiment(cur_exp_name)}
+		  disabled={is_running}>
+	    Reload
+	  </button>
+          id:
+          <input type="text"
+                 ref={experimentIdInput}
+                 placeholder={cur_exp_name}
+                 disabled={is_running}
+                 size="16"/>
+          {run_end_btn}
+        </React.Fragment>
+    ) : null;
+          
 
     const run_state_element = !is_running ? null :
-          <ReflexElement size={26} minSize={26} maxSize={26} className="subsection_header">
+          <div className="subsection_header">
             <label>block:</label>
             <input type="text" readOnly value={ctrl_state.experiment.cur_block} size="2"/>
             <button onClick={next_block}>+</button>
             <label> trial:</label>
             <input type="text" readOnly value={ctrl_state.experiment.cur_trial} size="2"/>
             <button onClick={next_trial}>+</button>
-          </ReflexElement>;
+          </div>;
 
     const params_div = experimentParams !== null ?
           (
-          <React.Fragment>
-              <div className="subsection_header">
-                <span className="title">Parameters</span>
-                <button onClick={reset_params} disabled={is_running}>Reset</button>
-              </div>
-              <div className="subsection">
-	        <ReactJson src={experimentParams}
-		           name={null}
-		           onEdit={on_params_changed}
-		           onAdd={on_params_changed}
-                           onDelete={on_params_changed}
-	        />
-              </div>
-          </React.Fragment>
+              <React.Fragment>
+                <div className="subsection_header">
+                  <span className="title">Parameters</span>
+                  <button onClick={reset_params} disabled={is_running}>Reset</button>
+                </div>
+                <div className="subsection">
+	          <ReactJson src={experimentParams}
+		             name={null}
+		             onEdit={on_params_changed}
+		             onAdd={on_params_changed}
+                             onDelete={on_params_changed}
+	          />
+                </div>
+              </React.Fragment>
 
           ) : null;
 
     const block_override_selector = (block_idx) => {
         const block = experimentBlocks[block_idx];
-        const options = ["Override", ...Object.keys(experimentParams).filter(
+        let options = ["Override", ...Object.keys(experimentParams).filter(
             key => block[key] === undefined
         )];
+        if (block["num_trials"] === undefined)
+            options.push("num_trials");
+        
         return <Selector options={options}
                          selected={options[0]}
                          disabled={is_running}
                          on_select={key => add_block_param(block_idx, key)}
                />;
     };
-    
+
     const block_divs = experimentBlocks !== null ?
           experimentBlocks.map((block, idx) => (
               <div key={idx}>
                 <div className="subsection_header">
                   <span className="title">
                     <button onClick={(e) => remove_block(idx)} disabled={is_running}>x</button>
-                    
                     Block {idx}:
                   </span>
                   <button onClick={(e) => reset_block(idx)} disabled={is_running}>Reset</button>
@@ -270,26 +318,37 @@ export const ExperimentView = ({ctrl_state}) => {
 
     return (
         <ReflexContainer orientation="horizontal" key={Date()}>
-          <ReflexElement size={26} minSize={26} maxSize={26} className="section_header">
-            <span className="title">Experiment</span>
-	    <Selector options={["None"].concat(experimentList)}
-		      selected={cur_exp_idx}
-		      on_select={set_experiment}
-	              disabled={ctrl_state.experiment.is_running}/>
-	    {reload_btn}
-            <button onClick={refresh_experiment_list} disabled={is_running}>Refresh list</button>
-            {run_end_btn}
-          </ReflexElement>
-          {run_state_element}
-          <ReflexElement>
-            {params_div}
-            <div className="subsection_header">
-              <span className="title">Blocks</span>
-              <button onClick={add_block} disabled={is_running}>Add block</button>
-              <button onClick={reset_all_blocks} disabled={is_running}>Reset blocks</button>
+          <ReflexElement minSize={26} style={{overflow: "hidden"}}>
+            <div className="section_header">
+              <span className="title">Experiment</span>
+              {experiment_selector}
+              {exp_controls}
             </div>
-            {block_divs}
+            {run_state_element}
+            <div style={{overflow: "scroll", height: "calc(100% - 16px)"}}>
+              {params_div}
+              <div className="subsection_header">
+                <span className="title">Blocks</span>
+                <button onClick={add_block} disabled={is_running}>Add block</button>
+                <button onClick={reset_all_blocks} disabled={is_running}>Reset blocks</button>
+              </div>
+              <div style={{overflow: "hidden"}}>
+                {block_divs}           
+              </div>
+            </div>            
           </ReflexElement>
+          <ReflexSplitter/>
+          <ReflexElement minSize={26} style={{overflow: "hidden"}}>
+            <div className="section_header">
+              <span className="title">State</span>
+            </div>
+            <div style={{overflow: "scroll", height: "100%"}}>
+              <ReactJson src={ctrl_state}
+                         name={null}
+                         style={{height: "auto"}}
+              />
+            </div>
+          </ReflexElement>        
         </ReflexContainer>       
     );
 };

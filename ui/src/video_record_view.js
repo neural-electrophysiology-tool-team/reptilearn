@@ -35,14 +35,10 @@ export const VideoRecordView = ({ctrl_state}) => {
     };
     
     const src_changed = (src_id) => {
-        console.log(ctrl_state.video_record.selected_sources);
-        console.log(ctrl_state.video_record.selected_sources[src_id]);
         if (ctrl_state.video_record.selected_sources.indexOf(src_id) === -1) {
-            console.log("select", src_id);
             fetch(api_url + `/video_record/select_source/${src_id}`);
         }
         else {
-            console.log("unselect", src_id);
             fetch(api_url + `/video_record/unselect_source/${src_id}`);
         }
     };
@@ -51,11 +47,11 @@ export const VideoRecordView = ({ctrl_state}) => {
         const items = image_sources.map(src_id => {
             const selected = ctrl_state.video_record.selected_sources.indexOf(src_id) !== -1;
             return <Dropdown.Item text={src_id}
-                                  icon={selected ? "check" : null}
+                                  icon={selected ? "check circle outline" : "circle outline"}
                                   onClick={() => src_changed(src_id)}/>;
         });
         return (
-            <Dropdown text='Record Sources'>
+            <Dropdown text='Record Sources' disabled={is_recording}>
               <Dropdown.Menu>
                 {items}
               </Dropdown.Menu>
@@ -65,7 +61,9 @@ export const VideoRecordView = ({ctrl_state}) => {
 
     return (
         <span className="video_record_view">
-          {select_sources}
+          <button disabled={is_recording}>
+            {select_sources}
+          </button>
           <input type="text"
                  name="prefix_input"
                  placeholder="video name"

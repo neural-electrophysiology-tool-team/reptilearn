@@ -1,7 +1,9 @@
 import numpy as np
 from pathlib import Path
 
-experiments_dir = Path("./experiments/")
+experiment_modules_dir = Path("./experiments/")
+experiment_data_root = Path("/data/reptilearn")
+videos_dir = Path("videos")
 
 # undistort lens correction
 undistort_flir_firfly_4mm = {
@@ -50,16 +52,14 @@ stream_frame_rate = 15
 
 image_sources = dict(
     {
-        ################################################
-        # "left_camera": {  # firefly-dl 1             #
-        #     "class": "flir_cameras.FLIRImageSource", #
-        #     "cam_id": "20349302",                    #
-        #     "exposure": 8000,                        #
-        #     "trigger": "ttl",  # or "frame_rate"     #
-        #     "image_shape": (1080, 1440),             #
-        #     "undistort": undistort_flir_firfly_4mm,  #
-        # },                                           #
-        ################################################
+        "left_camera": {  # firefly-dl 1
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "20349302",
+            "exposure": 8000,
+            "trigger": "ttl",  # or "frame_rate"
+            "image_shape": (1080, 1440),
+            "undistort": undistort_flir_firfly_4mm,
+        },
         "right_camera": {  # firefly-dl 2
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "20349310",
@@ -122,3 +122,6 @@ mqtt = {
     "host": "localhost",
     "port": 1883,
 }
+
+# these don't seem to work...
+arena_defaults = {"signal_led": False, "day_lights": False}

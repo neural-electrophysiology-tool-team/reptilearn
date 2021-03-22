@@ -30,8 +30,8 @@ input, select {
     border-radius: 5px;
     border: 1px solid;
     margin: 5px;
-    width: calc(100% - 22px) !important;
-    height: calc(100% - 22px) !important;
+    width: calc(100% - 10px) !important;
+    height: calc(100% - 10px) !important;
 }
 
 .grid_div { /* unused */
@@ -63,7 +63,7 @@ input, select {
     margin-top: 0px;
     margin-right: 1px;
     padding: 5px 0px;
-    border: 1px solid;
+    border: 0px solid;
 }
 
 .stream_view .toolbar {
@@ -94,9 +94,9 @@ input, select {
 }
 
 .log_view {
-    box-sizing: border-box;
     white-space: pre;
-    height: calc(100% - 8px);
+    padding: 0 2px;
+    height: calc(100% - 34px);
     width: 100%;
     border-style: none;
     font-family: monospace;
@@ -151,3 +151,10 @@ input {
     font-size: 0px;
 }
 
+.scrollbar {
+    overflow: scroll;
+}
+
+.react-json-view {
+    font-size: 0.9em;
+}

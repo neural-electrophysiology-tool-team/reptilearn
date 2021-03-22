@@ -31,11 +31,11 @@ class YoloExperiment(exp.Experiment):
 
         if self.det_count % 60 == 0:
             exp.exp_state["last_position"] = payload
-            
+
         self.det_count += 1
         if det is not None and len(det) != 0:
             self.prev_det = det
 
     def end(self, params):
         mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
-        exp.exp_state.remove("last_position")
+        exp.exp_state.delete("last_position")
