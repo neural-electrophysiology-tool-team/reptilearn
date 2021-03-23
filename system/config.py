@@ -2,8 +2,8 @@ import numpy as np
 from pathlib import Path
 
 experiment_modules_dir = Path("./experiments/")
-experiment_data_root = Path("/data/reptilearn")
-videos_dir = Path("videos")
+experiment_data_root = Path("/data/reptilearn/experiments/")
+videos_dir = Path("/data/reptilearn/media/")
 
 # undistort lens correction
 undistort_flir_firfly_4mm = {
@@ -52,7 +52,7 @@ stream_frame_rate = 15
 
 image_sources = dict(
     {
-        "left_camera": {  # firefly-dl 1
+        "left": {  # firefly-dl 1
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "20349302",
             "exposure": 8000,
@@ -60,7 +60,7 @@ image_sources = dict(
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_firfly_4mm,
         },
-        "right_camera": {  # firefly-dl 2
+        "right": {  # firefly-dl 2
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "20349310",
             "exposure": 8000,
@@ -69,7 +69,7 @@ image_sources = dict(
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_firfly_4mm,
         },
-        "top_camera": {  # BFS-U3-16S2M
+        "top": {  # BFS-U3-16S2M
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "0138A051",
             "exposure": 8000,
@@ -78,7 +78,7 @@ image_sources = dict(
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_blackfly_computar,
         },
-        "test_video": {
+        "test": {
             "class": "video_stream.VideoImageSource",
             "video_path": Path("./feeding4_vid.avi"),
             "start_frame": 0,
@@ -95,7 +95,7 @@ image_sources = dict(
 
 image_observers = [
     {
-        "src_id": "test_video",
+        "src_id": "test",
         "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
         "args": {
             "conf_thres": 0.8,
@@ -123,5 +123,4 @@ mqtt = {
     "port": 1883,
 }
 
-# these don't seem to work...
 arena_defaults = {"signal_led": False, "day_lights": False}

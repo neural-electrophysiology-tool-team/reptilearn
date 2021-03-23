@@ -53,8 +53,6 @@ class ImageSource(mp.Process):
             e.set()
 
     def stream_gen(self, frame_rate=15):
-        rl_logging.main_logger.info(f"Streaming from {self.src_id}.")
-
         self.stop_streaming()
 
         stop_this_stream_event = mp.Event()
@@ -74,8 +72,6 @@ class ImageSource(mp.Process):
             if frame_rate is not None:
                 dt = time.time() - t1
                 time.sleep(max(1 / frame_rate - dt, 0))
-
-        rl_logging.main_logger.info(f"Stopped streaming from {self.src_id}.")
 
     def run(self):
         self.log = rl_logging.logger_configurer(self.name)

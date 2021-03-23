@@ -19,23 +19,19 @@ class TestExperiment(exp.Experiment):
         
     def run_block(self, params):
         self.log.info(params["run_msg"])
-        #arena.signal_led(True)
-        #if "blink_dur" in params:
-        #    schedule.once(lambda: arena.signal_led(False), params["blink_dur"])
+        arena.signal_led(True)
+        if "blink_dur" in params:
+            schedule.once(lambda: arena.signal_led(False), params["blink_dur"])
 
     def run(self, params):
         self.log.info(params["run_msg"])
-        #arena.sensors_poll(
-        #    lambda reading: self.log.info(f"Received sensors reading: {reading}")
-        #)
 
-        arena.dispense_reward()
         exp.state_dispatcher.add_callback(
             "sensors",
             lambda o, n: self.log.info(f"Sensors update: {o} -> {n}")
         )
 
-        arena.day_lights(True)
+        #arena.day_lights(True)
 
     def end_block(self, params):
         self.log.info(params["end_msg"])
@@ -43,4 +39,4 @@ class TestExperiment(exp.Experiment):
     def end(self, params):
         self.log.info(params["end_msg"])
         exp.state_dispatcher.remove_callback("sensors")
-        arena.day_lights(False)
+        #arena.day_lights(False)

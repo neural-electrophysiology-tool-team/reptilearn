@@ -20,9 +20,14 @@ import rl_logging
 
 rec_state = state.get_cursor("video_record")
 video_writers = {}
+_image_sources = None
+_log = None
 
 
-def init(image_sources):
+def init(image_sources, logger):
+    global _image_sources, _log
+    _log = logger
+    _image_sources = image_sources
     for img_src in image_sources:
         video_writers[img_src.src_id] = VideoWriter(
             img_src,
@@ -35,13 +40,15 @@ def init(image_sources):
     else:
         stop_trigger(update_state=False)
 
-    rec_state.set_self({
-        "selected_sources": [ims.src_id for ims in image_sources],
-        "ttl_trigger": ttl_trigger,
-        "is_recording": False,
-        "write_dir": config.videos_dir,
-        "filename_prefix": "",
-    })
+    rec_state.set_self(
+        {
+            "selected_sources": [ims.src_id for ims in image_sources],
+            "ttl_trigger": ttl_trigger,
+            "is_recording": False,
+            "write_dir": config.videos_dir,
+            "filename_prefix": "",
+        }
+    )
 
     for w in video_writers.values():
         w.start()
@@ -84,7 +91,7 @@ _do_restore_trigger = False
 def start_record(src_ids=None):
     if rec_state["is_recording"] is True:
         return
-    
+
     global _do_restore_trigger
     if src_ids is None:
         src_ids = rec_state["selected_sources"]
@@ -109,7 +116,7 @@ def stop_record(src_ids=None):
     global _do_restore_trigger
     if rec_state["is_recording"] is False:
         return
-    
+
     if src_ids is None:
         src_ids = rec_state["selected_sources"]
 
@@ -129,20 +136,28 @@ def stop_record(src_ids=None):
     Timer(0.5, stop).start()
 
 
-def _get_new_write_paths(src_id):
+def save_image(src_ids=None):
+    if src_ids is None:
+        src_ids = rec_state["selected_sources"]
+
+    images = [img_src.get_image() for img_src in _image_sources]
+    paths = [_get_new_write_path(src_id, "jpg") for src_id in src_ids]
+    for p, im, src in zip(paths, images, src_ids):
+        _log.info(f"Saved image from {src} to {p}")
+        imageio.imwrite(str(p), im[0])
+
+
+def _get_new_write_path(src_id, file_ext):
     filename_prefix = rec_state["filename_prefix"]
     write_dir = rec_state["write_dir"]
-    file_ext = config.video_record["file_ext"]
+
     if len(filename_prefix.strip()) > 0:
         filename_prefix += "_"
 
     base = (
         filename_prefix + src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
     )
-    return (
-        write_dir / (base + file_ext),
-        write_dir / (base + "csv"),
-    )
+    return write_dir / (base + file_ext)
 
 
 class VideoWriter(mp.Process):
@@ -176,7 +191,10 @@ class VideoWriter(mp.Process):
             self.log.error("Can't write video. Image source is not acquiring.")
             return
 
-        vid_path, ts_path = _get_new_write_paths(self.img_src.src_id)
+        vid_path = _get_new_write_path(
+            self.img_src.src_id, config.video_record["file_ext"]
+        )
+        ts_path = _get_new_write_path(self.img_src.src_id, "csv")
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(

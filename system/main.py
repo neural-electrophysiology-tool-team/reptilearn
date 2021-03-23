@@ -72,7 +72,7 @@ image_observers = [
 
 mqtt.init(log)
 arena.init(log)
-video_record.init(image_sources.values())
+video_record.init(image_sources.values(), log)
 experiment.init(log)
 
 for img_obs in image_observers:
@@ -326,6 +326,12 @@ def route_arena(cmd, value="unused"):
     elif value == "None":
         f(None)
 
+    return flask.Response("ok")
+
+
+@app.route("/save_image/<src_id>")
+def route_save_image(src_id):
+    video_record.save_image([src_id])
     return flask.Response("ok")
 
 
