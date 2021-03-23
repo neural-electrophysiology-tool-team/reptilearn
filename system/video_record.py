@@ -28,9 +28,9 @@ def init(image_sources, logger):
     global _image_sources, _log
     _log = logger
     _image_sources = image_sources
-    for img_src in image_sources:
-        video_writers[img_src.src_id] = VideoWriter(
-            img_src,
+    for src_id in image_sources.keys():
+        video_writers[src_id] = VideoWriter(
+            image_sources[src_id],
             frame_rate=config.video_record["video_frame_rate"],
         )
 
@@ -42,7 +42,7 @@ def init(image_sources, logger):
 
     rec_state.set_self(
         {
-            "selected_sources": [ims.src_id for ims in image_sources],
+            "selected_sources": [src_id for src_id in image_sources.keys()],
             "ttl_trigger": ttl_trigger,
             "is_recording": False,
             "write_dir": config.videos_dir,
@@ -54,8 +54,9 @@ def init(image_sources, logger):
         w.start()
 
 
-def restore_rec_dir():
+def restore_after_experiment():
     rec_state["write_dir"] = config.videos_dir
+    rec_state["filename_prefix"] = ""
 
 
 def set_selected_sources(src_ids):
@@ -140,7 +141,7 @@ def save_image(src_ids=None):
     if src_ids is None:
         src_ids = rec_state["selected_sources"]
 
-    images = [img_src.get_image() for img_src in _image_sources]
+    images = [_image_sources[src_id].get_image() for src_id in src_ids]
     paths = [_get_new_write_path(src_id, "jpg") for src_id in src_ids]
     for p, im, src in zip(paths, images, src_ids):
         _log.info(f"Saved image from {src} to {p}")

@@ -37,11 +37,11 @@ def run(exp_id, exp_params, exp_blocks=[]):
     if cur_experiment is None:
         raise ExperimentException("Can't run experiment. No experiment was set.")
 
-    if len(exp_id.strip()) == 0 or len(re.findall(r'[^A-Za-z0-9_]', exp_id)) != 0:
+    if len(exp_id.strip()) == 0 or len(re.findall(r"[^A-Za-z0-9_]", exp_id)) != 0:
         raise ExperimentException(f"Invalid experiment id: '{exp_id}'")
 
     data_path = get_data_path(exp_id)
-    
+
     log.info("")
     log.info(f"Running experiment {cur_experiment_name}:")
     log.info("=================================================")
@@ -77,12 +77,11 @@ def end():
         cur_experiment.end(params.get_self())
     except Exception:
         log.exception("Exception while running experiment:")
-        return
-    
-    exp_state["is_running"] = False
-    exp_state.delete("cur_trial")
-    exp_state.delete("cur_block")
-    video_record.restore_rec_dir()
+    finally:
+        exp_state["is_running"] = False
+        exp_state.delete("cur_trial")
+        exp_state.delete("cur_block")
+        video_record.restore_after_experiment()
 
     log.info(f"Experiment {cur_experiment_name} has ended.")
 
@@ -202,7 +201,7 @@ def set_experiment(name):
 
 class Experiment:
     default_params = {}
-    default_blocks = []
+    default_blocks = [{}]
 
     def __init__(self, logger):
         self.log = logger

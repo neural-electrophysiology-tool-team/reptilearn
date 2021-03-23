@@ -1,6 +1,7 @@
 import React from 'react';
 import {api_url} from './config.js';
 import { Dropdown } from 'semantic-ui-react';
+import { Icon } from 'semantic-ui-react';
 
 export const VideoRecordView = ({ctrl_state}) => {
     const prefix_input_ref = React.useRef();
@@ -10,9 +11,9 @@ export const VideoRecordView = ({ctrl_state}) => {
 
     const is_recording = ctrl_state.video_record.is_recording;
     const image_sources = Object.keys(ctrl_state.image_sources);
-    const rec_btn_title = is_recording ? "Stop Recording" : "Start Recording";
-    const ttl_btn_title = ctrl_state.video_record.ttl_trigger ? "Stop Trigger" : "Start Trigger";
-    
+    const rec_btn_icon = is_recording ? "stop circle" : "circle";
+    const ttl_trigger_state = ctrl_state.video_record.ttl_trigger;
+    const ttl_btn_title = ttl_trigger_state ? "Stop Trigger" : "Start Trigger";
     const toggle_recording = (e) => {
         if (is_recording) {
             fetch(api_url + "/video_record/stop");
@@ -48,7 +49,8 @@ export const VideoRecordView = ({ctrl_state}) => {
             const selected = ctrl_state.video_record.selected_sources.indexOf(src_id) !== -1;
             return <Dropdown.Item text={src_id}
                                   icon={selected ? "check circle outline" : "circle outline"}
-                                  onClick={() => src_changed(src_id)}/>;
+                                  onClick={() => src_changed(src_id)}
+                                  key={src_id}/>;
         });
         return (
             <Dropdown text='Record Sources' disabled={is_recording}>
@@ -61,17 +63,17 @@ export const VideoRecordView = ({ctrl_state}) => {
 
     return (
         <span className="video_record_view">
-          <button disabled={is_recording}>
-            {select_sources}
-          </button>
           <input type="text"
                  name="prefix_input"
                  placeholder="video name"
                  ref={prefix_input_ref}
                  disabled={is_recording}
           />
-          <button onClick={toggle_recording}>{rec_btn_title}</button>
+          <button onClick={toggle_recording}><Icon size="small" fitted name={rec_btn_icon}/></button>
           <button onClick={toggle_ttl_trigger}>{ttl_btn_title}</button>
+          <button disabled={is_recording}>
+            {select_sources}
+          </button>
         </span>
     );
 };

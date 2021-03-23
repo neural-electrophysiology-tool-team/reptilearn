@@ -72,7 +72,7 @@ image_observers = [
 
 mqtt.init(log)
 arena.init(log)
-video_record.init(image_sources.values(), log)
+video_record.init(image_sources, log)
 experiment.init(log)
 
 for img_obs in image_observers:

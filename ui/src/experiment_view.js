@@ -2,7 +2,8 @@ import React from 'react';
 import {Selector} from './components.js';
 import ReactJson from 'react-json-view';
 import {api_url} from './config.js';
-import {ReflexContainer, ReflexSplitter, ReflexElement, ReflexHandle} from 'react-reflex';
+import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
+import { BlocksView } from './blocks_view.js';
 
 const assign_keep_old = (o, n) => {
     if (o === null || o === undefined)
@@ -22,7 +23,6 @@ export const ExperimentView = ({ctrl_state}) => {
     const [experimentBlocks, setExperimentBlocks] = React.useState([]);
     const [defaultParams, setDefaultParams] = React.useState(null);
     const [defaultBlocks, setDefaultBlocks] = React.useState(null);
-    const [error, setError] = React.useState(null);
     const experimentIdInput = React.useRef();
     
     const exp_url = api_url + "/experiment";
@@ -40,12 +40,13 @@ export const ExperimentView = ({ctrl_state}) => {
                           null : new_defaults.params;
                     const new_default_blocks = new_defaults.blocks === undefined ?
                           null : new_defaults.blocks;
-                    setDefaultParams(new_default_params);
-                    setDefaultBlocks(new_default_blocks);
                     merge_params(new_default_params);
                     if (override_blocks || new_default_blocks.length === experimentBlocks.length ||
-                        experimentBlocks.length == 0)
+                        experimentBlocks.length === 0)
                         merge_all_blocks(new_default_blocks);
+                    setDefaultParams(new_default_params);
+                    setDefaultBlocks(new_default_blocks);
+
                 }
             });
     };
@@ -74,40 +75,8 @@ export const ExperimentView = ({ctrl_state}) => {
         setExperimentParams(defaultParams);
     };
 
-    const reset_block = (block_idx) => {
-        const blocks = [...experimentBlocks];
-
-        if (block_idx < defaultBlocks.length)
-            blocks[block_idx] = defaultBlocks[block_idx];
-        else
-            blocks[block_idx] = {};
-        setExperimentBlocks(blocks);
-    };
-
     const reset_all_blocks = () => {
         setExperimentBlocks(defaultBlocks);
-    };
-    
-    const remove_block = (block_idx) => {
-        const blocks = [...experimentBlocks];
-        blocks.splice(block_idx, 1);
-        setExperimentBlocks(blocks);
-    };
-
-    const add_block = () => {
-        const blocks = [...experimentBlocks];
-        blocks.push({});
-        setExperimentBlocks(blocks);
-    };
-
-    const add_block_param = (block_idx, key) => {
-        const blocks = [...experimentBlocks];
-        console.log(blocks, block_idx);
-        if (experimentParams[key] === undefined)
-            blocks[block_idx][key] = null;
-        else
-            blocks[block_idx][key] = experimentParams[key];
-        setExperimentBlocks(blocks);
     };
     
     const set_experiment = (exp_name, override_blocks) => {
@@ -131,9 +100,7 @@ export const ExperimentView = ({ctrl_state}) => {
     const refresh_experiment_list = () => {
         fetch(exp_url + "/refresh_list")
             .then(res => res.json())
-            .then(
-                res => setExperimentList(res),
-                error => setError(error.toString()));
+            .then(res => setExperimentList(res));
     };
 
     const select_experiment = (opt, idx) => {
@@ -162,9 +129,6 @@ export const ExperimentView = ({ctrl_state}) => {
                 "id": id,
                 "params": experimentParams,
 		"blocks": experimentBlocks})
-	}).then(res => {
-	    if (!res.ok)
-		res.text().then(json => console.log(json));
 	});
 	
     };
@@ -178,12 +142,6 @@ export const ExperimentView = ({ctrl_state}) => {
 	setExperimentParams(e.updated_src);
     };
 
-    const on_block_changed = (e, block_idx) => {
-        const blocks = experimentBlocks.map(s => ({...s}));
-        blocks[block_idx] = e.updated_src;
-        setExperimentBlocks(blocks);
-    };
-
     const next_block = () => {
         fetch(exp_url + "/next_block");
     };
@@ -191,7 +149,7 @@ export const ExperimentView = ({ctrl_state}) => {
     const next_trial = () => {
         fetch(exp_url + "/next_trial");
     };
-    
+
     React.useEffect(() => {
 	fetch(exp_url + "/list")
 	    .then(res => res.json())
@@ -201,10 +159,7 @@ export const ExperimentView = ({ctrl_state}) => {
                     if (ctrl_state !== null && ctrl_state.experiment.cur_experiment !== null
                        && ctrl_state.experiment.cur_experiment !== undefined) {
                         set_experiment(ctrl_state.experiment.cur_experiment, true);
-                    }
-                },
-                (error) => {
-                    setError(error.toString());
+                    }                    
                 }
             );               
     }, []);
@@ -253,10 +208,10 @@ export const ExperimentView = ({ctrl_state}) => {
     const run_state_element = !is_running ? null :
           <div className="subsection_header">
             <label>block:</label>
-            <input type="text" readOnly value={ctrl_state.experiment.cur_block} size="2"/>
+            <input type="text" readOnly value={ctrl_state.experiment.cur_block+1} size="2"/>
             <button onClick={next_block}>+</button>
             <label> trial:</label>
-            <input type="text" readOnly value={ctrl_state.experiment.cur_trial} size="2"/>
+            <input type="text" readOnly value={ctrl_state.experiment.cur_trial+1} size="2"/>
             <button onClick={next_trial}>+</button>
           </div>;
 
@@ -279,45 +234,10 @@ export const ExperimentView = ({ctrl_state}) => {
 
           ) : null;
 
-    const block_override_selector = (block_idx) => {
-        const block = experimentBlocks[block_idx];
-        let options = ["Override", ...Object.keys(experimentParams).filter(
-            key => block[key] === undefined
-        )];
-        if (block["num_trials"] === undefined)
-            options.push("num_trials");
-        
-        return <Selector options={options}
-                         selected={options[0]}
-                         disabled={is_running}
-                         on_select={key => add_block_param(block_idx, key)}
-               />;
-    };
-
-    const block_divs = experimentBlocks !== null ?
-          experimentBlocks.map((block, idx) => (
-              <div key={idx}>
-                <div className="subsection_header">
-                  <span className="title">
-                    <button onClick={(e) => remove_block(idx)} disabled={is_running}>x</button>
-                    Block {idx}:
-                  </span>
-                  <button onClick={(e) => reset_block(idx)} disabled={is_running}>Reset</button>
-                  {block_override_selector(idx)}
-                </div>
-                <div className="subsection">
-                  <ReactJson src={experimentBlocks[idx]}
-		             name={null}
-		             onEdit={(e) => on_block_changed(e, idx)}
-		             onAdd={(e) => on_block_changed(e, idx)}
-                             onDelete={(e) => on_block_changed(e,idx)}
-	          />                 
-                </div>
-              </div>
-          )) : null;
-
+    const params_height = is_running ? "calc(100% - 48px)" : "calc(100% - 20px)";
+    
     return (
-        <ReflexContainer orientation="horizontal" key={Date()}>
+        <ReflexContainer orientation="horizontal">
           <ReflexElement minSize={26} style={{overflow: "hidden"}}>
             <div className="section_header">
               <span className="title">Experiment</span>
@@ -325,16 +245,18 @@ export const ExperimentView = ({ctrl_state}) => {
               {exp_controls}
             </div>
             {run_state_element}
-            <div style={{overflow: "scroll", height: "calc(100% - 16px)"}}>
+            <div style={{overflow: "scroll", height: params_height}}>
               {params_div}
               <div className="subsection_header">
                 <span className="title">Blocks</span>
-                <button onClick={add_block} disabled={is_running}>Add block</button>
-                <button onClick={reset_all_blocks} disabled={is_running}>Reset blocks</button>
+                <button onClick={reset_all_blocks} disabled={is_running}>Reset all</button>
               </div>
-              <div style={{overflow: "hidden"}}>
-                {block_divs}           
-              </div>
+              <BlocksView is_running={is_running}
+                          params={experimentParams}
+                          blocks={experimentBlocks}
+                          default_blocks={defaultBlocks}
+                          set_blocks={setExperimentBlocks}
+                          cur_block={ctrl_state.experiment.cur_block}/>
             </div>            
           </ReflexElement>
           <ReflexSplitter/>
@@ -342,7 +264,7 @@ export const ExperimentView = ({ctrl_state}) => {
             <div className="section_header">
               <span className="title">State</span>
             </div>
-            <div style={{overflow: "scroll", height: "100%"}}>
+            <div style={{overflow: "scroll", height: "calc(100% - 18px)"}}>
               <ReactJson src={ctrl_state}
                          name={null}
                          style={{height: "auto"}}

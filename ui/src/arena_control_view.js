@@ -21,6 +21,40 @@ export const ArenaControlView = ({ctrl_state}) => {
     
     //const get_icon = on => on ? "check circle outline" : "circle outline";
     const get_icon = on => on ? "toggle on" : "toggle off";
+
+    const sensor_items = (() => {
+        const st = ctrl_state.arena.sensors;
+        if (st === null || st === undefined)
+            return null;
+        else {
+            const items = [];
+            if (st.temp !== null && st.temp !== undefined) {
+                st.temp.forEach((temp, i) => items.push(
+                    <Dropdown.Item text={`Temp ${i}: ${temp}C`}
+                                   icon="thermometer half"
+                                   key={i}/>
+                ));
+            }
+            if (st.humidity !== null && st.humidity !== undefined)
+                items.push(
+                    <Dropdown.Item text={`Humidity: ${st.humidity}%`}
+                                   icon="tint"
+                                   key="humidity"/>
+                );
+
+            if (st.timestamp !== null && st.timestamp !== undefined) {
+                const timestamp = new Date(0);
+                timestamp.setUTCSeconds(st.timestamp);
+                items.push(                    
+                    <Dropdown.Item text={`Update: ${timestamp.toLocaleTimeString()}`}
+                                   key={timestamp}/>
+                );
+            }
+            if (items.length > 0)
+                items.push(<Dropdown.Divider key="div"/>);
+            return items;       
+        }
+    })();
     
     return (
         <button>
@@ -35,8 +69,10 @@ export const ArenaControlView = ({ctrl_state}) => {
               <Dropdown.Item text="Day lights"
                              icon={get_icon(ctrl_state.arena.day_lights)}
                              onClick={toggle_day_lights}/>
+              <Dropdown.Divider/>
+              {sensor_items}
               <Dropdown.Item text="Poll sensors"
-                             icon="eye"
+                             icon="stethoscope"
                              onClick={poll_sensors}/>
             </Dropdown.Menu>
           </Dropdown>
