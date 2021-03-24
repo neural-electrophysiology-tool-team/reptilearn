@@ -19,30 +19,29 @@ export const ArenaControlView = ({ctrl_state}) => {
         fetch(api_url + "/arena/sensors_poll/None");
     };
     
-    //const get_icon = on => on ? "check circle outline" : "circle outline";
     const get_icon = on => on ? "toggle on" : "toggle off";
 
     const sensor_items = (() => {
         const st = ctrl_state.arena.sensors;
-        if (st === null || st === undefined)
+        if (st == null)
             return null;
         else {
             const items = [];
-            if (st.temp !== null && st.temp !== undefined) {
+            if (st.temp != null) {
                 st.temp.forEach((temp, i) => items.push(
                     <Dropdown.Item text={`Temp ${i}: ${temp}C`}
                                    icon="thermometer half"
                                    key={i}/>
                 ));
             }
-            if (st.humidity !== null && st.humidity !== undefined)
+            if (st.humidity != null)
                 items.push(
                     <Dropdown.Item text={`Humidity: ${st.humidity}%`}
                                    icon="tint"
                                    key="humidity"/>
                 );
 
-            if (st.timestamp !== null && st.timestamp !== undefined) {
+            if (st.timestamp != null) {
                 const timestamp = new Date(0);
                 timestamp.setUTCSeconds(st.timestamp);
                 items.push(                    

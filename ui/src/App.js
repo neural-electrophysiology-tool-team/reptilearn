@@ -30,19 +30,16 @@ const App = () => {
         });
     }, [handle_disconnect, handle_new_state, socket]);
 
-    if (ctrlState===null || sourcesConfig===null)
+    if (ctrlState == null || sourcesConfig == null)
 	return (
 	    <div className="App">
 		<p>Loading...</p>
 	    </div>
 	);
-
-    const valid_image_sources = Object.keys(ctrlState.image_sources).filter(key => ctrlState.image_sources[key].acquiring);
     
     return (
         <div className="App">
-          <MainPanelView ctrl_state={ctrlState}
-			 image_sources={valid_image_sources}
+          <MainPanelView ctrl_state={ctrlState}                         
 			 sources_config={sourcesConfig} />
         </div>
     );   

@@ -63,19 +63,19 @@ image_sources = {
     for (src_id, src_config) in config.image_sources.items()
 }
 
-image_observers = [
-    instantiate_class(
+image_observers = {
+    obs_id: instantiate_class(
         obs_config["class"], image_sources[obs_config["src_id"]], **obs_config["args"]
     )
-    for obs_config in config.image_observers
-]
+    for obs_id, obs_config in config.image_observers.items()
+}
 
 mqtt.init(log)
 arena.init(log)
 video_record.init(image_sources, log)
-experiment.init(log)
+experiment.init(image_observers, log)
 
-for img_obs in image_observers:
+for img_obs in image_observers.values():
     img_obs.start()
 
 for img_src in image_sources.values():

@@ -93,8 +93,8 @@ image_sources = dict(
 )
 
 
-image_observers = [
-    {
+image_observers = {
+    "head_bbox": {
         "src_id": "test",
         "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
         "args": {
@@ -103,7 +103,7 @@ image_observers = [
             "buffer_size": 20,
         },
     }
-]
+}
 
 # These parameters are passed to imageio.get_writer function
 # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html

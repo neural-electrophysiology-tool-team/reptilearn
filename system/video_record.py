@@ -1,4 +1,3 @@
-import multiprocessing as mp
 from pathlib import Path
 from threading import Timer
 from datetime import datetime
@@ -7,7 +6,7 @@ import time
 
 import mqtt
 import config
-from video_stream import ImageSource
+from video_stream import ImageSource, ImageObserver
 from state import state
 import rl_logging
 
@@ -103,7 +102,7 @@ def start_record(src_ids=None):
     def standby():
         rec_state["is_recording"] = True
         for src_id in src_ids:
-            video_writers[src_id].start_writing()
+            video_writers[src_id].start_observing()
 
     if rec_state["ttl_trigger"]:
         _do_restore_trigger = True
@@ -127,7 +126,7 @@ def stop_record(src_ids=None):
     def stop():
         rec_state["is_recording"] = False
         for src_id in src_ids:
-            video_writers[src_id].stop_writing()
+            video_writers[src_id].stop_observing()
 
     if _do_restore_trigger:
         stop_trigger(update_state=False)
@@ -161,33 +160,20 @@ def _get_new_write_path(src_id, file_ext):
     return write_dir / (base + file_ext)
 
 
-class VideoWriter(mp.Process):
+class VideoWriter(ImageObserver):
     def __init__(
         self,
         img_src: ImageSource,
         frame_rate,
         file_ext="mp4",
     ):
-        super().__init__()
+        super().__init__(img_src)
+
         self.frame_rate = frame_rate
-        self.img_src = img_src
-        self.img_src.state["writing"] = False
-
         self.file_ext = file_ext
-        self.update_event = mp.Event()
-        img_src.add_observer_event(self.update_event)
-
-        self.parent_pipe, self.child_pipe = mp.Pipe()
-        self.name = f"{type(self).__name__}:{self.img_src.src_id}"
-
-    def start_writing(self, num_frames=None):
-        self.parent_pipe.send("start")
-
-    def stop_writing(self):
-        self.parent_pipe.send("stop")
         self.img_src.state["writing"] = False
 
-    def _begin_writing(self):
+    def on_start(self):
         if not self.img_src.state["acquiring"]:
             self.log.error("Can't write video. Image source is not acquiring.")
             return
@@ -211,55 +197,17 @@ class VideoWriter(mp.Process):
 
         self.img_src.state["writing"] = True
 
-    def _write(self):
+    def on_image_update(self, img, timestamp):
         img, timestamp = self.img_src.get_image()
 
         self.ts_file.write(str(timestamp) + "\n")
         self.writer.append_data(img)
 
-    def _finish_writing(self):
+    def on_stop(self):
+        self.log.info(
+            f"Finished writing {self.frame_count} frames. Average frame write time: {self.avg_proc_time*1000:.3f}ms"
+        )
+
+        self.img_src.state["writing"] = False
         self.writer.close()
         self.ts_file.close()
-
-    def run(self):
-        self.log = rl_logging.logger_configurer(self.name)
-        cmd = None
-
-        while True:
-            try:
-                cmd = self.child_pipe.recv()
-            except KeyboardInterrupt:
-                break
-
-            if cmd == "start":
-                self.avg_write_time = 0
-                self.frame_count = 0
-
-                self._begin_writing()
-                self.update_event.clear()
-
-                try:
-                    while True:
-                        if self.img_src.end_event.is_set():
-                            break
-                        if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
-                            break
-                        if self.update_event.wait(1):
-                            self.update_event.clear()
-                            t0 = time.time()
-                            self._write()
-                            dt = time.time() - t0
-                            self.frame_count += 1
-                            if self.frame_count == 1:
-                                self.avg_write_time = dt
-                            else:
-                                self.avg_write_time = (
-                                    self.avg_write_time * (self.frame_count - 1) + dt
-                                ) / self.frame_count
-                except KeyboardInterrupt:
-                    break
-                finally:
-                    self.log.info(
-                        f"Finished writing {self.frame_count} frames. Average frame write time: {self.avg_write_time*1000:.3f}ms"
-                    )
-                    self._finish_writing()

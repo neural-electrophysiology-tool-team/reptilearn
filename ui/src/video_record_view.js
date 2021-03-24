@@ -9,11 +9,10 @@ export const VideoRecordView = ({ctrl_state}) => {
     if (ctrl_state == null)
 	return null;
 
-    const is_recording = ctrl_state.video_record.is_recording;
     const image_sources = Object.keys(ctrl_state.image_sources);
-    const rec_btn_icon = is_recording ? "stop circle" : "circle";
+    const is_recording = ctrl_state.video_record.is_recording;
     const ttl_trigger_state = ctrl_state.video_record.ttl_trigger;
-    const ttl_btn_title = ttl_trigger_state ? "Stop Trigger" : "Start Trigger";
+    
     const toggle_recording = (e) => {
         if (is_recording) {
             fetch(api_url + "/video_record/stop");
@@ -21,8 +20,7 @@ export const VideoRecordView = ({ctrl_state}) => {
         else {
             const prefix = prefix_input_ref.current.value;
             fetch(api_url + `/video_record/set_prefix/${prefix}`)
-                .then(res => fetch(api_url + "/video_record/start"),
-                      error => console.log("error"));
+                .then(res => fetch(api_url + "/video_record/start"));
         }
     };
 
@@ -36,15 +34,15 @@ export const VideoRecordView = ({ctrl_state}) => {
     };
     
     const src_changed = (src_id) => {
-        if (ctrl_state.video_record.selected_sources.indexOf(src_id) === -1) {
-            fetch(api_url + `/video_record/select_source/${src_id}`);
+        if (ctrl_state.video_record.selected_sources.includes(src_id)) {
+            fetch(api_url + `/video_record/unselect_source/${src_id}`);
         }
         else {
-            fetch(api_url + `/video_record/unselect_source/${src_id}`);
+            fetch(api_url + `/video_record/select_source/${src_id}`);
         }
     };
 
-    const select_sources = (() => {
+    const sources_dropdown = (() => {
         const items = image_sources.map(src_id => {
             const selected = ctrl_state.video_record.selected_sources.indexOf(src_id) !== -1;
             return <Dropdown.Item text={src_id}
@@ -69,10 +67,15 @@ export const VideoRecordView = ({ctrl_state}) => {
                  ref={prefix_input_ref}
                  disabled={is_recording}
           />
-          <button onClick={toggle_recording}><Icon size="small" fitted name={rec_btn_icon}/></button>
-          <button onClick={toggle_ttl_trigger}>{ttl_btn_title}</button>
+          <button onClick={toggle_recording}
+                  title={is_recording ? "Stop recording" : "Start recording"}>
+            <Icon size="small" fitted name={is_recording ? "stop circle" : "circle"}/>
+          </button>
+          <button onClick={toggle_ttl_trigger}>
+            {ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
+          </button>
           <button disabled={is_recording}>
-            {select_sources}
+            {sources_dropdown}
           </button>
         </span>
     );

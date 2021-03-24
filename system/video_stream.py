@@ -136,37 +136,77 @@ class ImageObserver(mp.Process):
     def __init__(self, img_src: ImageSource):
         super().__init__()
         self.img_src = img_src
+
         self.update_event = mp.Event()
         img_src.add_observer_event(self.update_event)
-        self.name = type(self).__name__
+
+        self.parent_pipe, self.child_pipe = mp.Pipe()
+
+        self.name = f"{type(self).__name__}:{self.img_src.src_id}"
+
+    def start_observing(self, num_frames=None):
+        self.parent_pipe.send("start")
+
+    def stop_observing(self):
+        self.parent_pipe.send("stop")
 
     def run(self):
         self.log = rl_logging.logger_configurer(self.name)
-        self.on_begin()
 
-        try:
-            while True:
-                if self.img_src.end_event.is_set():
-                    break
+        self.setup()
+        cmd = None
 
-                self.update_event.wait()
+        while True:
+            try:
+                cmd = self.child_pipe.recv()
+            except KeyboardInterrupt:
+                break
+
+            if cmd == "start":
+                self.avg_proc_time = 0
+                self.frame_count = 0
+
+                self.on_start()
                 self.update_event.clear()
 
-                img, timestamp = self.img_src.get_image()
-                self.on_image_update(img, timestamp)
+                try:
+                    while True:
+                        if self.img_src.end_event.is_set():
+                            break
 
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self.on_finish()
+                        if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
+                            break
+                        if self.update_event.wait(1):
+                            self.update_event.clear()
 
-    def on_begin(self):
+                            t0 = time.time()
+                            self.on_image_update(*self.img_src.get_image())
+                            dt = time.time() - t0
+                            self.frame_count += 1
+                            if self.frame_count == 1:
+                                self.avg_proc_time = dt
+                            else:
+                                self.avg_proc_time = (
+                                    self.avg_proc_time * (self.frame_count - 1) + dt
+                                ) / self.frame_count
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    self.on_stop()
+
+    def on_start(self):
         pass
 
     def on_image_update(self, img, timestamp):
         pass
 
-    def on_finish(self):
+    def on_stop(self):
+        pass
+
+    def setup(self):
+        pass
+
+    def release(self):
         pass
 
 

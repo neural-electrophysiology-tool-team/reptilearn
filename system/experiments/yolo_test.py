@@ -12,6 +12,7 @@ class YoloExperiment(exp.Experiment):
             "reptilearn/pogona_head_bbox",
             mqtt.mqtt_json_callback(self.on_yolo_detection),
         )
+        exp.image_observers["head_bbox"].start_observing()
         self.log.info("YOLO Experiment is running.")
 
     def on_yolo_detection(self, topic, payload):
@@ -38,4 +39,5 @@ class YoloExperiment(exp.Experiment):
 
     def end(self, params):
         mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
+        exp.image_observers["head_bbox"].stop_observing()
         exp.exp_state.delete("last_position")

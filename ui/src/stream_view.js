@@ -4,21 +4,41 @@ import {api_url} from './config.js';
 import { Icon } from 'semantic-ui-react';
 
 const StreamView = (
-    {idx, streams, set_streams, remove_stream, image_sources, sources_config, unused_src_idxs, add_stream}
+    {idx, streams, set_streams, image_sources, sources_config, unused_src_ids, add_stream}
 ) => {
-    const {src_idx, width, undistort, is_streaming} = streams[idx];
-    const source_id = image_sources[src_idx];
-    const src_width = sources_config[source_id].image_shape[1];
-    const src_height = sources_config[source_id].image_shape[0];
+    const {src_id, width, undistort, is_streaming} = streams[idx];
+    const src_width = sources_config[src_id].image_shape[1];
+    const src_height = sources_config[src_id].image_shape[0];
     
     const stream_height = src_height * (width / src_width);
-    const stream_url = api_url + `/video_stream/${source_id}?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
+    const stream_url = api_url
+          + `/video_stream/${src_id}?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
 
     const stop_streaming = (src_id) => {
         return fetch(api_url + `/stop_stream/${src_id}`);
     };
 
-    const update_stream = (idx, key, val) => {
+    const update_sources = (new_src_id) => {
+        const ss = streams.map(s => ({...s}));
+        const ident_ids = ss.map((s, i) => ({idx: i, src_id: s.src_id}))
+              .filter(s => s.src_id === new_src_id && s.idx !== idx);
+        if (ident_ids.length > 0) {
+            const ident_id = ident_ids[0];
+            ss[ident_id.idx].src_id = src_id;
+        }
+        ss[idx].src_id = new_src_id;
+        console.log(ss);
+        set_streams(ss);
+    };
+
+    const remove_stream = () => {
+        const new_views = streams.slice(0, idx)
+              .concat(streams.slice(idx + 1, streams.length));
+        set_streams(new_views);
+    };
+
+    
+    const update_stream = (key, val) => {
         const s = streams.map(s => ({...s}));
         s[idx][key] = val;
         set_streams(s);
@@ -26,16 +46,32 @@ const StreamView = (
     
     const toggle_stream = () => {
         if (is_streaming)
-            stop_streaming(source_id);
+            stop_streaming(src_id);
 
-        update_stream(idx, "is_streaming", !is_streaming);
+        update_stream("is_streaming", !is_streaming);
     };
 
-    const save_image = (src_id) => {
-        return fetch(api_url + `/save_image/${source_id}`);
+    const shift_left = () => {
+        const ss = streams.map(s => ({...s}));
+        const s = ss[idx];
+        ss.splice(idx, 1);
+        ss.splice(idx - 1, 0, s);
+        set_streams(ss);
+    };
+
+    const shift_right = () => {
+        const ss = streams.map(s => ({...s}));
+        const s = ss[idx];
+        ss.splice(idx, 1);
+        ss.splice(idx + 1, 0, s);
+        set_streams(ss);
+    };
+
+    const save_image = () => {
+        return fetch(api_url + `/save_image/${src_id}`);
     };
     
-    const stream_div_style = {width: (width) + "px", height: (stream_height) + "px"};
+    const dims_style = {width: (width) + "px", height: (stream_height) + "px"};
 
     const stream = is_streaming ?
 	  (
@@ -50,44 +86,23 @@ const StreamView = (
 
     const width_options = Array(12).fill().map((_, i) => (i+1) * src_width / 12);
 
-    const used_img_srcs = image_sources.filter((id, idx) => {
-        return unused_src_idxs.indexOf(idx) === -1 && idx !== src_idx;
-    });
-
     const shift_right_disabled = idx === streams.length - 1;
     const shift_left_disabled = idx === 0;
-
-    const shift_left = (idx) => {
-        const ss = streams.map(s => ({...s}));
-        const s = ss[idx];
-        ss.splice(idx, 1);
-        ss.splice(idx - 1, 0, s);
-        set_streams(ss);
-    };
-
-    const shift_right = (idx) => {
-        const ss = streams.map(s => ({...s}));
-        const s = ss[idx];
-        ss.splice(idx, 1);
-        ss.splice(idx + 1, 0, s);
-        set_streams(ss);
-    };
 
     return (
         <div className="stream_view">
           <div className="toolbar">
-            <button onClick={(e) => remove_stream(idx)} disabled={streams.length === 1}>
+            <button onClick={(e) => remove_stream()} disabled={streams.length === 1}>
               <Icon name="x" size="small" fitted />
             </button>
             <Selector options={image_sources}
-                      on_select={(_, i) => update_stream(idx, "src_idx", i)}
-                      selected={src_idx}
-                      disabled={false}
-                      disabled_options={used_img_srcs}/>
-            <button onClick={() => shift_left(idx)} disabled={shift_left_disabled}>
+                      on_select={(src_id, i) => update_sources(src_id) }
+                      selected={image_sources.indexOf(src_id)}
+                      disabled={false} />
+            <button onClick={() => shift_left()} disabled={shift_left_disabled}>
               <Icon name="angle left" fitted/>
             </button>
-            <button onClick={() => shift_right(idx)} disabled={shift_right_disabled}>
+            <button onClick={() => shift_right()} disabled={shift_right_disabled}>
               <Icon name="angle right" fitted/>
             </button>
             <button onClick={toggle_stream}>
@@ -102,19 +117,19 @@ const StreamView = (
               <Icon size="small" fitted name="add"/>
             </button>
           </div>
-          <div className="stream" style={stream_div_style}>
+          <div className="stream" style={dims_style}>
             {stream}
           </div>
           <div className="toolbar">
             <label htmlFor="width_selector">Width: </label>
             <Selector options={width_options}
-                      on_select={(w) => update_stream(idx, "width", w)}
+                      on_select={(w) => update_stream("width", w)}
                       selected={width_options.indexOf(width)}
                       disabled={false}/>
             <input type="checkbox"
                    name="undistort_checkbox"
                    checked={undistort}
-                   onChange={(e) => update_stream(idx, "undistort", e.target.checked)}
+                   onChange={(e) => update_stream("undistort", e.target.checked)}
                    disabled={false}/>
             <label htmlFor="undistort_checkbox">Undistort </label>
           </div>
@@ -135,30 +150,22 @@ export class StreamGroupView extends React.Component {
     }
 
     componentDidMount() {
-        if (this.unused_src_idxs().length !== 0)
+        if (this.image_sources.length !== 0)
             this.add_stream(0);
     }
     
-    unused_src_idxs = () => {
-        const used_idxs = this.state.streams.map(s => s.src_idx);
-        const all_idxs = Array(this.image_sources.length).fill().map((_, i) => i);
-        const unused_idxs = all_idxs.filter(i => used_idxs.indexOf(i) === -1);
-        return unused_idxs;
+    unused_src_ids = () => {
+        const used_ids = this.state.streams.map(s => s.src_id);
+        return this.image_sources.filter(src_id => !used_ids.includes(src_id));
     }
     
-    remove_stream = (idx) => {
-        const new_views = this.state.streams.slice(0, idx)
-              .concat(this.state.streams.slice(idx + 1, this.state.streams.length));
-        this.setState({streams: new_views});
-    }
-
     add_stream = (idx) => {
         const new_width = this.state.streams[idx] ? this.state.streams[idx].width : 360;
         const new_is_streaming = this.state.streams[idx] ?
               this.state.streams[idx].is_streaming : true;
         
         const new_stream = {
-            src_idx: this.unused_src_idxs()[0],
+            src_id: this.unused_src_ids()[0],
             width: new_width,
             undistort: false,
             is_streaming: new_is_streaming,
@@ -191,10 +198,9 @@ export class StreamGroupView extends React.Component {
                                idx={idx}
                                streams={this.state.streams}
                                set_streams={s => this.setState({streams: s})}
-                               remove_stream={this.remove_stream}
                                image_sources={this.image_sources}
                                sources_config={this.sources_config}
-                               unused_src_idxs={this.unused_src_idxs()}
+                               unused_src_ids={this.unused_src_ids()}
                                add_stream={this.add_stream}
                                key={idx}
                                />
@@ -202,7 +208,7 @@ export class StreamGroupView extends React.Component {
         );
         
         return (
-	    <div className="stream_group_view pane-content">
+	    <div className="stream_group_view">
               {stream_views}
             </div>
         );     

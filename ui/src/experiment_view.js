@@ -31,7 +31,7 @@ export const ExperimentView = ({ctrl_state}) => {
 	fetch(exp_url + "/default_params")
 	    .then(res => res.json())
 	    .then(new_defaults => {
-                if (new_defaults === null || new_defaults === undefined) {
+                if (new_defaults == null) {
                     setDefaultParams(null);
                     setDefaultBlocks(null);
                 }
@@ -40,13 +40,16 @@ export const ExperimentView = ({ctrl_state}) => {
                           null : new_defaults.params;
                     const new_default_blocks = new_defaults.blocks === undefined ?
                           null : new_defaults.blocks;
+                    
                     merge_params(new_default_params);
-                    if (override_blocks || new_default_blocks.length === experimentBlocks.length ||
+                    if (override_blocks ||
+                        new_default_blocks.length === experimentBlocks.length ||
                         experimentBlocks.length === 0)
+                        
                         merge_all_blocks(new_default_blocks);
+
                     setDefaultParams(new_default_params);
                     setDefaultBlocks(new_default_blocks);
-
                 }
             });
     };
@@ -85,10 +88,10 @@ export const ExperimentView = ({ctrl_state}) => {
             return;
         }
 
-        const new_exp = override_blocks !== undefined || exp_name !== ctrl_state.experiment.cur_experiment;
+        const new_exp = override_blocks|| exp_name !== ctrl_state.experiment.cur_experiment;
 	if (new_exp) {
 	    setExperimentParams({});
-            setExperimentBlocks([]);
+            setExperimentBlocks([{}]);
 	}
 
 	fetch(exp_url + `/set/${exp_name}`)
@@ -156,8 +159,7 @@ export const ExperimentView = ({ctrl_state}) => {
             .then(
                 (res) => {
                     setExperimentList(res);
-                    if (ctrl_state !== null && ctrl_state.experiment.cur_experiment !== null
-                       && ctrl_state.experiment.cur_experiment !== undefined) {
+                    if (ctrl_state != null && ctrl_state.experiment.cur_experiment != null) {
                         set_experiment(ctrl_state.experiment.cur_experiment, true);
                     }                    
                 }
@@ -208,10 +210,10 @@ export const ExperimentView = ({ctrl_state}) => {
     const run_state_element = !is_running ? null :
           <div className="subsection_header">
             <label>block:</label>
-            <input type="text" readOnly value={ctrl_state.experiment.cur_block+1} size="2"/>
+            <input type="text" readOnly value={ctrl_state.experiment.cur_block+1} size="3"/>
             <button onClick={next_block}>+</button>
             <label> trial:</label>
-            <input type="text" readOnly value={ctrl_state.experiment.cur_trial+1} size="2"/>
+            <input type="text" readOnly value={ctrl_state.experiment.cur_trial+1} size="3"/>
             <button onClick={next_trial}>+</button>
           </div>;
 

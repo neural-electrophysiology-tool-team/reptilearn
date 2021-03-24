@@ -39,7 +39,7 @@ class YOLOv4Detector:
         self.nms_thres = nms_thres
         self.return_neareast_detection = return_neareast_detection
 
-    def load_detector(self):
+    def load(self):
         self.curr_img = None
         self.prev_bbox = None
 

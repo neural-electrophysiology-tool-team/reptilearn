@@ -17,11 +17,11 @@ class YOLOv4ImageObserver(ImageObserver):
         self.detection_buffer = []
         self.buffer_size = buffer_size
 
-    def on_begin(self):
+    def setup(self):
         self.mqttc = mqtt.MQTTClient()
         self.mqttc.log = self.log
         self.mqttc.connect()
-        self.detector.load_detector()
+        self.detector.load()
 
     def on_image_update(self, img, image_timestamp):
         det = self.detector.detect_image(img)
@@ -41,5 +41,5 @@ class YOLOv4ImageObserver(ImageObserver):
             },
         )
 
-    def on_finish(self):
+    def release(self):
         self.mqttc.disconnect()

@@ -256,9 +256,9 @@ def get_num_blocks():
 ########################
 
 
-def init(logger):
-    global log
-
+def init(img_observers, logger):
+    global log, image_observers
+    image_observers = img_observers
     log = logger
     refresh_experiment_list()
     threading.Thread(target=state_dispatcher.listen).start()

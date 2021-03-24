@@ -6,16 +6,18 @@ import {ArenaControlView} from './arena_control_view.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {LogView} from './log_view.js';
 
-export const MainPanelView = ({ctrl_state, image_sources, sources_config}) => {
-    if (image_sources === null || image_sources === undefined ||
-        sources_config === null || sources_config === undefined) {
+export const MainPanelView = ({ctrl_state, sources_config}) => {
+    if (!sources_config) {
         return null;
     }
 
+    const image_sources = Object.keys(ctrl_state.image_sources)
+        .filter(key => ctrl_state.image_sources[key].acquiring);
+
     return (
-        <ReflexContainer orientation="horizontal">
-          <ReflexElement
-            minSize={22} maxSize={22} className="section_header" style={{marginBottom: 0, overflow: "visible"}}>
+        <ReflexContainer orientation="horizontal" windowResizeAware={true}>
+          <ReflexElement minSize={22} maxSize={22} className="section_header"
+                         style={{marginBottom: 0, overflow: "visible"}}>
             <span className="title">ReptiLearn</span>
             <VideoRecordView ctrl_state={ctrl_state}/>
             <ArenaControlView ctrl_state={ctrl_state}/>
@@ -23,16 +25,13 @@ export const MainPanelView = ({ctrl_state, image_sources, sources_config}) => {
           <ReflexElement>
             <ReflexContainer orientation="horizontal">          
               <ReflexElement>
-                <ReflexContainer orientation="vertical">    
-                  <ReflexElement flex={0.65} style={{backgroundColor: "#555555"}}>
+                <ReflexContainer orientation="vertical" windowResizeAware={true}>
+                  <ReflexElement flex={0.65} className="stream_group_view_container">
                     <StreamGroupView image_sources={image_sources}
                                      sources_config={sources_config}/>
-                    
                   </ReflexElement>
-                  
                   <ReflexSplitter/>
-                  
-                  <ReflexElement>
+                  <ReflexElement minSize={400}>
                     <ExperimentView ctrl_state={ctrl_state} />
                   </ReflexElement>
                 </ReflexContainer>
@@ -44,5 +43,5 @@ export const MainPanelView = ({ctrl_state, image_sources, sources_config}) => {
             </ReflexContainer>            
           </ReflexElement>
         </ReflexContainer>
-                    );
-}
+    );
+};

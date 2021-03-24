@@ -16,6 +16,12 @@ class TimerExperiment(exp.Experiment):
         {"interval": 2},
     ]
 
+    # mock
+    params_def = {
+        "interval": (1, {"ui": ["input", "float"]})
+    }
+    ##
+    
     def setup(self):
         self.cancel_timer = None
         
@@ -30,7 +36,6 @@ class TimerExperiment(exp.Experiment):
         self.log.info(f"{exp.exp_state['cur_trial']}: {time.time()}")
         arena.signal_led(True)
         schedule.once(lambda: arena.signal_led(False), params["interval"] / 2)
-
 
     def timer_fn(self):
         exp.next_trial()

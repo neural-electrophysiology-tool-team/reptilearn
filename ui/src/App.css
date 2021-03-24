@@ -3,7 +3,7 @@
 .App {
     height: 100vh;
     font-family: 'Open Sans', sans-serif;
-    font-size: 13.333px;
+    font-size: 12px;
 }
 
 button {
@@ -48,12 +48,16 @@ input, select {
     height: 100%;
 }
 
+.stream_group_view_container {
+    background-color: #555555;
+}
+
 .stream_group_view {
     padding: 0px 2px;
 }
 
 .stream_view {
-    background-color: white;
+    background-color: #efefef;
     display: inline-block;
     vertical-align: middle;
     margin-top: 1px;
