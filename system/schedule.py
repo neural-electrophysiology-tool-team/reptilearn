@@ -6,7 +6,6 @@ from collections import Sequence
 # one-shot timer, repeating timer, time of day scheduling (thread based)
 
 log = logging.getLogger("Main")
-logging_enabled = False
 cancel_fns = []
 
 
@@ -25,12 +24,11 @@ def _gen_schedule_fn(thread_fn):
                 cancel_fns.remove(cancel)
                 raise e
 
-            if logging_enabled:
-                name = threading.current_thread().name
-                if cancel_event.is_set():
-                    log.info(f"{name}: Schedule cancelled")
-                else:
-                    log.info(f"{name}: Schedule finished")
+            name = threading.current_thread().name
+            if cancel_event.is_set():
+                log.debug(f"{name}: Schedule cancelled")
+            else:
+                log.debug(f"{name}: Schedule finished")
 
             cancel_fns.remove(cancel)
 

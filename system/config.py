@@ -105,10 +105,10 @@ image_observers = {
     }
 }
 
-# These parameters are passed to imageio.get_writer function
-# See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
 video_record = {
     "video_encoding": {
+        # These parameters are passed to imageio.get_writer function
+        # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
         "codec": "libx264",
         "quality": 5,
         "macro_block_size": 8,  # to work with 1440x1080 image size
@@ -123,4 +123,7 @@ mqtt = {
     "port": 1883,
 }
 
-arena_defaults = {"signal_led": False, "day_lights": False}
+arena_defaults = {
+    "signal_led": False,
+    "day_lights": False
+}

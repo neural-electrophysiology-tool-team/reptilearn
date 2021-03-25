@@ -5,6 +5,9 @@ import {api_url} from './config.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
 
+/*
+  assign object o to object n without overwriting existing properties of o.
+ */
 const assign_keep_old = (o, n) => {
     if (o === null || o === undefined)
         return n;
@@ -137,8 +140,7 @@ export const ExperimentView = ({ctrl_state}) => {
     };
 
     const end_experiment = () => {
-	fetch(exp_url + "/end")
-	    .then(res => console.log(res));
+	fetch(exp_url + "/end");
     };
 
     const on_params_changed = (e) => {
@@ -165,18 +167,18 @@ export const ExperimentView = ({ctrl_state}) => {
                 }
             );               
     }, []);
-
     
     if (!ctrl_state)
 	return null;
 
     const cur_exp_name = ctrl_state.experiment.cur_experiment;
-    const cur_exp_idx = cur_exp_name ? experimentList.indexOf(cur_exp_name) : null;
     const is_running = ctrl_state.experiment.is_running;
 
     const experiment_selector = (() => {
         const sep = "\u2500\u2500\u2500\u2500\u2500";
+        const cur_exp_idx = cur_exp_name ? experimentList.indexOf(cur_exp_name) : null;
         const select_idx = cur_exp_idx!==null ? cur_exp_idx : experimentList.length + 1;
+        
         return <Selector
                  options={experimentList.concat([sep, "None", "Refresh list"])}
 		 selected={select_idx}
@@ -185,29 +187,33 @@ export const ExperimentView = ({ctrl_state}) => {
 	         disabled={ctrl_state.experiment.is_running}
                />;
     })();
-    
-    const run_end_btn = is_running ?
+
+    const exp_controls = (() => {
+        if (cur_exp_name == null)
+            return null;
+
+        const run_end_btn = is_running ?
           <button onClick={end_experiment}>End</button>
 	  : <button onClick={run_experiment}>Run</button>;
-
-    const exp_controls = cur_exp_name ? (
-        <React.Fragment>
-          <button onClick={(e) => set_experiment(cur_exp_name)}
-		  disabled={is_running}>
-	    Reload
-	  </button>
-          id:
-          <input type="text"
-                 ref={experimentIdInput}
-                 placeholder={cur_exp_name}
-                 disabled={is_running}
-                 size="16"/>
-          {run_end_btn}
-        </React.Fragment>
-    ) : null;
+        
+        return (
+            <React.Fragment>
+              <button onClick={(e) => set_experiment(cur_exp_name)}
+		      disabled={is_running}>
+	        Reload
+	      </button>
+              id:
+              <input type="text"
+                     ref={experimentIdInput}
+                     placeholder={cur_exp_name}
+                     disabled={is_running}
+                     size="16"/>
+              {run_end_btn}
+            </React.Fragment>
+        );
+    })();
           
-
-    const run_state_element = !is_running ? null :
+    const run_state_toolbar = !is_running ? null :
           <div className="subsection_header">
             <label>block:</label>
             <input type="text" readOnly value={ctrl_state.experiment.cur_block+1} size="3"/>
@@ -246,7 +252,7 @@ export const ExperimentView = ({ctrl_state}) => {
               {experiment_selector}
               {exp_controls}
             </div>
-            {run_state_element}
+            {run_state_toolbar}
             <div style={{overflow: "scroll", height: params_height}}>
               {params_div}
               <div className="subsection_header">

@@ -2,7 +2,6 @@ import config
 import paho.mqtt.client as paho
 import logging
 import json
-import logging
 
 
 class MQTTClient(paho.Client):
@@ -14,7 +13,7 @@ class MQTTClient(paho.Client):
         self.subscribed_topics = []
         self.last_msg_info = None
         self.log = logging.getLogger("MQTTClient")
-        
+
     def disconnect(self):
         if self.is_connected:
             self.log.info("MQTT disconnecting...")

@@ -23,7 +23,7 @@ export const MainPanelView = ({ctrl_state, sources_config}) => {
             <ArenaControlView ctrl_state={ctrl_state}/>
           </ReflexElement>
           <ReflexElement>
-            <ReflexContainer orientation="horizontal">          
+            <ReflexContainer orientation="horizontal" windowResizeAware={true}>
               <ReflexElement>
                 <ReflexContainer orientation="vertical" windowResizeAware={true}>
                   <ReflexElement flex={0.65} className="stream_group_view_container">
@@ -37,7 +37,7 @@ export const MainPanelView = ({ctrl_state, sources_config}) => {
                 </ReflexContainer>
               </ReflexElement>
               <ReflexSplitter/>
-              <ReflexElement minSize={60} flex={0.2} style={{overflow: "hidden"}}>
+              <ReflexElement minSize={26} flex={0.2} style={{overflow: "hidden"}}>
                 <LogView/>
               </ReflexElement>
             </ReflexContainer>            

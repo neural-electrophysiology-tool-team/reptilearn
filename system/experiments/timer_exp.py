@@ -17,14 +17,12 @@ class TimerExperiment(exp.Experiment):
     ]
 
     # mock
-    params_def = {
-        "interval": (1, {"ui": ["input", "float"]})
-    }
+    params_def = {"interval": (1, {"ui": ["input", "float"]})}
     ##
-    
+
     def setup(self):
         self.cancel_timer = None
-        
+
     def run_block(self, params):
         interval = params["interval"]
 

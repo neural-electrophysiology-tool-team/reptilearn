@@ -16,7 +16,7 @@ def resize_image(img, size=(None, None)):
         size[0] == img.shape[1] and size[1] == img.shape[0]
     ):
         return img.copy()
-    
+
     elif size[0] is None or size[1] is None:
         ratio = img.shape[1] / img.shape[0]
 
@@ -25,7 +25,7 @@ def resize_image(img, size=(None, None)):
                 return img.copy()
             else:
                 size = (int(size[1] * ratio), size[1])
-                
+
         elif size[1] is None:
             if size[0] == img.shape[1]:
                 return img.copy()

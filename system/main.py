@@ -1,5 +1,4 @@
 import threading
-import rl_logging
 import logging
 import flask
 import flask_cors
@@ -7,8 +6,9 @@ from flask_socketio import SocketIO, emit
 import cv2
 import json
 from pathlib import Path
-from collections import Sequence
 import sys
+
+import rl_logging
 import mqtt
 import arena
 import schedule
@@ -29,7 +29,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 
 # Setup Logging
-
 class SocketIOHandler(logging.Handler):
     def emit(self, record):
         socketio.emit("log", self.format(record))
@@ -50,7 +49,7 @@ app.logger.addHandler(socketio_handler)
 app.logger.setLevel(logging.WARNING)
 
 
-# initialize state
+# Initialize image sources and observers
 state["image_sources"] = {}
 
 image_sources = {
@@ -70,19 +69,18 @@ image_observers = {
     for obs_id, obs_config in config.image_observers.items()
 }
 
+# Initialize all other modules
 mqtt.init(log)
 arena.init(log)
 video_record.init(image_sources, log)
 experiment.init(image_observers, log)
 
+# Start processes of image observers and sources
 for img_obs in image_observers.values():
     img_obs.start()
 
 for img_src in image_sources.values():
     img_src.start()
-
-
-#### Flask API ####
 
 
 def convert_for_json(v):
@@ -93,7 +91,7 @@ def convert_for_json(v):
     raise TypeError(v)
 
 
-# Broadcast state updates
+# Broadcast state updates over SocketIO
 def send_state(old, new):
     # logger.info("Emitting state update")
     old_json = json.dumps(old, default=convert_for_json)
@@ -113,6 +111,7 @@ def handle_connect():
     emit("state", (None, blob))
 
 
+# Flask REST API
 @app.route("/config/<attribute>")
 def route_config(attribute):
     return flask.Response(
@@ -121,21 +120,16 @@ def route_config(attribute):
     )
 
 
-@app.route("/video_stream/<src_id>")
-def route_video_stream(src_id, width=None, height=None):
-    img_src = image_sources[src_id]
-    if img_src.src_id in config.image_sources:
-        src_config = config.image_sources[img_src.src_id]
-    else:
-        src_config = None
-
+def parse_image_request(src_id):
     swidth = flask.request.args.get("width")
     width = None if swidth is None else int(swidth)
     sheight = flask.request.args.get("height")
     height = None if sheight is None else int(sheight)
-    frame_rate = int(
-        flask.request.args.get("frame_rate", default=config.stream_frame_rate)
-    )
+
+    if src_id in config.image_sources:
+        src_config = config.image_sources[src_id]
+    else:
+        src_config = None
 
     if (
         flask.request.args.get("undistort") == "true"
@@ -149,21 +143,44 @@ def route_video_stream(src_id, width=None, height=None):
     else:
         undistort_mapping = None
 
+    return (width, height, undistort_mapping)
+
+
+def encode_image_for_response(img, width, height, undistort_mapping):
+    if undistort_mapping is not None:
+        img = undistort.undistort_image(img, undistort_mapping)
+
+    return image_utils.encode_image(
+        img,
+        encoding=".webp",
+        encode_params=[cv2.IMWRITE_WEBP_QUALITY, 20],
+        shape=(width, height),
+    )
+
+
+@app.route("/image_sources/<src_id>/get_image")
+def route_image_sources_get_image(src_id, width=None, height=None):
+    img, timestamp = image_sources[src_id].get_image()
+    enc_img = encode_image_for_response(img, *parse_image_request(src_id))
+    return flask.Response(enc_img, mimetype="image/jpeg")
+
+
+@app.route("/image_sources/<src_id>/stream")
+def route_image_sources_stream(src_id, width=None, height=None):
+    img_src = image_sources[src_id]
+
+    frame_rate = int(
+        flask.request.args.get("frame_rate", default=config.stream_frame_rate)
+    )
+
+    enc_args = parse_image_request(src_id)
+
     def flask_gen():
         gen = img_src.stream_gen(frame_rate)
         while True:
             try:
                 img, timestamp = next(gen)
-
-                if undistort_mapping is not None:
-                    img = undistort.undistort_image(img, undistort_mapping)
-
-                enc_img = image_utils.encode_image(
-                    img,
-                    encoding=".webp",
-                    encode_params=[cv2.IMWRITE_WEBP_QUALITY, 20],
-                    shape=(width, height),
-                )
+                enc_img = encode_image_for_response(img, *enc_args)
 
                 yield (
                     b"--frame\r\n"
@@ -233,7 +250,7 @@ def route_experiment_run():
 
     blocks = flask.request.json.get("blocks", [])
     exp_id = flask.request.json["id"]
-    
+
     try:
         experiment.run(exp_id, params, blocks)
         return flask.Response("ok")
@@ -340,16 +357,11 @@ def root():
     return "ReptiLearn Controller"
 
 
-"""
-@app.errorhandler(500)
-def server_error(e):
-    print(str(e), type(e))
-    return flask.jsonify(error=str(e)), 500
-"""
-
+# Run Flask server
 socketio.run(app, use_reloader=False)
 
-# After flask server is terminated due to KeyboardInterrupt:
+
+# Shutdown (flask server was terminated due to KeyboardInterrupt)
 log.info("System is shutting down...")
 stop_state_emitter()
 experiment.shutdown()

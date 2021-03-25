@@ -1,14 +1,11 @@
-from pathlib import Path
 from threading import Timer
 from datetime import datetime
 import imageio
-import time
 
 import mqtt
 import config
 from video_stream import ImageSource, ImageObserver
 from state import state
-import rl_logging
 
 
 # TODO:
@@ -21,6 +18,7 @@ rec_state = state.get_cursor("video_record")
 video_writers = {}
 _image_sources = None
 _log = None
+_do_restore_trigger = False
 
 
 def init(image_sources, logger):
@@ -85,14 +83,12 @@ def stop_trigger(update_state=True):
     mqtt.client.publish("arena/ttl_trigger/stop")
 
 
-_do_restore_trigger = False
-
-
 def start_record(src_ids=None):
+    global _do_restore_trigger
+
     if rec_state["is_recording"] is True:
         return
 
-    global _do_restore_trigger
     if src_ids is None:
         src_ids = rec_state["selected_sources"]
 

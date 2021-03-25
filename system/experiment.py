@@ -20,9 +20,29 @@ exp_state = state.get_cursor("experiment")
 params = exp_state.get_cursor("params")
 blocks = exp_state.get_cursor("blocks")
 
+experiment_specs = None
 cur_experiment = None
 cur_experiment_name = None
 state_dispatcher = StateDispatcher()
+log = None
+image_observers = None
+
+
+def init(img_observers, logger):
+    global log, image_observers
+    image_observers = img_observers
+    log = logger
+    refresh_experiment_list()
+    threading.Thread(target=state_dispatcher.listen).start()
+
+
+def shutdown():
+    if cur_experiment is not None:
+        if exp_state["is_running"]:
+            end()
+        set_experiment(None)
+
+    state_dispatcher.stop()
 
 
 def get_data_path(exp_id):
@@ -199,6 +219,24 @@ def set_experiment(name):
     exp_state["cur_experiment"] = name
 
 
+def merged_params():
+    if blocks.exists(()) and len(blocks.get_self()) > 0 and "cur_block" in exp_state:
+        block_params = exp_state[("blocks", exp_state["cur_block"])]
+    else:
+        block_params = exp_state["params"]
+
+    params_dict = params.get_self()
+    params_dict.update(block_params)
+    return params_dict
+
+
+def get_num_blocks():
+    if "blocks" in exp_state:
+        return len(exp_state["blocks"])
+    else:
+        return 1
+
+
 class Experiment:
     default_params = {}
     default_blocks = [{}]
@@ -230,44 +268,3 @@ class Experiment:
 
     def release(self):
         pass
-
-
-# Convenience functions
-
-
-def merged_params():
-    if blocks.exists(()) and len(blocks.get_self()) > 0 and "cur_block" in exp_state:
-        block_params = exp_state[("blocks", exp_state["cur_block"])]
-    else:
-        block_params = exp_state["params"]
-
-    params_dict = params.get_self()
-    params_dict.update(block_params)
-    return params_dict
-
-
-def get_num_blocks():
-    if "blocks" in exp_state:
-        return len(exp_state["blocks"])
-    else:
-        return 1
-
-
-########################
-
-
-def init(img_observers, logger):
-    global log, image_observers
-    image_observers = img_observers
-    log = logger
-    refresh_experiment_list()
-    threading.Thread(target=state_dispatcher.listen).start()
-
-
-def shutdown():
-    if cur_experiment is not None:
-        if exp_state["is_running"]:
-            end()
-        set_experiment(None)
-
-    state_dispatcher.stop()

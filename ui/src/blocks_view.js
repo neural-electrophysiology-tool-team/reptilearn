@@ -59,12 +59,14 @@ export const BlocksView = ({is_running, cur_block, params, blocks, default_block
         set_blocks(bs);
     };
 
+    /*
     const insert_block_before = (idx) => {
         const bs = [...blocks];
         bs.splice(idx - 1, 0, {});
         set_blocks(bs);
     };
-
+    */
+    
     const on_block_changed = (e, block_idx) => {
         const bs = blocks.map(s => ({...s}));
         bs[block_idx] = e.updated_src;

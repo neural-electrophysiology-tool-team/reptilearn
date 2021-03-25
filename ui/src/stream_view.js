@@ -12,7 +12,7 @@ const StreamView = (
     
     const stream_height = src_height * (width / src_width);
     const stream_url = api_url
-          + `/video_stream/${src_id}?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
+          + `/image_sources/${src_id}/stream?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
 
     const stop_streaming = (src_id) => {
         return fetch(api_url + `/stop_stream/${src_id}`);
@@ -37,7 +37,6 @@ const StreamView = (
         set_streams(new_views);
     };
 
-    
     const update_stream = (key, val) => {
         const s = streams.map(s => ({...s}));
         s[idx][key] = val;

@@ -7,7 +7,7 @@ class TestExperiment(exp.Experiment):
     default_params = {
         "run_msg": "TestExperiment is running",
         "end_msg": "TestExperiment has ended",
-        "blink_dur": 1.0
+        "blink_dur": 1.0,
     }
 
     default_blocks = [
@@ -16,7 +16,7 @@ class TestExperiment(exp.Experiment):
 
     def run_trial(self, params):
         self.log.info("new trial")
-        
+
     def run_block(self, params):
         self.log.info(params["run_msg"])
         arena.signal_led(True)
@@ -27,11 +27,10 @@ class TestExperiment(exp.Experiment):
         self.log.info(params["run_msg"])
 
         exp.state_dispatcher.add_callback(
-            "sensors",
-            lambda o, n: self.log.info(f"Sensors update: {o} -> {n}")
+            "sensors", lambda o, n: self.log.info(f"Sensors update: {o} -> {n}")
         )
 
-        #arena.day_lights(True)
+        arena.sensors_set_interval(10)
 
     def end_block(self, params):
         self.log.info(params["end_msg"])
@@ -39,4 +38,4 @@ class TestExperiment(exp.Experiment):
     def end(self, params):
         self.log.info(params["end_msg"])
         exp.state_dispatcher.remove_callback("sensors")
-        #arena.day_lights(False)
+        arena.sensors_set_interval(60)

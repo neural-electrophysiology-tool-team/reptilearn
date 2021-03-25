@@ -16,7 +16,7 @@ class FLIRImageSource(ImageSource):
             self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             self.cam.ExposureTime.SetValue(self.config["exposure"])
-                
+
             if self.config["trigger"] == "ttl":
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
@@ -33,10 +33,6 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
                 self.cam.AcquisitionFrameRate.SetValue(self.config["frame_rate"])
                 self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
-
-            # while True:
-            #    self.log.info(self.cam.LineStatus.GetValue())
-            #    time.sleep(0.025)
 
         except PySpin.SpinnakerException as exc:
             self.log.error(f"(configure_images); {exc}")
@@ -142,14 +138,4 @@ def factory_reset(cam_id):
 
 
 if __name__ == "__main__":
-    """
-    logger = mp.log_to_stderr(level=logging.INFO)
-    cam_ids = ["20349302", "20349310"]
-
-    fs = [FLIRImageSource(cam_id, {"exposure": 8000}) for cam_id in cam_ids]
-    for f in fs:
-        f.start()
-    for f in fs:
-        f.join()
-    """
-    print(get_cam_ids())
+    print("Connected cameras ids:", get_cam_ids())
