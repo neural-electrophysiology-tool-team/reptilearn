@@ -58,7 +58,7 @@ def logger_configurer(name=None):
     else:
         root = logging.getLogger(name)
     root.addHandler(h)
-    root.setLevel(logging.DEBUG)
+    root.setLevel(logging.INFO)
     return root
 
 

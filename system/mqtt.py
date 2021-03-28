@@ -17,7 +17,8 @@ class MQTTClient(paho.Client):
     def disconnect(self):
         if self.is_connected:
             self.log.info("MQTT disconnecting...")
-            self.last_msg_info.wait_for_publish()
+            if self.last_msg_info is not None:
+                self.last_msg_info.wait_for_publish()
             super().disconnect()
             self.is_connected = False
 

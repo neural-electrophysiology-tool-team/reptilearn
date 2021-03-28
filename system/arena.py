@@ -25,7 +25,7 @@ def line(idx, on):
     mqtt.client.publish_json(f"arena/line/{idx}", on)
 
 
-def sensors_poll(callback_once):
+def sensors_poll(callback_once=None):
     global _sensors_once_callback
 
     _sensors_once_callback = callback_once

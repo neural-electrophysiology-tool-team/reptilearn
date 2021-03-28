@@ -2,7 +2,6 @@ import numpy as np
 import multiprocessing as mp
 import cv2 as cv
 import time
-import logging
 import rl_logging
 
 # TODO

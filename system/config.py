@@ -80,14 +80,14 @@ image_sources = dict(
         },
         "test": {
             "class": "video_stream.VideoImageSource",
-            "video_path": Path("./feeding4_vid.avi"),
+            "video_path": Path("./media/0138A051_20210222-133916.mp4"),
             "start_frame": 0,
             "end_frame": None,
             "frame_rate": 60,
             "image_shape": (1080, 1440),
             "repeat": True,
             "is_color": False,
-            "undistort": undistort_flir_firfly_4mm,
+            "undistort": undistort_flir_blackfly_computar,
         },
     },
 )
@@ -126,4 +126,14 @@ mqtt = {
 arena_defaults = {
     "signal_led": False,
     "day_lights": False
+}
+
+event_log = {
+    "default_events": [
+        ("mqtt", "arena/#"),
+        ("state", ("experiment", "is_running")),
+        ("state", ("experiment", "cur_block")),
+        ("state", ("experiment", "cur_trial")),
+        ("state", ("video_record", "is_recording")),
+    ]
 }

@@ -1,16 +1,23 @@
 from datetime import datetime
-import threading
+import re
 
 import config
-from state import state, StateDispatcher
+from state import state
 from dynamic_loading import load_module, find_subclass, reload_module
 import video_record
-import re
+import event_log
 
 
 class ExperimentException(Exception):
     pass
 
+
+experiment_specs = None
+cur_experiment = None
+cur_experiment_name = None
+log = None
+image_observers = None
+event_logger = None
 
 state["experiment"] = {
     "is_running": False,
@@ -20,20 +27,12 @@ exp_state = state.get_cursor("experiment")
 params = exp_state.get_cursor("params")
 blocks = exp_state.get_cursor("blocks")
 
-experiment_specs = None
-cur_experiment = None
-cur_experiment_name = None
-state_dispatcher = StateDispatcher()
-log = None
-image_observers = None
-
 
 def init(img_observers, logger):
     global log, image_observers
     image_observers = img_observers
     log = logger
     refresh_experiment_list()
-    threading.Thread(target=state_dispatcher.listen).start()
 
 
 def shutdown():
@@ -42,15 +41,10 @@ def shutdown():
             end()
         set_experiment(None)
 
-    state_dispatcher.stop()
-
-
-def get_data_path(exp_id):
-    exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
-    return config.experiment_data_root / exp_dir
-
 
 def run(exp_id, exp_params, exp_blocks=[]):
+    global event_logger
+    
     if exp_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
@@ -60,7 +54,8 @@ def run(exp_id, exp_params, exp_blocks=[]):
     if len(exp_id.strip()) == 0 or len(re.findall(r"[^A-Za-z0-9_]", exp_id)) != 0:
         raise ExperimentException(f"Invalid experiment id: '{exp_id}'")
 
-    data_path = get_data_path(exp_id)
+    exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    data_path = config.experiment_data_root / exp_dir
 
     log.info("")
     log.info(f"Running experiment {cur_experiment_name}:")
@@ -70,14 +65,27 @@ def run(exp_id, exp_params, exp_blocks=[]):
     params.set_self(exp_params)
     blocks.set_self(exp_blocks)
 
-    exp_state["is_running"] = True
-    exp_state["data_dir"] = data_path
-    state["video_record", "write_dir"] = data_path
-
     try:
         data_path.mkdir()
     except FileExistsError:
         raise ExperimentException("Experiment data directory already exists!")
+
+    experiment_info = {
+        "id": exp_id,
+        "params": exp_params,
+        "blocks": exp_blocks,
+    }
+
+    event_logger = event_log.EventDataLogger(csv_path=(data_path / "events.csv"))
+    event_logger.start()
+    event_logger.wait_to_connect()
+    for src, key in config.event_log["default_events"]:
+        event_logger.add_event(src, key)
+    event_logger.log("experiment/run", experiment_info)
+
+    exp_state["is_running"] = True
+    exp_state["data_dir"] = data_path
+    state["video_record", "write_dir"] = data_path
 
     try:
         cur_experiment.run(params.get_self())
@@ -88,6 +96,8 @@ def run(exp_id, exp_params, exp_blocks=[]):
 
 
 def end():
+    global event_logger
+    
     if exp_state["is_running"] is False:
         raise ExperimentException("Experiment is not running.")
 
@@ -96,9 +106,11 @@ def end():
         cur_experiment.end_block(merged_params())
         cur_experiment.end(params.get_self())
     except Exception:
-        log.exception("Exception while running experiment:")
+        log.exception("Exception while ending experiment:")
     finally:
         exp_state["is_running"] = False
+        event_logger.log("experiment/end", cur_experiment_name)
+        event_logger.stop()
         exp_state.delete("cur_trial")
         exp_state.delete("cur_block")
         video_record.restore_after_experiment()
