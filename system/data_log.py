@@ -67,6 +67,8 @@ class DataLogger(mp.Process):
     def run(self):
         self._init_log()
 
+        self.logger.debug("Starting data logger...")
+
         while True:
             data = self._get_data()
 

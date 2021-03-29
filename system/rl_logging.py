@@ -1,3 +1,4 @@
+import config
 import state
 import threading
 import sys
@@ -47,7 +48,7 @@ def listener_thread(queue):
             traceback.print_exc(file=sys.stderr)
 
 
-def logger_configurer(name=None):
+def logger_configurer(name=None, level=config.log_level):
     """
     Configures the root logger of the current process to send messages to the log queue.
     This is typically called in the run() method or target function of a process.
@@ -58,7 +59,7 @@ def logger_configurer(name=None):
     else:
         root = logging.getLogger(name)
     root.addHandler(h)
-    root.setLevel(logging.INFO)
+    root.setLevel(level)
     return root
 
 

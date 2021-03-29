@@ -85,34 +85,3 @@ def with_commit(con, f, *args, **kwargs):
         ret = f(c, *args, **kwargs)
         con.commit()
         return ret
-
-
-# example usage
-
-bbox_col_names = ("time", "x1", "y1", "x2", "y2", "confidence")
-bbox_col_types = ("timestamptz not null",) + ("double precision",) * 5
-
-
-def create_bbox_table(cur):
-    create_hypertable(
-        cur,
-        "bbox_position",
-        zip(bbox_col_names, bbox_col_types),
-        "time",
-    )
-
-
-def insert_bbox_position(cur, data):
-    insert_row(cur, "bbox_position", bbox_col_names, data, time_col="time")
-
-
-def example():
-    import time
-
-    with_commit(create_bbox_table)
-
-    data = (time.time(), 500, 300, 550, 350, 0.9)
-    with_commit(insert_bbox_position, data)
-
-
-######

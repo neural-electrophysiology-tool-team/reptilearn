@@ -1,5 +1,54 @@
 """
-TODO!!!
+Global multiprocessing state management.
+Author: Tal Eisenberg, 2021
+
+This module provides a synchronized global state dictionary implemented using python's
+multiprocessing.Manager. Any process can access and mutate the state using Cursor objects.
+The register_listener() function and StateDispatcher class provide a listening mechanism
+for state updates. The former allows to register a function that will be called on every
+state update, while the latter allows registering listeners for state changes in specific
+paths.
+
+State values can be accessed using path notation - a string key or a tuple of string keys
+and int indices. The path points to a nested position in the state tree. For example,
+the path ("a", 0, "b") points to the "b" key of the 1st element of the list under the "a" key.
+
+The state module attribute is a cursor pointing to the root path (the empty tuple),
+and should be the entry point for using this module.
+
+The simplest way to listen for updates to a specific state path, is by using the
+Cursor.add_callback and Cursor.remove_callback functions.
+Note: the root cursor uses a StateDispatcher that runs as a main process thread, and therefore
+it's not safe to use from other processes. Any cursor derived from the root cursor using the
+get_cursor() method will inherit this state dispatcher. To listen for updates on other processes,
+use a new StateDispatcher instance and run it in the desired process.
+
+Usage examples:
+
+# Import the root state cursor
+from state import state
+
+# Set the x key to value v:
+state["x"] = v
+
+# Set the ("x", "y") path (y key of the dict in the x key) to value v:
+state["x", "y"] = v
+
+# Get a copy of the path ("x", "y"):
+v = state["x", "y"]
+
+# Check if y is in the collection under key x.
+if ("x", "y") in state:
+   print("path exists")
+
+# Get a cursor for the x, y path:
+cur = state.get_cursor(("x", "y"))
+
+# Check if value v is in the list under path ("x", "y")
+if v in cur:
+   print("v is an element of the list")
+
+See the docs for Cursor and the dicttools module for more information.
 """
 
 import multiprocessing as mp
@@ -69,13 +118,14 @@ contains = _querying_fn(dt.contains)
 exists = _querying_fn(dt.exists)
 
 
-def register_listener(on_update, on_listen=None):
+def register_listener(on_update, on_ready=None):
     """
-    The basic mechanism for listening to state changes. Adds an update event and returns 2 functions.
-    - listen(): Starts a loop listening for update events, calling on_update(old, new) whenever that happens.
-    - stop_listening(): Stops the loop when called from another thread or process.
+    The basic mechanism for listening to state changes. Adds an update event and returns 2
+    functions.
 
-    the on_listen argument is a function that takes no arguments and called when the listen loop has started.
+    - listen(): Starts a blocking loop listening for update events, calling on_update(old, new)
+                whenever that happens.
+    - stop_listening(): Stops the loop when called from another thread or process.
     """
     did_update_event = _mgr.Event()
     stop_event = mp.Event()
@@ -86,9 +136,9 @@ def register_listener(on_update, on_listen=None):
     def listen():
         nonlocal old
         try:
-            if on_listen is not None:
-                on_listen()
-                
+            if on_ready is not None:
+                on_ready()
+
             while True:
                 did_update_event.wait()
                 if stop_event.is_set():
@@ -115,9 +165,10 @@ class StateDispatcher:
     - stop() - Stop the listening loop.
     """
 
-    def __init__(self, on_listen=None):
+    def __init__(self):
         super().__init__()
         self._dispatch_table = dict()
+        self._ready_event = mp.Event()
 
         def on_update(old, new):
             for path, on_update in self._dispatch_table.items():
@@ -127,8 +178,14 @@ class StateDispatcher:
                 if not old_val == new_val:
                     on_update(old_val, new_val)
 
-        self.listen, self.stop = register_listener(on_update, on_listen)
-        
+        def on_ready():
+            self._ready_event.set()
+
+        self.listen, self.stop = register_listener(on_update, on_ready)
+
+    def wait_until_ready(self, timeout=None):
+        return self._ready_event.wait(timeout)
+
     def add_callback(self, path, on_update):
         """
         Add a callback to the dispatch table. Aftwards, whenever a state update changes the value

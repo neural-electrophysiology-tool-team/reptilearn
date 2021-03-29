@@ -99,7 +99,7 @@ def send_state(old, new):
     socketio.emit("state", (old_json, new_json))
 
 
-state_listen, stop_state_emitter = state_mod.register_listener(send_state)
+state_listen, stop_state_emitter  = state_mod.register_listener(send_state)
 state_emitter_process = threading.Thread(target=state_listen)
 state_emitter_process.start()
 

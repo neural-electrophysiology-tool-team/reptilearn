@@ -20,25 +20,47 @@ class EventDataLogger(DataLogger):
             *args,
             **kwargs,
         )
-        
+
         self._event_q = mp.Queue()
         self._add_event_q = mp.Queue()
         self._remove_event_q = mp.Queue()
         self._connect_mqtt_event = mp.Event()
         self._connect_state_event = mp.Event()
+        self._state_dispatcher = state.StateDispatcher()
+        self._mqttc = None
         
+
     def run(self):
-        self.mqttc = mqtt.MQTTClient()
-        self.mqttc.connect(on_success=lambda: self._connect_mqtt_event.set())
-        self.state_dispatcher = state.StateDispatcher(on_listen=lambda: self._connect_state_event.set())
-        threading.Thread(target=self.state_dispatcher.listen).start()
-        self.mqttc.loop_start()
+        self._mqttc = mqtt.MQTTClient()
+        self._mqttc.connect(on_success=lambda: self._connect_mqtt_event.set())
+        threading.Thread(target=self._state_dispatcher.listen).start()
+        self._mqttc.loop_start()
 
         super().run()
 
-        self.mqttc.loop_stop()
-        self.mqttc.disconnect()
-        self.state_dispatcher.stop()
+        self._mqttc.loop_stop()
+        self._mqttc.disconnect()
+        self._state_dispatcher.stop()
+
+    def start(self, wait=False):
+        super().start()
+
+        if wait is False:
+            return True
+
+        timeout = wait if type(wait) is int else None
+
+        if self._connect_mqtt_event.wait(timeout):
+            self._connect_mqtt_event.clear()
+        else:
+            # timeout has passed
+            return False
+        
+        if self._state_dispatcher.wait_until_ready(timeout):
+            return True
+        else:
+            # timeout has passed.
+            return False
 
     def _log_mqtt(self, topic, payload):
         self._event_q.put((time.time(), topic, payload))
@@ -49,9 +71,9 @@ class EventDataLogger(DataLogger):
     def _register_event(self, event):
         src, key = event
         if src == "mqtt":
-            self.mqttc.subscribe_callback(key, mqtt.mqtt_json_callback(self._log_mqtt))
+            self._mqttc.subscribe_callback(key, mqtt.mqtt_json_callback(self._log_mqtt))
         elif src == "state":
-            self.state_dispatcher.add_callback(
+            self._state_dispatcher.add_callback(
                 key, functools.partial(self._log_state, key)
             )
         else:
@@ -60,9 +82,9 @@ class EventDataLogger(DataLogger):
     def _unregister_event(self, event):
         src, key = event
         if src == "mqtt":
-            self.mqttc.unsubscribe(key)
+            self._mqttc.unsubscribe(key)
         elif src == "state":
-            self.state_dispatcher.remove_callback(key)
+            self._state_dispatcher.remove_callback(key)
 
     def add_mqtt_event(self, topic):
         self.add_event("mqtt", topic)
@@ -88,12 +110,6 @@ class EventDataLogger(DataLogger):
     def remove_event(self, src, key):
         self._remove_event_q.put((src, key))
 
-    def wait_to_connect(self, timeout=None):
-        if self._connect_mqtt_event.wait():
-            self._connect_mqtt_event.clear()
-        if self._connect_state_event.wait(timeout):
-            self._connect_state_event.clear()
-        
     def _get_data(self):
         while True:
             if not self._add_event_q.empty():

@@ -77,7 +77,7 @@ def sched_repeat(callback, cancel_event, interval, repeats=True):
 
     repeat_count = 0
 
-    while not cancel_event.is_set():
+    while True:
         cancel_event.wait(interval)
         if not cancel_event.is_set():
             callback()
@@ -102,7 +102,7 @@ def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
     first_sched = next_timeofday(start_time, timeofday)
     interval = (first_sched - start_time).total_seconds()
 
-    while not cancel_event.is_set():
+    while True:
         cancel_event.wait(interval)
         if not cancel_event.is_set():
             callback()
@@ -122,7 +122,7 @@ def sched_sequence(callback, cancel_event, intervals: Sequence, repeats=1):
     cur_interval = 0
     repeat_count = 0
 
-    while not cancel_event.is_set():
+    while True:
         cancel_event.wait(intervals[cur_interval])
         if not cancel_event.is_set():
             callback()

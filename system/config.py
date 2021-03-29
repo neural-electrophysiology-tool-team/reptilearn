@@ -1,11 +1,20 @@
 import numpy as np
 from pathlib import Path
+import logging
 
-experiment_modules_dir = Path("./experiments/")
-experiment_data_root = Path("/data/reptilearn/experiments/")
-videos_dir = Path("/data/reptilearn/media/")
+# Logging level of process and main loggers.
+log_level = logging.INFO
 
-# undistort lens correction
+# Where experiment python modules can be found.
+experiment_modules_dir: Path = Path("./experiments/")
+
+# Experiment data (videos, images, csv files, etc.) will be stored here.
+experiment_data_root: Path = Path("/data/reptilearn/experiments/")
+
+# Videos and images that were collected when not running an experiment are stored here.
+media_dir: Path = Path("/data/reptilearn/media/")
+
+# Lens correction values for various camera and lens combinations.
 undistort_flir_firfly_4mm = {
     "mtx": np.array(
         [
@@ -48,8 +57,10 @@ undistort_flir_blackfly_computar = {
     ),
 }
 
+# The frame rate of HTTP image source streaming. Lower this to reduce network usage.
 stream_frame_rate = 15
 
+# Cameras and other image sources are configured here.
 image_sources = dict(
     {
         "left": {  # firefly-dl 1
@@ -92,7 +103,7 @@ image_sources = dict(
     },
 )
 
-
+# Image observers are defined here. These process images from image sources in real-time.
 image_observers = {
     "head_bbox": {
         "src_id": "test",
@@ -118,22 +129,40 @@ video_record = {
     "start_trigger_on_startup": False,
 }
 
+# MQTT server address
 mqtt = {
     "host": "localhost",
     "port": 1883,
 }
 
+# Configure the startup values of the arena hardware.
 arena_defaults = {
     "signal_led": False,
     "day_lights": False
 }
 
+# Database connection configuration
+database = {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "db": "reptilearn",
+}
+
+# Event data logger configuration.
 event_log = {
+    # This is a list of default events that will be logged. Additional events
+    # can be defined in custom experiment modules. Either MQTT or state update
+    # events can be used. See event_log.py for more information.
     "default_events": [
         ("mqtt", "arena/#"),
-        ("state", ("experiment", "is_running")),
         ("state", ("experiment", "cur_block")),
         ("state", ("experiment", "cur_trial")),
         ("state", ("video_record", "is_recording")),
-    ]
+    ],
+    # Whether to log events to the database.
+    "log_to_db": True,
+    # Whether to log events to csv files.
+    "log_to_csv": True,
+    # The database table where events will be stored.
+    "table_name": "events",
 }

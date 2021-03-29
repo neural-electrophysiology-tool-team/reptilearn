@@ -36,7 +36,7 @@ class TestExperiment(exp.Experiment):
         exp_state.add_callback("test_cb", lambda o, n: self.log.info(f"test: {o} -> {n}"))
         def update_test_cb():
             exp_state["test_cb"] = random.randint(0, 100)
-        schedule.sequence(update_test_cb, [2, 2, 5, 2, 2, 3], repeats=4)
+        self.cancel_seq = schedule.sequence(update_test_cb, [2, 2, 5, 2, 2, 3], repeats=4)
         arena.sensors_poll()
         arena.sensors_set_interval(10)
 
@@ -48,3 +48,4 @@ class TestExperiment(exp.Experiment):
         state.remove_callback(("arena", "sensors"))
         exp_state.remove_callback("test_cb")
         arena.sensors_set_interval(60)
+        self.cancel_seq()

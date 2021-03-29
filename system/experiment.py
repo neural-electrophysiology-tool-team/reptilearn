@@ -44,7 +44,7 @@ def shutdown():
 
 def run(exp_id, exp_params, exp_blocks=[]):
     global event_logger
-    
+
     if exp_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
@@ -76,9 +76,15 @@ def run(exp_id, exp_params, exp_blocks=[]):
         "blocks": exp_blocks,
     }
 
-    event_logger = event_log.EventDataLogger(csv_path=(data_path / "events.csv"))
-    event_logger.start()
-    event_logger.wait_to_connect()
+    csv_path = data_path / "events.csv" if config.event_log["log_to_csv"] else None
+    event_logger = event_log.EventDataLogger(
+        csv_path=csv_path,
+        log_to_db=config.event_log["log_to_db"],
+        table_name=config.event_log["table_name"],
+    )
+    if not event_logger.start(wait=5):
+        raise ExperimentException("Event logger can't connect. Timeout elapsed.")
+
     for src, key in config.event_log["default_events"]:
         event_logger.add_event(src, key)
     event_logger.log("experiment/run", experiment_info)
@@ -97,7 +103,7 @@ def run(exp_id, exp_params, exp_blocks=[]):
 
 def end():
     global event_logger
-    
+
     if exp_state["is_running"] is False:
         raise ExperimentException("Experiment is not running.")
 

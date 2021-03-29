@@ -42,7 +42,7 @@ def init(image_sources, logger):
             "selected_sources": [src_id for src_id in image_sources.keys()],
             "ttl_trigger": ttl_trigger,
             "is_recording": False,
-            "write_dir": config.videos_dir,
+            "write_dir": config.media_dir,
             "filename_prefix": "",
         }
     )
@@ -52,7 +52,7 @@ def init(image_sources, logger):
 
 
 def restore_after_experiment():
-    rec_state["write_dir"] = config.videos_dir
+    rec_state["write_dir"] = config.media_dir
     rec_state["filename_prefix"] = ""
 
 

@@ -1,3 +1,11 @@
+"""
+Arena hardware controller
+Author: Tal Eisenberg, 2021
+
+This module provides convenience functions for communicating with the arena hardware
+over MQTT. It allows sending commands, and also stores sensor readings in the global state.
+"""
+
 import mqtt
 from state import state
 import time
@@ -22,10 +30,16 @@ def day_lights(on):
 
 
 def line(idx, on):
+    """Set output digital line <idx> to state <on>"""
     mqtt.client.publish_json(f"arena/line/{idx}", on)
 
 
 def sensors_poll(callback_once=None):
+    """
+    Polls the sensors for new readings.
+    - callback_once: A function with a single argument that will be called once
+                     the sensor reading arrives.
+    """
     global _sensors_once_callback
 
     _sensors_once_callback = callback_once
@@ -33,7 +47,7 @@ def sensors_poll(callback_once=None):
 
 
 def sensors_set_interval(seconds):
-    # not implemented i think
+    """Sets the amount of time between sensor readings in seconds"""
     mqtt.client.publish("arena/sensors/set_interval", seconds)
 
 
@@ -49,6 +63,10 @@ def _on_sensors(_, reading):
 
 
 def init(logger):
+    """
+    Initialize the arena module.
+    Connects to MQTT, sends arena defaults, and subscribes for sensor updates.
+    """
     global _log
     _log = logger
 
