@@ -1,7 +1,8 @@
-import config
 import paho.mqtt.client as paho
 import logging
 import json
+
+_config = None
 
 
 class MQTTClient(paho.Client):
@@ -26,11 +27,11 @@ class MQTTClient(paho.Client):
         if on_success is not None:
             self.on_connect_callback = on_success
 
-        super().connect(**config.mqtt)
+        super().connect(**_config.mqtt)
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            host, port = config.mqtt["host"], config.mqtt["port"]
+            host, port = _config.mqtt["host"], _config.mqtt["port"]
             self.log.info(f"MQTT connected successfully to {host}:{port}.")
             self.is_connected = True
             for topic, callback in self.on_connect_subscriptions:
@@ -84,8 +85,9 @@ def mqtt_json_callback(callback):
 client = None
 
 
-def init(logger):
-    global client
+def init(logger, config):
+    global client, _config
+    _config = config
     client = MQTTClient()
     client.log = logger
     client.loop_start()

@@ -9,9 +9,9 @@ def instantiate_class(class_name, *args, **kwargs):
     return ClassObject(*args, **kwargs)
 
 
-def load_module(path: Path):
+def load_module(path: Path, package):
     spec = importlib.util.spec_from_file_location(
-        "experiments." + path.stem, path
+        package + "." + path.stem, path
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

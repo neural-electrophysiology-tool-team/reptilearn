@@ -1,9 +1,10 @@
-import config
-import state
+import multiprocessing as mp
 import threading
 import sys
 import logging.handlers
 import traceback
+
+_default_level = None
 
 formatter = logging.Formatter(
     "%(asctime)s %(name)s %(levelname)-8s %(message)s",
@@ -48,11 +49,14 @@ def listener_thread(queue):
             traceback.print_exc(file=sys.stderr)
 
 
-def logger_configurer(name=None, level=config.log_level):
+def logger_configurer(name=None, level=None):
     """
     Configures the root logger of the current process to send messages to the log queue.
     This is typically called in the run() method or target function of a process.
     """
+    if level is None:
+        level = _default_level
+
     h = logging.handlers.QueueHandler(_log_queue)  # Just the one handler needed
     if name is None:
         root = logging.getLogger()
@@ -108,9 +112,10 @@ _listener_configurer = None
 main_logger = None
 
 
-def init(log_handlers):
-    global _log_queue, _log_listener, _listener_configurer, main_logger
+def init(log_handlers, default_level):
+    global _log_queue, _log_listener, _listener_configurer, main_logger, _default_level
 
+    _default_level = default_level
     main_logger = logging.getLogger("Main")
     for handler in log_handlers:
         main_logger.addHandler(handler)
@@ -120,7 +125,7 @@ def init(log_handlers):
     sys.excepthook = excepthook
     patch_threading_excepthook()
 
-    _log_queue = state._mgr.Queue(-1)
+    _log_queue = mp.Queue(-1)
     listener_configurer(log_handlers)
     _log_listener = threading.Thread(target=listener_thread, args=(_log_queue,))
     _log_listener.start()

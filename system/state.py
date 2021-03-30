@@ -57,15 +57,37 @@ import dicttools as dt
 import threading
 
 # The global state is a dict managed by _mgr stored in namespace _ns
-_mgr = mp.Manager()
-_ns = _mgr.Namespace()
-_ns.state = _mgr.dict()
+_mgr = None
+_ns = None
 
 # A list of mp.Event objects. These events are set whenever the state is updated.
-_did_update_events = _mgr.list()
+_did_update_events = None
 
 # Used for synchronized read and writes from the state.
-_state_lock = _mgr.Lock()
+_state_lock = None
+
+# A state dispatcher running in a thread on the main process
+_dispatcher = None
+
+
+def init():
+    global _mgr, _ns, _did_update_events, _state_lock, _dispatcher
+    _mgr = mp.Manager()
+    _ns = _mgr.Namespace()
+    _ns.state = _mgr.dict()
+
+    _did_update_events = _mgr.list()
+
+    _state_lock = _mgr.Lock()
+
+    _dispatcher = StateDispatcher()
+    threading.Thread(target=_dispatcher.listen).start()
+    state.state_dispatcher = _dispatcher
+
+
+def shutdown():
+    _dispatcher.stop()
+    _mgr.shutdown()
 
 
 def get():
@@ -360,14 +382,5 @@ class Cursor:
         return contains(self.path, k)
 
 
-# A state dispatcher running in a thread on the main process
-_dispatcher = StateDispatcher()
-threading.Thread(target=_dispatcher.listen).start()
-
 # A cursor pointing to the state root.
-state = Cursor((), _dispatcher)
-
-
-def shutdown():
-    _dispatcher.stop()
-    _mgr.shutdown()
+state = Cursor(())

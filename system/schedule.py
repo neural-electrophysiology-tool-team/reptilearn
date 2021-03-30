@@ -1,36 +1,39 @@
+"""
+schedule: Functions for running tasks at various schedules.
+Author: Tal Eisenberg, 2021
+"""
+
 from datetime import datetime, time, timedelta
 import threading
 import logging
 from collections import Sequence
 
-# one-shot timer, repeating timer, time of day scheduling (thread based)
-
-log = logging.getLogger("Main")
-cancel_fns = []
+_log = logging.getLogger("Main")
+_cancel_fns = []
 
 
 def _gen_schedule_fn(thread_fn):
-    def sched_fn(callback, *args, **kwargs):
+    def sched_fn(callback, *sch_args, args=(), kwargs={}, **sch_kwargs):
         cancel_event = threading.Event()
 
         def cancel():
             cancel_event.set()
 
         def target():
-            cancel_fns.append(cancel)
+            _cancel_fns.append(cancel)
             try:
-                thread_fn(callback, cancel_event, *args, **kwargs)
+                thread_fn(callback, args, kwargs, cancel_event, *sch_args, **sch_kwargs)
             except Exception as e:
-                cancel_fns.remove(cancel)
+                _cancel_fns.remove(cancel)
                 raise e
 
             name = threading.current_thread().name
             if cancel_event.is_set():
-                log.debug(f"{name}: Schedule cancelled")
+                _log.debug(f"{name}: Schedule cancelled")
             else:
-                log.debug(f"{name}: Schedule finished")
+                _log.debug(f"{name}: Schedule finished")
 
-            cancel_fns.remove(cancel)
+            _cancel_fns.remove(cancel)
 
         threading.Thread(target=target).start()
         return cancel
@@ -39,11 +42,13 @@ def _gen_schedule_fn(thread_fn):
 
 
 def cancel_all():
-    while len(cancel_fns) != 0:
-        cancel_fns[0]()
+    """Cancel all scheduled tasks."""
+    while len(_cancel_fns) != 0:
+        _cancel_fns[0]()
 
 
 def replace_timeofday(base: datetime, timeofday: time):
+    """Replace the time of the base datetime to the timeofday time."""
     t = timeofday
     return base.replace(
         hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond
@@ -64,23 +69,23 @@ def next_timeofday(base: datetime, timeofday: time):
         return same_day
 
 
-def sched_once(callback, cancel_event, interval):
+def _sched_once(callback, args, kwargs, cancel_event, interval):
     if interval is None or interval == 0:
-        callback()
+        callback(*args, **kwargs)
     else:
         cancel_event.wait(interval)
         if not cancel_event.is_set():
-            callback()
+            callback(*args, **kwargs)
 
 
-def sched_repeat(callback, cancel_event, interval, repeats=True):
+def _sched_repeat(callback, args, kwargs, cancel_event, interval, repeats=True):
 
     repeat_count = 0
 
     while True:
         cancel_event.wait(interval)
         if not cancel_event.is_set():
-            callback()
+            callback(*args, **kwargs)
         else:
             break
 
@@ -89,8 +94,7 @@ def sched_repeat(callback, cancel_event, interval, repeats=True):
             break
 
 
-def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
-    """repeats=None -> never stop"""
+def _sched_timeofday(callback, args, kwargs, cancel_event, timeofday, repeats=1):
     if not isinstance(timeofday, time):
         if isinstance(timeofday, Sequence):
             timeofday = time(*timeofday)
@@ -105,7 +109,7 @@ def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
     while True:
         cancel_event.wait(interval)
         if not cancel_event.is_set():
-            callback()
+            callback(*args, **kwargs)
         else:
             break
 
@@ -118,14 +122,16 @@ def sched_timeofday(callback, cancel_event, timeofday, repeats=1):
         interval = (next_time - datetime.now()).total_seconds()
 
 
-def sched_sequence(callback, cancel_event, intervals: Sequence, repeats=1):
+def _sched_sequence(
+    callback, args, kwargs, cancel_event, intervals: Sequence, repeats=1
+):
     cur_interval = 0
     repeat_count = 0
 
     while True:
         cancel_event.wait(intervals[cur_interval])
         if not cancel_event.is_set():
-            callback()
+            callback(*args, **kwargs)
         else:
             break
 
@@ -137,7 +143,71 @@ def sched_sequence(callback, cancel_event, intervals: Sequence, repeats=1):
                 break
 
 
-once = _gen_schedule_fn(sched_once)
-repeat = _gen_schedule_fn(sched_repeat)
-timeofday = _gen_schedule_fn(sched_timeofday)
-sequence = _gen_schedule_fn(sched_sequence)
+once = _gen_schedule_fn(_sched_once)
+once.__doc__ = """
+Signature:
+
+    once(callback, interval, args=(), kwargs={})
+
+Schedule <callback> to run once after <interval> seconds passed.
+
+args, kwargs - Arguments that will be passed to the callback function as non-keyword,
+               and keyword arguments respectively.
+
+Return a cancel() function that cancels the schedule once called.
+"""
+
+repeat = _gen_schedule_fn(_sched_repeat)
+repeat.__doc__ = """
+Signature:
+
+    repeat(callback, interval, repeats=True, args=(), kwargs={})
+
+Schedule <callback> to run repeatedly every <interval> seconds.
+
+repeats - True: repeat the schedule until cancelled.
+          int: number of times to repeat the schedule.
+
+args, kwargs - Arguments that will be passed to the callback function as non-keyword,
+               and keyword arguments respectively.
+
+Return a cancel() function that cancels the schedule once called.
+"""
+
+timeofday = _gen_schedule_fn(_sched_timeofday)
+timeofday.__doc__ = """
+Signature:
+
+    timeofday(callback, timeofday, repeats=1, args=(), kwargs={})
+
+Schedule <callback> to run at the next <timeofday>, possibly repeating every 24 hours.
+
+timeofday - Either a datetime.time instance or a sequence of arguments passed to the
+            datetime.time initializer.
+repeats - True: The schedule will run the task at the specified time of day until cancelled.
+          int: The number of times the task will be repeated.
+args, kwargs - Arguments that will be passed to the callback function as non-keyword,
+               and keyword arguments respectively.
+
+Return a cancel() function that cancels the schedule once called.
+"""
+
+sequence = _gen_schedule_fn(_sched_sequence)
+sequence.__doc__ = """
+Signature:
+
+    sequence(callback, intervals: Sequence, repeats=1, args=(), kwargs={})
+
+Run the callback at a sequence of intervals, possibly repeating the sequence once
+it's finished.
+
+intervals - A sequence of intervals in seconds. The schedule will wait the i-th
+            interval before the i-th invocation of the callback.
+repeats - True: repeat the scheduled sequence until cancelled.
+          int: number of times to repeat the whole sequence.
+
+args, kwargs - Arguments that will be passed to the callback function as non-keyword,
+               and keyword arguments respectively.
+
+Return a cancel() function that cancels the schedule once called.
+"""

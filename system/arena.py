@@ -9,7 +9,6 @@ over MQTT. It allows sending commands, and also stores sensor readings in the gl
 import mqtt
 from state import state
 import time
-import config
 
 _sensors_once_callback = None
 _log = None
@@ -62,10 +61,12 @@ def _on_sensors(_, reading):
         _sensors_once_callback = None
 
 
-def init(logger):
+def init(logger, arena_defaults):
     """
     Initialize the arena module.
     Connects to MQTT, sends arena defaults, and subscribes for sensor updates.
+
+    - arena_defaults: A dict with signal_led and day_lights keys with default values.
     """
     global _log
     _log = logger
@@ -76,8 +77,8 @@ def init(logger):
         time.sleep(0.01)
 
     _log.info("Sending arena defaults.")
-    signal_led(config.arena_defaults["signal_led"])
-    day_lights(config.arena_defaults["day_lights"])
+    signal_led(arena_defaults["signal_led"])
+    day_lights(arena_defaults["day_lights"])
 
     mqtt.client.subscribe_callback(
         "arena/sensors", mqtt.mqtt_json_callback(_on_sensors)

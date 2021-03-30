@@ -1,7 +1,6 @@
 from datetime import datetime
 import re
 
-import config
 from state import state
 from dynamic_loading import load_module, find_subclass, reload_module
 import video_record
@@ -12,6 +11,8 @@ class ExperimentException(Exception):
     pass
 
 
+config = None
+
 experiment_specs = None
 cur_experiment = None
 cur_experiment_name = None
@@ -19,17 +20,23 @@ log = None
 image_observers = None
 event_logger = None
 
-state["experiment"] = {
-    "is_running": False,
-}
-
-exp_state = state.get_cursor("experiment")
-params = exp_state.get_cursor("params")
-blocks = exp_state.get_cursor("blocks")
+exp_state = None
+params = None
+blocks = None
 
 
-def init(img_observers, logger):
-    global log, image_observers
+def init(img_observers, logger, config_module):
+    global log, image_observers, config, exp_state, params, blocks
+
+    state["experiment"] = {
+        "is_running": False,
+    }
+
+    exp_state = state.get_cursor("experiment")
+    params = exp_state.get_cursor("params")
+    blocks = exp_state.get_cursor("blocks")
+
+    config = config_module
     image_observers = img_observers
     log = logger
     refresh_experiment_list()
@@ -188,12 +195,15 @@ def next_block():
         end()
 
 
-def load_experiments(experiments_dir=config.experiment_modules_dir):
+def load_experiments(experiments_dir=None):
+    if experiments_dir is None:
+        experiments_dir = config.experiment_modules_dir
+
     experiment_specs = {}
     experiment_pys = experiments_dir.glob("*.py")
 
     for py in experiment_pys:
-        module, spec = load_module(py)
+        module, spec = load_module(py, package="experiments")
         cls = find_subclass(module, Experiment)
         if cls is not None:
             experiment_specs[py.stem] = spec

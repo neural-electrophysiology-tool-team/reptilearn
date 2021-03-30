@@ -1,3 +1,10 @@
+"""
+Main module. Run this module to start the system.
+Author: Tal Eisenberg, 2021
+
+Run 'python main.py -h' for help on command line arguments.
+"""
+
 import threading
 import logging
 import flask
@@ -7,6 +14,9 @@ import cv2
 import json
 from pathlib import Path
 import sys
+import argparse
+import importlib
+import traceback
 
 import rl_logging
 import mqtt
@@ -18,9 +28,22 @@ from state import state
 import state as state_mod
 import experiment
 import video_record
-import config
 from dynamic_loading import instantiate_class
 
+# Parse command-line arguments
+arg_parser = argparse.ArgumentParser(description="ReptiLearn")
+arg_parser.add_argument(
+    "--config",
+    default="config",
+    help="The name of a config module residing in the ./config/ directory",
+)
+args = arg_parser.parse_args()
+
+try:
+    config = importlib.import_module(f"config.{args.config}")
+except Exception:
+    traceback.print_exc()
+    sys.exit(1)
 
 app = flask.Flask("API")
 flask_cors.CORS(app)
@@ -40,7 +63,7 @@ stderr_handler = logging.StreamHandler(sys.stderr)
 stderr_handler.setFormatter(rl_logging.formatter)
 # h = logging.handlers.RotatingFileHandler("mptest.log", "a", 300, 10)
 
-log = rl_logging.init((socketio_handler, stderr_handler))
+log = rl_logging.init((socketio_handler, stderr_handler), config.log_level)
 
 app_log = logging.getLogger("werkzeug")
 app_log.addHandler(socketio_handler)
@@ -48,6 +71,8 @@ app_log.setLevel(logging.WARNING)
 app.logger.addHandler(socketio_handler)
 app.logger.setLevel(logging.WARNING)
 
+# Initialize state module
+state_mod.init()
 
 # Initialize image sources and observers
 state["image_sources"] = {}
@@ -70,10 +95,10 @@ image_observers = {
 }
 
 # Initialize all other modules
-mqtt.init(log)
-arena.init(log)
-video_record.init(image_sources, log)
-experiment.init(image_observers, log)
+mqtt.init(log, config)
+arena.init(log, config.arena_defaults)
+video_record.init(image_sources, log, config)
+experiment.init(image_observers, log, config)
 
 # Start processes of image observers and sources
 for img_obs in image_observers.values():
@@ -93,13 +118,12 @@ def convert_for_json(v):
 
 # Broadcast state updates over SocketIO
 def send_state(old, new):
-    # logger.info("Emitting state update")
     old_json = json.dumps(old, default=convert_for_json)
     new_json = json.dumps(new, default=convert_for_json)
     socketio.emit("state", (old_json, new_json))
 
 
-state_listen, stop_state_emitter  = state_mod.register_listener(send_state)
+state_listen, stop_state_emitter = state_mod.register_listener(send_state)
 state_emitter_process = threading.Thread(target=state_listen)
 state_emitter_process.start()
 

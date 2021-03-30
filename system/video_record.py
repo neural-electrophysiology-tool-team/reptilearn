@@ -3,7 +3,6 @@ from datetime import datetime
 import imageio
 
 import mqtt
-import config
 from video_stream import ImageSource, ImageObserver
 from state import state
 
@@ -14,17 +13,20 @@ from state import state
 # - take fps from image source if possible, allow custom fps
 # - maybe set trigger pulse len according to video_frame_rate or the other way around.
 
-rec_state = state.get_cursor("video_record")
+rec_state = None
 video_writers = {}
 _image_sources = None
 _log = None
 _do_restore_trigger = False
 
 
-def init(image_sources, logger):
-    global _image_sources, _log
+def init(image_sources, logger, config):
+    global _image_sources, _log, _config, rec_state
+    _config = config
     _log = logger
     _image_sources = image_sources
+    rec_state = state.get_cursor("video_record")
+
     for src_id in image_sources.keys():
         video_writers[src_id] = VideoWriter(
             image_sources[src_id],
@@ -52,7 +54,7 @@ def init(image_sources, logger):
 
 
 def restore_after_experiment():
-    rec_state["write_dir"] = config.media_dir
+    rec_state["write_dir"] = _config.media_dir
     rec_state["filename_prefix"] = ""
 
 
@@ -175,7 +177,7 @@ class VideoWriter(ImageObserver):
             return
 
         vid_path = _get_new_write_path(
-            self.img_src.src_id, config.video_record["file_ext"]
+            self.img_src.src_id, _config.video_record["file_ext"]
         )
         ts_path = _get_new_write_path(self.img_src.src_id, "csv")
 
@@ -185,7 +187,7 @@ class VideoWriter(ImageObserver):
             format="FFMPEG",
             mode="I",
             fps=self.frame_rate,
-            **config.video_record["video_encoding"],
+            **_config.video_record["video_encoding"],
         )
 
         self.ts_file = open(str(ts_path), "w")
