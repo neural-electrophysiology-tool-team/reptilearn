@@ -1,5 +1,5 @@
 """
-Global multiprocessing state management.
+Synchronized multiprocessing state management.
 Author: Tal Eisenberg, 2021
 
 This module provides a synchronized global state dictionary implemented using python's
@@ -18,35 +18,11 @@ and should be the entry point for using this module.
 
 The simplest way to listen for updates to a specific state path, is by using the
 Cursor.add_callback and Cursor.remove_callback functions.
+
 Note: the root cursor uses a StateDispatcher that runs as a main process thread, and therefore
 it's not safe to use from other processes. Any cursor derived from the root cursor using the
 get_cursor() method will inherit this state dispatcher. To listen for updates on other processes,
 use a new StateDispatcher instance and run it in the desired process.
-
-Usage examples:
-
-# Import the root state cursor
-from state import state
-
-# Set the x key to value v:
-state["x"] = v
-
-# Set the ("x", "y") path (y key of the dict in the x key) to value v:
-state["x", "y"] = v
-
-# Get a copy of the path ("x", "y"):
-v = state["x", "y"]
-
-# Check if y is in the collection under key x.
-if ("x", "y") in state:
-   print("path exists")
-
-# Get a cursor for the x, y path:
-cur = state.get_cursor(("x", "y"))
-
-# Check if value v is in the list under path ("x", "y")
-if v in cur:
-   print("v is an element of the list")
 
 See the docs for Cursor and the dicttools module for more information.
 """
@@ -246,8 +222,14 @@ class CursorException(Exception):
 class Cursor:
     """
     a Cursor points to a specific state path and provides a shorthand way to mutate or query
-    this path and its children. The class implements partial path versions of each state function
-    (see the dicttools module docs for the full list).
+    this path and its children. The class implements partial path versions of each state function,
+    which accept a partial state path starting from the Cursor's root key. For example:
+
+    c = state.get_cursor(("x", "y"))
+    c.update("z", {"a": 0, "b": 1})
+
+    This will update the dictionary at state path ("x", "y", "z") with the new supplied values.
+    see the dicttools module docs for the full list of available functions/methods.
 
     Cursors are usually created by calling the get_cursor() method of another higher-level Cursor.
     The global state attribute (see below) holds a Cursor pointing to the root state path.
@@ -262,7 +244,7 @@ class Cursor:
 
     Registering state update callbacks:
     When given a state_dispatcher on init, add_callback and remove_callback can be used to listen to
-    state changes in sub paths of the cursor (see StateDispatcher).
+    state changes in sub-paths of the cursor (see StateDispatcher).
     """
 
     def __init__(self, path, state_dispatcher=None):

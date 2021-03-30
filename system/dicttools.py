@@ -4,9 +4,7 @@ Author: Tal Eisenberg, 2021
 
 Each of the functions in this module are "path functions" - f(d, path), where d is a
 collection, and path is either a string key, an int index, or a tuple representing
-a path in the collection.
-
-A path is a tuple whose elements are keys for each level in the nested collection
+a path in the collection. A path tuple elements are keys for each level in the nested collection
 hierarchy, for example:
 
 getitem(d, ("x", "y")) is equivalent to d["x"]["y"].
