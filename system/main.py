@@ -39,11 +39,15 @@ arg_parser.add_argument(
 )
 args = arg_parser.parse_args()
 
+# Import configuration module
 try:
     config = importlib.import_module(f"config.{args.config}")
 except Exception:
     traceback.print_exc()
     sys.exit(1)
+
+# Initialize state module
+state_mod.init()
 
 app = flask.Flask("API")
 flask_cors.CORS(app)
@@ -57,22 +61,63 @@ class SocketIOHandler(logging.Handler):
         socketio.emit("log", self.format(record))
 
 
+class ExperimentLogHandler(logging.StreamHandler):
+    def __init__(self, log_filename="experiment.log"):
+        super().__init__()
+        state.add_callback(("experiment", "is_running"), self.on_experiment_run_update)
+        self.stream = None
+        self.log_filename = log_filename
+
+    def on_experiment_run_update(self, old, new):
+        if self.stream is not None:
+            self.acquire()
+            self.stream.close()
+            self.stream = None
+            self.release()
+
+        if old is False and new is True:  # Experiment is running
+            filename = state["experiment", "data_dir"] / self.log_filename
+            self.stream = open(filename, "a")
+
+    def emit(self, record):
+        if self.stream is not None:
+            logging.StreamHandler.emit(self, record)
+
+    def close(self):
+        self.acquire()
+        try:
+            try:
+                if self.stream is not None:
+                    try:
+                        self.flush()
+                    finally:
+                        self.stream.close()
+            finally:
+                logging.StreamHandler.close(self)
+        finally:
+            self.release()
+
+
 socketio_handler = SocketIOHandler()
 socketio_handler.setFormatter(rl_logging.formatter)
+experiment_log_handler = ExperimentLogHandler()
+experiment_log_handler.setFormatter(rl_logging.formatter)
 stderr_handler = logging.StreamHandler(sys.stderr)
 stderr_handler.setFormatter(rl_logging.formatter)
-# h = logging.handlers.RotatingFileHandler("mptest.log", "a", 300, 10)
 
-log = rl_logging.init((socketio_handler, stderr_handler), config.log_level)
+log = rl_logging.init(
+    (socketio_handler, stderr_handler, experiment_log_handler), config.log_level
+)
 
+# Configure flask loggers to send messages over socketio and change level.
 app_log = logging.getLogger("werkzeug")
 app_log.addHandler(socketio_handler)
+app_log.addHandler(experiment_log_handler)
 app_log.setLevel(logging.WARNING)
 app.logger.addHandler(socketio_handler)
+app_log.addHandler(experiment_log_handler)
 app.logger.setLevel(logging.WARNING)
 
-# Initialize state module
-state_mod.init()
 
 # Initialize image sources and observers
 state["image_sources"] = {}

@@ -28,12 +28,12 @@ class TestExperiment(exp.Experiment):
 
     def run(self, params):
         self.log.info(params["run_msg"])
-
         state.add_callback(
             ("arena", "sensors"), lambda o, n: self.log.info(f"Sensors update: {o} -> {n}")
         )
 
         exp_state.add_callback("test_cb", lambda o, n: self.log.info(f"test: {o} -> {n}"))
+
         def update_test_cb():
             exp_state["test_cb"] = random.randint(0, 100)
         self.cancel_seq = schedule.sequence(update_test_cb, [2, 2, 5, 2, 2, 3], repeats=4)

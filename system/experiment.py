@@ -64,11 +64,6 @@ def run(exp_id, exp_params, exp_blocks=[]):
     exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
     data_path = config.experiment_data_root / exp_dir
 
-    log.info("")
-    log.info(f"Running experiment {cur_experiment_name}:")
-    log.info("=================================================")
-    log.info(f"Data dir: {data_path}")
-
     params.set_self(exp_params)
     blocks.set_self(exp_blocks)
 
@@ -96,9 +91,15 @@ def run(exp_id, exp_params, exp_blocks=[]):
         event_logger.add_event(src, key)
     event_logger.log("experiment/run", experiment_info)
 
-    exp_state["is_running"] = True
+    log.info("")
+
     exp_state["data_dir"] = data_path
     state["video_record", "write_dir"] = data_path
+    exp_state["is_running"] = True
+
+    log.info(f"Running experiment {cur_experiment_name}:")
+    log.info("=================================================")
+    log.info(f"Data dir: {data_path}")
 
     try:
         cur_experiment.run(params.get_self())

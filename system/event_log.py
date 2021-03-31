@@ -120,6 +120,8 @@ class EventDataLogger(DataLogger):
 
             try:
                 event = self._event_q.get(timeout=1)
+            except KeyboardInterrupt:
+                return None
             except mp.queues.Empty:
                 pass
             else:

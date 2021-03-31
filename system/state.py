@@ -182,6 +182,7 @@ class StateDispatcher:
         self.listen, self.stop = register_listener(on_update, on_ready)
 
     def wait_until_ready(self, timeout=None):
+        """Return once the dispatcher thread is ready, or <timeout> seconds passed (unless timeout is None)"""
         return self._ready_event.wait(timeout)
 
     def add_callback(self, path, on_update):
