@@ -15,10 +15,14 @@ export const ArenaControlView = ({ctrl_state}) => {
         fetch(api_url + `/arena/signal_led/${!ctrl_state.arena.signal_led}`);
     };
 
+    const toggle_touchscreen = () => {
+	fetch(api_url + `/arena/turn_touchscreen/${!ctrl_state.arena.touchscreen}`);
+    };
+    
     const poll_sensors = () => {
         fetch(api_url + "/arena/sensors_poll/None");
     };
-    
+
     const get_icon = on => on ? "toggle on" : "toggle off";
 
     const sensor_items = (() => {
@@ -68,6 +72,9 @@ export const ArenaControlView = ({ctrl_state}) => {
               <Dropdown.Item text="Day lights"
                              icon={get_icon(ctrl_state.arena.day_lights)}
                              onClick={toggle_day_lights}/>
+	      <Dropdown.Item text="Touchscreen"
+                             icon={get_icon(ctrl_state.arena.touchscreen)}
+                             onClick={toggle_touchscreen}/>
               <Dropdown.Divider/>
               {sensor_items}
               <Dropdown.Item text="Poll sensors"

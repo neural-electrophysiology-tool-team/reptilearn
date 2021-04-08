@@ -80,12 +80,22 @@ image_sources = dict(
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_firfly_4mm,
         },
+        "back": {
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "19514975",
+            "exposure": 8000,
+            "trigger": "ttl",
+            # "frame_rate": 60,
+            "image_shape": (1080, 1440),
+            "undistort": undistort_flir_firfly_4mm,
+
+        },
         "top": {  # BFS-U3-16S2M
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "0138A051",
             "exposure": 8000,
-            "trigger": "frame_rate",
-            "frame_rate": 60,
+            "trigger": "ttl",
+            # "frame_rate": 60,
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_blackfly_computar,
         },
@@ -127,7 +137,8 @@ mqtt = {
 # Configure the startup values of the arena hardware.
 arena_defaults = {
     "signal_led": False,
-    "day_lights": False
+    "day_lights": False,
+    "touchscreen": True,
 }
 
 # Database connection configuration

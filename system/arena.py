@@ -9,9 +9,29 @@ over MQTT. It allows sending commands, and also stores sensor readings in the gl
 import mqtt
 from state import state
 import time
+from subprocess import Popen, PIPE
 
 _sensors_once_callback = None
 _log = None
+
+
+def run_command(cmd):
+    """Execute shell command"""
+    process = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = process.communicate()
+    if stderr:
+        _log.info(f'Error running cmd: "{cmd}"; {stderr}')
+    return stdout.decode('ascii')
+
+
+def turn_touchscreen(on):
+    DISPLAY_CMD = "DISPLAY=:0 xrandr --output HDMI-0 --{}"
+    state["arena", "touchscreen"] = on
+
+    if on:
+        run_command(DISPLAY_CMD.format("auto"))
+    else:
+        run_command(DISPLAY_CMD.format("off"))
 
 
 def dispense_reward():
@@ -79,7 +99,8 @@ def init(logger, arena_defaults):
     _log.info("Sending arena defaults.")
     signal_led(arena_defaults["signal_led"])
     day_lights(arena_defaults["day_lights"])
-
+    turn_touchscreen(arena_defaults["touchscreen"])
+    
     mqtt.client.subscribe_callback(
         "arena/sensors", mqtt.mqtt_json_callback(_on_sensors)
     )

@@ -403,6 +403,9 @@ def route_set_prefix(prefix=""):
 @app.route("/arena/<cmd>/")
 def route_arena(cmd, value="unused"):
     f = getattr(arena, cmd)
+    if f is arena.run_command:
+        raise ValueError("Invalid arena command: run_command")
+
     if value == "false":
         f(False)
     elif value == "true":
