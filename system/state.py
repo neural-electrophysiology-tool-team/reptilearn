@@ -19,10 +19,10 @@ and should be the entry point for using this module.
 The simplest way to listen for updates to a specific state path, is by using the
 Cursor.add_callback and Cursor.remove_callback functions.
 
-Note: the root cursor uses a StateDispatcher that runs as a main process thread, and therefore
-it's not safe to use from other processes. Any cursor derived from the root cursor using the
-get_cursor() method will inherit this state dispatcher. To listen for updates on other processes,
-use a new StateDispatcher instance and run it in the desired process.
+Note: the root cursor uses a StateDispatcher that runs as a main process thread, therefore callbacks
+registered with this dispatcher will also run on the main process. Any cursor derived from the root
+cursor using the Cursor.get_cursor() method will inherit this state dispatcher. To run update callbacks
+on other processes, create a new StateDispatcher instance and run it in the desired process.
 
 See the docs for Cursor and the dicttools module for more information.
 """
