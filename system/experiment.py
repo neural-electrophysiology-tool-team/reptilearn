@@ -116,8 +116,9 @@ def end():
         raise ExperimentException("Experiment is not running.")
 
     try:
-        cur_experiment.end_trial(merged_params())
-        cur_experiment.end_block(merged_params())
+        merged_params = get_merged_params()
+        cur_experiment.end_trial(merged_params)
+        cur_experiment.end_block(merged_params)
         cur_experiment.end(params.get_self())
     except Exception:
         log.exception("Exception while ending experiment:")
@@ -139,7 +140,8 @@ def set_phase(block, trial):
     elif block != 0:
         raise ExperimentException("Experiment doesn't have block definitions.")
 
-    num_trials = merged_params().get("num_trials", None)
+    merged_params = get_merged_params()
+    num_trials = merged_params.get("num_trials", None)
     if num_trials is not None and trial >= num_trials:
         raise ExperimentException(f"Trial {trial} is out of range for block {block}.")
 
@@ -151,18 +153,18 @@ def set_phase(block, trial):
         cur_block = exp_state.get("cur_block", None)
 
         if cur_trial is not None and cur_trial != trial:
-            cur_experiment.end_trial(merged_params())
+            cur_experiment.end_trial(merged_params)
 
         if cur_block is not None and cur_block != block:
-            cur_experiment.end_block(merged_params())
+            cur_experiment.end_block(merged_params)
 
         exp_state.update((), {"cur_block": block, "cur_trial": trial})
 
         if cur_block != block:
-            cur_experiment.run_block(merged_params())
+            cur_experiment.run_block(merged_params)
 
         if cur_trial != trial or cur_block != block:
-            cur_experiment.run_trial(merged_params())
+            cur_experiment.run_trial(merged_params)
 
 
 def next_trial():
@@ -174,7 +176,7 @@ def next_trial():
     cur_trial = exp_state["cur_trial"]
     cur_block = exp_state["cur_block"]
 
-    num_trials = merged_params().get("num_trials", None)
+    num_trials = get_merged_params().get("num_trials", None)
 
     if num_trials is not None and cur_trial + 1 >= num_trials:
         next_block()
@@ -248,7 +250,7 @@ def set_experiment(name):
     exp_state["cur_experiment"] = name
 
 
-def merged_params():
+def get_merged_params():
     if blocks.exists(()) and len(blocks.get_self()) > 0 and "cur_block" in exp_state:
         block_params = exp_state[("blocks", exp_state["cur_block"])]
     else:
