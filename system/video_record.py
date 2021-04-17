@@ -73,7 +73,10 @@ def unselect_source(src_id):
     rec_state.remove("selected_sources", src_id)
 
 
-def start_trigger(pulse_len=17, update_state=True):
+def start_trigger(pulse_len=None, update_state=True):
+    if pulse_len is None:
+        pulse_len = _config.video_record["trigger_interval"]
+
     if update_state:
         rec_state["ttl_trigger"] = True
     mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})

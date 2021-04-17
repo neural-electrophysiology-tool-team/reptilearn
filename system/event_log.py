@@ -28,7 +28,6 @@ class EventDataLogger(DataLogger):
         self._connect_state_event = mp.Event()
         self._state_dispatcher = state.StateDispatcher()
         self._mqttc = None
-        
 
     def run(self):
         self._mqttc = mqtt.MQTTClient()
@@ -55,7 +54,7 @@ class EventDataLogger(DataLogger):
         else:
             # timeout has passed
             return False
-        
+
         if self._state_dispatcher.wait_until_ready(timeout):
             return True
         else:

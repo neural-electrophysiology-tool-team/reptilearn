@@ -124,6 +124,7 @@ video_record = {
         "macro_block_size": 8,  # to work with 1440x1080 image size
     },
     "video_frame_rate": 60,
+    "trigger_interval": 17,
     "file_ext": "mp4",
     "start_trigger_on_startup": False,
 }
