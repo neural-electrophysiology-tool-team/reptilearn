@@ -48,7 +48,7 @@ class DataLogger(mp.Process):
             self.csv_writer = None
 
     def _write(self, data):
-        if self.log_to_db is not None and self.table_name is not None:
+        if self.log_to_db and self.table_name is not None:
             try:
                 db.with_commit(
                     self.con,
@@ -84,7 +84,7 @@ class DataLogger(mp.Process):
         if self.csv_file is not None:
             self.csv_file.close()
 
-        if self.con is not None:
+        if self.log_to_db and self.con is not None:
             self.con.close()
 
     def _get_data(self):
