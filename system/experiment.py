@@ -172,6 +172,7 @@ def next_trial():
         log.warning(
             "experiment.py: Attempted to run next_trial() while experiment is not running"
         )
+        return
 
     cur_trial = exp_state["cur_trial"]
     cur_block = exp_state["cur_block"]
@@ -190,6 +191,7 @@ def next_block():
         log.warning(
             "experiment.py: Attempted to run next_block() while experiment is not running"
         )
+        return
 
     cur_block = exp_state["cur_block"]
     if cur_block + 1 < get_num_blocks():
