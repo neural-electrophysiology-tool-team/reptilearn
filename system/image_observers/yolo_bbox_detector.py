@@ -25,7 +25,10 @@ class YOLOv4ImageObserver(ImageObserver):
 
     def on_image_update(self, img, image_timestamp):
         det = self.detector.detect_image(img)
-        detection_timestamp = time.time() * 1e9  # in ns
+        detection_timestamp = time.time_ns()
+
+        if det is not None:
+            det = det.tolist()
 
         if self.detection_buffer is not None:
             if len(self.detection_buffer) >= self.buffer_size:

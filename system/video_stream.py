@@ -28,7 +28,7 @@ class ImageSource(mp.Process):
             self.buf_shape
         )
 
-        self.timestamp = mp.Value("L")
+        self.timestamp = mp.Value("d")
         self.end_event = mp.Event()  # do we really need two events? v--
         self.stop_event = mp.Event()
 
@@ -84,6 +84,7 @@ class ImageSource(mp.Process):
             while True:
                 try:
                     img, timestamp = self.acquire_image()
+
                 except AcquireException as e:
                     self.log.error(e)
                     break
@@ -98,6 +99,7 @@ class ImageSource(mp.Process):
 
                 with self.buf.get_lock():
                     self.timestamp.value = timestamp
+
                     self.buf_np = np.frombuffer(
                         self.buf.get_obj(), dtype="uint8"
                     ).reshape(self.buf_shape)

@@ -37,6 +37,12 @@ class FLIRImageSource(ImageSource):
         except PySpin.SpinnakerException as exc:
             self.log.error(f"(configure_images); {exc}")
 
+    def update_time_delta(self):
+        self.cam.TimestampLatch()
+        cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
+        server_time = time.time_ns()
+        self.camera_time_delta = (server_time - cam_time) / 1e9
+
     def on_begin(self):
         self.system = PySpin.System_GetInstance()
         self.cam_list = self.system.GetCameras()
@@ -49,10 +55,7 @@ class FLIRImageSource(ImageSource):
         self.cam.Init()
         self.configure_camera()
 
-        self.cam.TimestampLatch()
-        cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
-        server_time = time.time_ns()
-        self.camera_time_delta = server_time - cam_time
+        self.update_time_delta()
         self.log.info(f"Camera initialized (time delta: {self.camera_time_delta})")
 
         self.cam.BeginAcquisition()
@@ -65,7 +68,7 @@ class FLIRImageSource(ImageSource):
             self.image_result.Release()
 
         self.image_result = self.cam.GetNextImage()
-        timestamp = self.image_result.GetTimeStamp() + self.camera_time_delta
+        timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
         return (self.image_result.GetNDArray(), timestamp)
 
     def on_finish(self):

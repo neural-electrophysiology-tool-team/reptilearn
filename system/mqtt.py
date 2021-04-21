@@ -58,6 +58,10 @@ class MQTTClient(paho.Client):
 
         self.subscribed_topics.clear()
 
+    def unsubscribe_callback(self, topic):
+        self.message_callback_remove(topic)
+        self.unsubscribe(topic)
+        
     def publish_json(self, topic, payload=None, **kwargs):
         self.publish(topic, json.dumps(payload), **kwargs)
 

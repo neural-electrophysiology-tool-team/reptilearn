@@ -79,7 +79,7 @@ def start_trigger(pulse_len=None, update_state=True):
 
     if update_state:
         rec_state["ttl_trigger"] = True
-    mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": pulse_len})
+    mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": str(pulse_len)})
 
 
 def stop_trigger(update_state=True):
@@ -174,6 +174,8 @@ class VideoWriter(ImageObserver):
         self.file_ext = file_ext
         self.img_src.state["writing"] = False
 
+        self.prev_timestamp = None  # missing frames alert
+
     def on_start(self):
         if not self.img_src.state["acquiring"]:
             self.log.error("Can't write video. Image source is not acquiring.")
@@ -201,6 +203,16 @@ class VideoWriter(ImageObserver):
     def on_image_update(self, img, timestamp):
         img, timestamp = self.img_src.get_image()
 
+        # missing frames alert
+        if self.prev_timestamp is not None:
+            delta = timestamp - self.prev_timestamp
+
+            if delta > (1 / self.frame_rate) * 1.5:
+                self.log.info(f"Possible missed frame during write (delta={delta*1e3:.6f}ms).")
+                
+        self.prev_timestamp = timestamp
+        # end missing frames
+        
         self.ts_file.write(str(timestamp) + "\n")
         self.writer.append_data(img)
 

@@ -110,13 +110,13 @@ class YOLOv4Detector:
         darknet.free_detections(dets, num)
 
         if res.shape[0] == 0:
-            return []
-        
+            return None
+
         if self.return_neareast_detection:
             if self.prev_bbox is None:
                 self.prev_bbox = res[np.argmax(res[:, 4])]
             else:
                 self.prev_bbox = bbox.nearest_bbox(res, bbox.xyxy_to_centroid(self.prev_bbox))
-            return self.prev_bbox.tolist()
+            return self.prev_bbox
         else:
-            return res.tolist()
+            return res

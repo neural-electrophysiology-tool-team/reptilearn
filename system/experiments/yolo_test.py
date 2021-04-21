@@ -6,8 +6,9 @@ import data_log
 class YoloExperiment(exp.Experiment):
     def setup(self):
         self.prev_det = None
-
+        
     def run(self, params):
+        self.first_detection = True
         self.yolo_log = data_log.QueuedDataLogger(
             columns=[
                 ("time", "timestamptz not null"),
@@ -33,6 +34,10 @@ class YoloExperiment(exp.Experiment):
         self.log.info("YOLO Experiment is running.")
 
     def on_yolo_detection(self, topic, payload):
+        if self.first_detection:
+            self.first_detection = False
+            self.log.info("Received detection from YOLO observer")
+
         det = payload["detection"]
         if (
             det is not None
@@ -46,9 +51,9 @@ class YoloExperiment(exp.Experiment):
                 self.log.info("Pogona moved to lower half " + str(det))
 
         if det is not None and len(det) != 0:
-            self.yolo_log.log((payload["image_timestamp"] / 1e9, *det))
+            self.yolo_log.log((payload["image_timestamp"], *det))
         else:
-            self.yolo_log.log((payload["image_timestamp"] / 1e9, *((None,) * 5)))
+            self.yolo_log.log((payload["image_timestamp"], *((None,) * 5)))
 
         if self.det_count % 60 == 0:
             exp.exp_state["last_position"] = payload
@@ -58,7 +63,7 @@ class YoloExperiment(exp.Experiment):
             self.prev_det = det
 
     def end(self, params):
-        mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
+        mqtt.client.unsubscribe_callback("reptilearn/pogona_head_bbox")
         exp.image_observers["head_bbox"].stop_observing()
         exp.exp_state.delete("last_position")
         self.yolo_log.stop()
