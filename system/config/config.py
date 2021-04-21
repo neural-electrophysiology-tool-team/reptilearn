@@ -139,7 +139,7 @@ mqtt = {
 arena_defaults = {
     "signal_led": False,
     "day_lights": False,
-    "touchscreen": True,
+    "touchscreen": False,
 }
 
 # Database connection configuration

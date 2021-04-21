@@ -80,18 +80,28 @@ image_sources = dict(
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_firfly_4mm,
         },
+        "back": {
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "19514975",
+            "exposure": 8000,
+            "trigger": "ttl",
+            # "frame_rate": 60,
+            "image_shape": (1080, 1440),
+            "undistort": undistort_flir_firfly_4mm,
+
+        },
         "top": {  # BFS-U3-16S2M
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "0138A051",
             "exposure": 8000,
-            "trigger": "frame_rate",
-            "frame_rate": 60,
+            "trigger": "ttl",
+            # "frame_rate": 60,
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_blackfly_computar,
         },
         "test": {
             "class": "video_stream.VideoImageSource",
-            "video_path": Path("./media/0138A051_20210222-133916.mp4"),
+            "video_path": Path("/data/reptilearn/experiments/yolo_first_one_20210419-152027/top_20210419-152613.mp4"),
             "start_frame": 0,
             "end_frame": None,
             "frame_rate": 60,
@@ -100,6 +110,7 @@ image_sources = dict(
             "is_color": False,
             "undistort": undistort_flir_blackfly_computar,
         },
+
     },
 )
 
@@ -125,6 +136,7 @@ video_record = {
         "macro_block_size": 8,  # to work with 1440x1080 image size
     },
     "video_frame_rate": 60,
+    "trigger_interval": 17,
     "file_ext": "mp4",
     "start_trigger_on_startup": False,
 }
@@ -138,7 +150,8 @@ mqtt = {
 # Configure the startup values of the arena hardware.
 arena_defaults = {
     "signal_led": False,
-    "day_lights": False
+    "day_lights": False,
+    "touchscreen": False,
 }
 
 # Database connection configuration
