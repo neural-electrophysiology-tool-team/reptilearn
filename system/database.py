@@ -82,6 +82,9 @@ con = make_connection()
 
 def with_commit(con, f, *args, **kwargs):
     with con.cursor() as c:
-        ret = f(c, *args, **kwargs)
-        con.commit()
+        try:
+            ret = f(c, *args, **kwargs)
+        finally:
+            con.commit()
+
         return ret
