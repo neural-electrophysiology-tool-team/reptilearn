@@ -169,8 +169,7 @@ function.
 def online_centroid_visualizer(detector, color, window_size):
     centroids = []
 
-    def fn(orig_frame, write_frame, width, height, frame_counter):
-        detector.set_input_size(width, height)
+    def fn(orig_frame, write_frame, frame_counter):
         detections = detector.detect_image(orig_frame)
         if detections is not None:
             if len(centroids) > 0:
