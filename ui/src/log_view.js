@@ -10,13 +10,22 @@ export const LogView = () => {
 
     React.useEffect(() => {
         const listener = msg => {
+            let is_scrolled_to_bottom = null;
+	    if (textarea_ref.current !== null) {
+                const textarea = textarea_ref.current;
+                is_scrolled_to_bottom = textarea.scrollHeight - textarea.clientHeight <= textarea.scrollTop + 1;
+            }
+            
             if (logContainer.current !== "")
                 logContainer.current += "\n";
             logContainer.current += msg;
             
             setLogMsg(msg);
-	    if (textarea_ref.current !== null)
-		textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
+
+	    if (textarea_ref.current !== null) {
+                if (is_scrolled_to_bottom)
+		    textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
+            }
         };
         
 	socket.on("log", listener);
@@ -29,7 +38,7 @@ export const LogView = () => {
         logContainer.current = "";
         setLogMsg(null);
     };
-    
+
     return (
 	<React.Fragment>
           <div className="section_header">
