@@ -123,6 +123,8 @@ image_observers = {
             "conf_thres": 0.8,
             "return_neareast_detection": True,
             "buffer_size": 20,
+            "weights_path": "image_observers/YOLOv4/yolo4_reptilearn260421_best.weights",
+            "cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg",
         },
     }
 }

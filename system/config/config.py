@@ -88,7 +88,6 @@ image_sources = dict(
             # "frame_rate": 60,
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_firfly_4mm,
-
         },
         "top": {  # BFS-U3-16S2M
             "class": "image_sources.flir_cameras.FLIRImageSource",
@@ -111,6 +110,8 @@ image_observers = {
             "conf_thres": 0.8,
             "return_neareast_detection": True,
             "buffer_size": 20,
+            "weights_path": "image_observers/YOLOv4/yolo4_reptilearn260421_best.weights",
+            "cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg",
         },
     }
 }
