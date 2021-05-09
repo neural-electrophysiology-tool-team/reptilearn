@@ -217,7 +217,7 @@ def missed_frames_saver(
     else:
 
         def save_func(detec, save_thres):
-            return (detec is None) or (detec[0][4] < save_thres)
+            return (detec is None) or (len(detec) == 0) or (detec[0][4] < save_thres)
 
     try:
         os.makedirs(output_dir)
@@ -230,7 +230,7 @@ def missed_frames_saver(
         detections = detector.detect_image(orig_frame)
 
         if save_func(detections, save_thresh):
-            if detections is not None:
+            if detections is not None and len(detections) != 0:
                 prob = str(round(detections[0][4], 3))
             else:
                 prob = "0"
@@ -293,7 +293,7 @@ def offline_bbox_visualizer(
                 bbox = bbox * (bbox > 0)  # zero out negative coords.
                 bbox = bbox.astype(int)
                 cv.rectangle(
-                    write_frame, tuple(bbox[:2]), tuple(bbox[2:]), color, line_thickness
+                    write_frame, tuple(bbox[:2]), tuple(bbox[2:4]), color, line_thickness
                 )
 
     return fn
@@ -341,7 +341,7 @@ def draw_trajectory(
 ):
     """
     Draws a trajectory of the center bottom edge points in the traj_bboxes array.
-    
+
     :param write_frame: Video frame array to draw to
     :param traj_bboxes: Numpy array of trajectory bboxes
     :param draw_lines: Whether to draw lines between consecutive trajectory points
@@ -369,7 +369,11 @@ def draw_trajectory(
 
         if draw_lines and prev_point is not None:
             cv.line(
-                write_frame, prev_point, p, color, thickness=line_thickness,
+                write_frame,
+                prev_point,
+                p,
+                color,
+                thickness=line_thickness,
             )
         prev_point = p
 
@@ -401,7 +405,12 @@ def offline_trajectory_visualizer(
         if frame_counter - past_length - 1 >= 0:
             past = bboxes[frame_counter - past_length - 1 : frame_counter - 1]
             draw_trajectory(
-                write_frame, past, draw_lines, dot_radius, past_color, line_thickness,
+                write_frame,
+                past,
+                draw_lines,
+                dot_radius,
+                past_color,
+                line_thickness,
             )
 
         if frame_counter + future_length - 1 < bboxes.shape[0]:
@@ -610,7 +619,7 @@ def get_correction_fn(homography, screen_x_res, cam_attr):  # 1920
 
         # write over write frame and use the corrected
         write_frame = undistort.undistort_image(frame, (mapx, mapy))
-        #if homography is not None:
+        # if homography is not None:
         #    write_frame = calib.transform_image(write_frame, homography, screen_x_res)
         return write_frame
 
