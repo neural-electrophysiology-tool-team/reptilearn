@@ -42,6 +42,7 @@ class FLIRImageSource(ImageSource):
         cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
         server_time = time.time_ns()
         self.camera_time_delta = (server_time - cam_time) / 1e9
+        self.log.info(f"Updated time delta: {self.camera_time_delta}")
 
     def on_begin(self):
         self.system = PySpin.System_GetInstance()
@@ -56,17 +57,22 @@ class FLIRImageSource(ImageSource):
         self.configure_camera()
 
         self.update_time_delta()
-        self.log.info(f"Camera initialized (time delta: {self.camera_time_delta})")
 
         self.cam.BeginAcquisition()
+        self.log.info("Camera initialized.")
         self.image_result = None
 
+        self.prev_writing = self.state.get("writing", False)
         return True
 
     def acquire_image(self):
         if self.image_result is not None:
             self.image_result.Release()
 
+        if self.prev_writing is False and self.state["writing"] is True:
+            self.update_time_delta()
+        self.prev_writing = self.state.get("writing", False)
+        
         self.image_result = self.cam.GetNextImage()
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
         return (self.image_result.GetNDArray(), timestamp)
