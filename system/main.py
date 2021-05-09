@@ -143,7 +143,7 @@ image_observers = {
 mqtt.init(log, config)
 arena.init(log, config.arena_defaults)
 video_record.init(image_sources, log, config)
-experiment.init(image_observers, log, config)
+experiment.init(image_observers, image_sources, log, config)
 
 # Start processes of image observers and sources
 for img_obs in image_observers.values():

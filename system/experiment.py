@@ -25,8 +25,8 @@ params = None
 blocks = None
 
 
-def init(img_observers, logger, config_module):
-    global log, image_observers, config, exp_state, params, blocks
+def init(img_observers, img_sources, logger, config_module):
+    global log, image_observers, image_sources, config, exp_state, params, blocks
 
     state["experiment"] = {
         "is_running": False,
@@ -38,6 +38,7 @@ def init(img_observers, logger, config_module):
 
     config = config_module
     image_observers = img_observers
+    image_sources = img_sources
     log = logger
     refresh_experiment_list()
 
