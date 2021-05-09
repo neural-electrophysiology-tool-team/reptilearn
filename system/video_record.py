@@ -1,6 +1,8 @@
 from threading import Timer
 from datetime import datetime
 import imageio
+import queue
+import threading
 
 import mqtt
 from video_stream import ImageSource, ImageObserver
@@ -175,6 +177,7 @@ class VideoWriter(ImageObserver):
         self.img_src.state["writing"] = False
 
         self.prev_timestamp = None  # missing frames alert
+        self.q = None
 
     def on_start(self):
         if not self.img_src.state["acquiring"]:
@@ -199,6 +202,21 @@ class VideoWriter(ImageObserver):
         self.ts_file.write("timestamp\n")
 
         self.img_src.state["writing"] = True
+        self.q = queue.Queue()
+
+        self.write_thread = threading.Thread(target=self.write_queue)
+        self.write_thread.start()
+
+    def write_queue(self):
+        while True:
+            item = self.q.get()
+            if item is None:
+                break
+            img, timestamp = item
+
+            self.ts_file.write(str(timestamp) + "\n")
+            self.writer.append_data(img)
+            self.q.task_done()
 
     def on_image_update(self, img, timestamp):
         img, timestamp = self.img_src.get_image()
@@ -209,18 +227,20 @@ class VideoWriter(ImageObserver):
 
             if delta > (1 / self.frame_rate) * 1.5:
                 self.log.info(f"Possible missed frame during write (delta={delta*1e3:.6f}ms).")
-                
+
         self.prev_timestamp = timestamp
         # end missing frames
-        
-        self.ts_file.write(str(timestamp) + "\n")
-        self.writer.append_data(img)
+        self.q.put((img, timestamp))
 
     def on_stop(self):
+        self.img_src.state["writing"] = False
+        if self.write_thread is not None:
+            self.q.put_nowait(None)
+            self.write_thread.join()
+
         self.log.info(
             f"Finished writing {self.frame_count} frames. Average frame write time: {self.avg_proc_time*1000:.3f}ms"
         )
-
-        self.img_src.state["writing"] = False
+        self.prev_timestamp = None
         self.writer.close()
         self.ts_file.close()
