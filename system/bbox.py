@@ -69,7 +69,7 @@ def xyxy_to_centroid(xyxy):
         return np.array([(x2 + x1) / 2, (y2 + y1) / 2])
 
     x1 = xyxy[:, 0]
-    y1 = xyxy[:, 0]
+    y1 = xyxy[:, 1]
     x2 = xyxy[:, 2]
     y2 = xyxy[:, 3]
 
