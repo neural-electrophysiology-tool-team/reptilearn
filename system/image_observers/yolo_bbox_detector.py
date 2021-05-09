@@ -22,7 +22,11 @@ class YOLOv4ImageObserver(ImageObserver):
         self.mqttc.log = self.log
         self.mqttc.connect()
         self.detector.load()
+        self.log.info(
+            f"YOLOv4 detector loaded successfully ({self.detector.model_width}x{self.detector.model_height} cfg: {self.detector.cfg_path} weights: {self.detector.weights_path})."
+        )
 
+        
     def on_image_update(self, img, image_timestamp):
         det = self.detector.detect_image(img)
         detection_timestamp = time.time_ns()

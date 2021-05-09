@@ -49,9 +49,6 @@ class YOLOv4Detector:
         self.meta = darknet.load_meta(self.meta_path.encode("ascii"))
         self.model_width = darknet.lib.network_width(self.net)
         self.model_height = darknet.lib.network_height(self.net)
-        print(
-            f"YOLOv4 detector loaded successfully ({self.model_width}x{self.model_height}; {self.cfg_path})."
-        )
 
     def detect_image(self, img):
         """
