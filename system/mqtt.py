@@ -49,7 +49,7 @@ class MQTTClient(paho.Client):
 
         self.subscribed_topics.append(topic)
         self.subscribe(topic)
-        self.message_callback_add(topic, callback)
+        self.message_callback_add(topic, self.exception_handler_wrapper(callback))
 
     def unsubscribe_all(self):
         for topic in self.subscribed_topics:
@@ -68,6 +68,14 @@ class MQTTClient(paho.Client):
     def publish(self, *args, **kwargs):
         self.last_msg_info = super().publish(*args, **kwargs)
 
+    def exception_handler_wrapper(self, callback):
+        def cb(*args):
+            try:
+                callback(*args)
+            except Exception:
+                self.log.exception("Exception raised while running MQTT callback:")
+        return cb
+
 
 def mqtt_json_callback(callback):
     def cb(client, userdata, message):
@@ -84,7 +92,7 @@ def mqtt_json_callback(callback):
 
     return cb
 
-
+            
 # Main process threaded client
 client = None
 
