@@ -158,7 +158,7 @@ def _get_new_write_path(src_id, file_ext):
         filename_prefix += "_"
 
     base = (
-        filename_prefix + src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
+        filename_prefix + src_id + "_" + datetime.now().strftime("%Y%m%d_%H%M%S") + "."
     )
     return write_dir / (base + file_ext)
 
