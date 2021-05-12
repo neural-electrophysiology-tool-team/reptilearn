@@ -108,10 +108,12 @@ class ImageSource(mp.Process):
                     for obs in self.observer_events:
                         obs.set()
 
+            if "acquiring" in self.state:
+                self.state["acquiring"] = False
+                        
         except KeyboardInterrupt:
             pass
         finally:
-            self.state["acquiring"] = False
             self.on_finish()
 
         for obs in self.observer_events:
@@ -192,8 +194,13 @@ class ImageObserver(mp.Process):
                                 ) / self.frame_count
                 except KeyboardInterrupt:
                     pass
+                except Exception:
+                    self.log.exception("Exception while observing:")
                 finally:
-                    self.on_stop()
+                    try:
+                        self.on_stop()
+                    except Exception:
+                        self.log.exception("Exception while stopping observer:")
 
     def on_start(self):
         pass
