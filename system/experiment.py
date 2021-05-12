@@ -62,7 +62,7 @@ def run(exp_id, exp_params, exp_blocks=[]):
     if len(exp_id.strip()) == 0 or len(re.findall(r"[^A-Za-z0-9_]", exp_id)) != 0:
         raise ExperimentException(f"Invalid experiment id: '{exp_id}'")
 
-    exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     data_path = config.experiment_data_root / exp_dir
 
     params.set_self(exp_params)
