@@ -103,4 +103,8 @@ class QueuedDataLogger(DataLogger):
         self._log_q.put(None)
 
     def _get_data(self):
-        return self._log_q.get()
+        try:
+            return self._log_q.get()
+        except KeyboardInterrupt:
+            return None
+        
