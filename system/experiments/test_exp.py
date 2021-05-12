@@ -60,6 +60,6 @@ class TestExperiment(exp.Experiment):
         state.remove_callback(("arena", "sensors"))
         exp_state.remove_callback("test_cb")
         arena.sensors_set_interval(60)
-        if self.cancel_seq:
-            self.cancel_seq()
+        #if self.cancel_seq:
+        #    self.cancel_seq()
         mqtt.client.unsubscribe_callback("arena/ttl_trigger/start")

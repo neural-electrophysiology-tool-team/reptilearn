@@ -13,6 +13,26 @@ _cancel_fns = []
 
 
 def _gen_schedule_fn(thread_fn):
+    """
+    Return a schedule function that will run thread_fn in a separate thread.
+    - thread_fn: A function with signature 
+                    (callback, args, kwargs, cancel_event, *sch_args, **sch_kwargs)
+        The thread_fn needs to invoke the callback at some future time. When the cancel_event is 
+        set the thread should finish.
+    
+        - callback: The task function that will be scheduled.
+        - args, kwargs: The task arguments list and named arguments dictionary.
+        - cancel_event: threading.Event that will be set when the schedule should be cancelled.
+        - *sch_args, **sch_kwargs: arguments and named-arguments of the schedule function.
+
+    The returned schedule function has this signature:
+        (callback, *sch_args, args=(), kwargs={}, **sch_kwargs)
+
+        These are the same arguments as in thread_fn except for the cancel_event.
+
+        The function returns a function that cancels the schedule, and also adds it to the list used
+        by the cancel_all() function.
+    """
     def sched_fn(callback, *sch_args, args=(), kwargs={}, **sch_kwargs):
         cancel_event = threading.Event()
 
