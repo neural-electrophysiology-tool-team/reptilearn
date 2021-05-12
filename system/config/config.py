@@ -109,7 +109,7 @@ image_observers = {
         "args": {
             "conf_thres": 0.8,
             "return_neareast_detection": True,
-            "buffer_size": 20,
+            "buffer_size": None,
             "weights_path": "image_observers/YOLOv4/yolo4_reptilearn260421_best.weights",
             "cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg",
         },
@@ -128,6 +128,7 @@ video_record = {
     "trigger_interval": 17,
     "file_ext": "mp4",
     "start_trigger_on_startup": False,
+    "max_write_queue_size": 0,  # 0 means infinite queue.
 }
 
 # MQTT server address

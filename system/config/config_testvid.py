@@ -140,6 +140,7 @@ video_record = {
     "video_frame_rate": 60,
     "trigger_interval": 17,
     "file_ext": "mp4",
+    "max_write_queue_size": 0,  # 0 means infinite queue.
     "start_trigger_on_startup": False,
 }
 

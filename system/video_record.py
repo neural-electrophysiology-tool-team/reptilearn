@@ -33,6 +33,7 @@ def init(image_sources, logger, config):
         video_writers[src_id] = VideoWriter(
             image_sources[src_id],
             frame_rate=config.video_record["video_frame_rate"],
+            queue_max_size=config.video_record["max_write_queue_size"],
         )
 
     ttl_trigger = config.video_record["start_trigger_on_startup"]
@@ -169,12 +170,14 @@ class VideoWriter(ImageObserver):
         img_src: ImageSource,
         frame_rate,
         file_ext="mp4",
+        queue_max_size=0,
     ):
         super().__init__(img_src)
 
         self.frame_rate = frame_rate
         self.file_ext = file_ext
         self.img_src.state["writing"] = False
+        self.queue_max_size = queue_max_size
 
         self.prev_timestamp = None  # missing frames alert
         self.q = None
@@ -202,13 +205,21 @@ class VideoWriter(ImageObserver):
         self.ts_file.write("timestamp\n")
 
         self.img_src.state["writing"] = True
-        self.q = queue.Queue()
+        self.q = queue.Queue(self.queue_max_size)
+        self.max_queued_items = 0
+
+        self.missed_frames_count = 0
+        self.missed_frame_events = 0
+        self.prev_timestamp = None
 
         self.write_thread = threading.Thread(target=self.write_queue)
         self.write_thread.start()
 
     def write_queue(self):
         while True:
+            if self.q.qsize() > self.max_queued_items:
+                self.max_queued_items = self.q.qsize()
+
             item = self.q.get()
             if item is None:
                 break
@@ -224,9 +235,11 @@ class VideoWriter(ImageObserver):
         # missing frames alert
         if self.prev_timestamp is not None:
             delta = timestamp - self.prev_timestamp
-
-            if delta > (1 / self.frame_rate) * 1.5:
-                self.log.info(f"Possible missed frame during write (delta={delta*1e3:.6f}ms).")
+            frame_dur = 1 / self.frame_rate
+            missed_frames = int(delta / frame_dur)
+            if missed_frames > 1:
+                self.missed_frames_count += missed_frames
+                self.missed_frame_events += 1
 
         self.prev_timestamp = timestamp
         # end missing frames
@@ -239,7 +252,7 @@ class VideoWriter(ImageObserver):
             self.write_thread.join()
 
         self.log.info(
-            f"Finished writing {self.frame_count} frames. Average frame write time: {self.avg_proc_time*1000:.3f}ms"
+            f"Finished writing {self.frame_count} frames. Avg. write time: {self.avg_proc_time*1000:.3f}ms, Max queued frames: {self.max_queued_items}, approx. {self.missed_frames_count} missed frames in {self.missed_frame_events} events."
         )
         self.prev_timestamp = None
         self.writer.close()
