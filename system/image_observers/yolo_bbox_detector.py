@@ -8,13 +8,18 @@ class YOLOv4ImageObserver(ImageObserver):
     def __init__(
         self,
         img_src: ImageSource,
-        buffer_size=1,
+        buffer_size=None,
         *yolo_args,
         **yolo_kwargs,
     ):
         super().__init__(img_src)
         self.detector = YOLOv4Detector(*yolo_args, **yolo_kwargs)
-        self.detection_buffer = []
+
+        if buffer_size is not None:
+            self.detection_buffer = []
+        else:
+            self.detection_buffer = None
+
         self.buffer_size = buffer_size
 
     def setup(self):
@@ -26,7 +31,11 @@ class YOLOv4ImageObserver(ImageObserver):
             f"YOLOv4 detector loaded successfully ({self.detector.model_width}x{self.detector.model_height} cfg: {self.detector.cfg_path} weights: {self.detector.weights_path})."
         )
 
-        
+    def on_start(self):
+        self.log.info("Starting object detection.")
+
+    def on_stop(self):
+        self.log.info("Stopping object detection.")
     def on_image_update(self, img, image_timestamp):
         det = self.detector.detect_image(img)
         detection_timestamp = time.time_ns()
