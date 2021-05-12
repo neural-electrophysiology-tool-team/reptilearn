@@ -1,21 +1,33 @@
+"""
+This module contains an MQTTClient class that inherits from paho.mqtt.client.Client.
+The client is instanstiated in the mqtt.init function, and can be referenced from
+mqtt.client.
+
+mqtt.mqtt_json_callback is useful when the incoming message payload is a JSON string.
+"""
+
 import paho.mqtt.client as paho
 import logging
 import json
 
-_config = None
-
 
 class MQTTClient(paho.Client):
+    """
+    MQTT client based on the paho Client with additional features.
+    Logs messages to the MQTTClient logger by default.
+    """
+
     def __init__(self):
         super().__init__()
         self.is_connected = False
-        self.on_connect_subscriptions = []
+        self.subscriptions = {}
         self.on_connect_callback = None
-        self.subscribed_topics = []
+
         self.last_msg_info = None
         self.log = logging.getLogger("MQTTClient")
 
     def disconnect(self):
+        """Disconnect after publishing the last message."""
         if self.is_connected:
             self.log.info("MQTT disconnecting...")
             if self.last_msg_info is not None:
@@ -24,17 +36,21 @@ class MQTTClient(paho.Client):
             self.is_connected = False
 
     def connect(self, on_success=None):
+        """
+        Connect to the server.
+        - on_success: A callback function for successful connection.
+        """
         if on_success is not None:
             self.on_connect_callback = on_success
 
         super().connect(**_config.mqtt)
 
     def on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
+        if rc == paho.MQTT_ERR_SUCCESS:
             host, port = _config.mqtt["host"], _config.mqtt["port"]
             self.log.info(f"MQTT connected successfully to {host}:{port}.")
             self.is_connected = True
-            for topic, callback in self.on_connect_subscriptions:
+            for topic, callback in self.subscriptions.items():
                 self.subscribe_callback(topic, callback)
 
             if self.on_connect_callback is not None:
@@ -43,41 +59,63 @@ class MQTTClient(paho.Client):
         else:
             self.log.error(f"MQTT connection refused (rc code {rc}).")
 
+    def on_disconnect(self, client, userdata, rc):
+        if not rc == paho.MQTT_ERR_SUCCESS:
+            self.log.info("Unexpected MQTT client disconnect.")
+            
     def subscribe_callback(self, topic, callback):
-        if not self.is_connected:
-            self.on_connect_subscriptions.append((topic, callback))
-
-        self.subscribed_topics.append(topic)
+        """
+        Subscribe a callback function to a topic (str).
+        There can only be one callback for each topic.
+        """
+        self.subscriptions[topic] = callback
         self.subscribe(topic)
-        self.message_callback_add(topic, self.exception_handler_wrapper(callback))
+        self.message_callback_add(topic, self._exception_handler_wrapper(callback))
 
     def unsubscribe_all(self):
-        for topic in self.subscribed_topics:
+        """Unsubscribe all previous subscriptions and remove callbacks."""
+        for topic in self.subscriptions.keys():
             self.message_callback_remove(topic)
             self.unsubscribe(topic)
 
-        self.subscribed_topics.clear()
+        self.subscriptions.clear()
 
     def unsubscribe_callback(self, topic):
-        self.message_callback_remove(topic)
-        self.unsubscribe(topic)
-        
+        if topic in self.subscriptions:
+            self.message_callback_remove(topic)
+            self.unsubscribe(topic)
+            return self.subscriptions.pop(topic)
+        else:
+            return None
+
     def publish_json(self, topic, payload=None, **kwargs):
+        """Convert the payload to JSON and publish to topic."""
         self.publish(topic, json.dumps(payload), **kwargs)
 
     def publish(self, *args, **kwargs):
+        """Publish a message. See paho.Client.publish for details."""
         self.last_msg_info = super().publish(*args, **kwargs)
 
-    def exception_handler_wrapper(self, callback):
-        def cb(*args):
+    def _exception_handler_wrapper(self, callback):
+        def cb(*args, **kwargs):
             try:
-                callback(*args)
+                callback(*args, **kwargs)
             except Exception:
                 self.log.exception("Exception raised while running MQTT callback:")
+
         return cb
 
 
 def mqtt_json_callback(callback):
+    """
+    Wrap the callback function with json decoding.
+    Returns a function that can be used with MQTTClient.subscribe_callback.
+
+    The callback signature should be (topic, payload) where:
+    - topic: str, the message topic,
+    - payload: dict, the decoded json message.
+    """
+
     def cb(client, userdata, message):
         payload = message.payload.decode("utf-8")
         if len(payload) == 0:
@@ -92,12 +130,22 @@ def mqtt_json_callback(callback):
 
     return cb
 
-            
+
 # Main process threaded client
 client = None
 
+# Reference to the current config module
+_config = None
+
 
 def init(logger, config):
+    """
+    Create an MQTTClient and run it in a new thread.
+    The client is accessible through mqtt.client.
+
+    - logger: Client logger
+    - config: The current config module
+    """
     global client, _config
     _config = config
     client = MQTTClient()
