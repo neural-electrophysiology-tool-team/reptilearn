@@ -98,10 +98,12 @@ class LearnExp(exp.Experiment):
             "reptilearn/learn_exp/end", self.on_end
         )  # temp debug
 
+        """
         mqtt.client.subscribe_callback(
             "reptilearn/pogona_head_bbox",
             mqtt.mqtt_json_callback(self.on_yolo_detection),
         )  # sub to image detections
+        """
         if not self.consecutive:  # no need to schedule next trials if consecutive
             self.cancel_trials = schedule.repeat(
                 self.period_call,
@@ -109,10 +111,10 @@ class LearnExp(exp.Experiment):
                 params.get("num_of_exp", 1) - 1,
             )  # schedule the next trials
 
-        exp.image_observers[
-            "head_bbox"
-        ].start_observing()  # start image observers to detect on arena
-        self.log.info("Start Oberserving")
+        yolo = exp.image_observers["head_bbox"]
+        yolo.on_detection = self.on_yolo_detection
+        yolo.start_observing()
+        self.log.info("Start Observing")
 
     def run_trial(self, params):
 
@@ -150,7 +152,7 @@ class LearnExp(exp.Experiment):
         else:
             self.monitor_stimulus()
 
-    def on_yolo_detection(self, topic, payload):
+    def on_yolo_detection(self, payload):
         params = exp.get_merged_params()
         det = payload["detection"]
         if (
