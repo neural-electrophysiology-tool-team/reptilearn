@@ -3,11 +3,11 @@ from datetime import datetime
 import imageio
 import queue
 import threading
+import time
 
 import mqtt
 from video_stream import ImageSource, ImageObserver
 from state import state
-
 
 # TODO:
 # - videowriter should check if the timestamp matches the fps. if delta is about twice the 1/fps, it should repeat the
@@ -34,6 +34,7 @@ def init(image_sources, logger, config):
             image_sources[src_id],
             frame_rate=config.video_record["video_frame_rate"],
             queue_max_size=config.video_record["max_write_queue_size"],
+            encoding_params=config.video_record["encoding_params"][src_id],
         )
 
     ttl_trigger = config.video_record["start_trigger_on_startup"]
@@ -169,6 +170,7 @@ class VideoWriter(ImageObserver):
         self,
         img_src: ImageSource,
         frame_rate,
+        encoding_params,
         file_ext="mp4",
         queue_max_size=0,
     ):
@@ -177,10 +179,13 @@ class VideoWriter(ImageObserver):
         self.frame_rate = frame_rate
         self.file_ext = file_ext
         self.img_src.state["writing"] = False
+
+        self.prev_timestamp = None  # for missing frames alert
+
+        self.q = None
         self.queue_max_size = queue_max_size
 
-        self.prev_timestamp = None  # missing frames alert
-        self.q = None
+        self.encoding_params = encoding_params
 
     def on_start(self):
         if not self.img_src.state["acquiring"]:
@@ -198,7 +203,7 @@ class VideoWriter(ImageObserver):
             format="FFMPEG",
             mode="I",
             fps=self.frame_rate,
-            **_config.video_record["video_encoding"],
+            **self.encoding_params,
         )
 
         self.ts_file = open(str(ts_path), "w")
@@ -216,6 +221,9 @@ class VideoWriter(ImageObserver):
         self.write_thread.start()
 
     def write_queue(self):
+        write_count = 0
+        self.avg_write_time = float("nan")
+
         while True:
             if self.q.qsize() > self.max_queued_items:
                 self.max_queued_items = self.q.qsize()
@@ -223,10 +231,22 @@ class VideoWriter(ImageObserver):
             item = self.q.get()
             if item is None:
                 break
+
+            t0 = time.time()
             img, timestamp = item
 
             self.ts_file.write(str(timestamp) + "\n")
             self.writer.append_data(img)
+
+            dt = time.time() - t0
+            write_count += 1
+            if write_count == 1:
+                self.avg_write_time = dt
+            else:
+                self.avg_write_time = (
+                    self.avg_write_time * (write_count - 1) + dt
+                ) / write_count
+
             self.q.task_done()
 
     def on_image_update(self, img, timestamp):
@@ -251,8 +271,23 @@ class VideoWriter(ImageObserver):
             self.q.put_nowait(None)
             self.write_thread.join()
 
+        if self.missed_frames_count > 0:
+            s_missed_frames = (
+                f", {self.missed_frames_count} missed frame candidates in "
+                + f"{self.missed_frame_events} events."
+            )
+        else:
+            s_missed_frames = "."
+
+        time_ms = self.avg_write_time * 1000
+
         self.log.info(
-            f"Finished writing {self.frame_count} frames. Avg. write time: {self.avg_proc_time*1000:.3f}ms, Max queued frames: {self.max_queued_items}, approx. {self.missed_frames_count} missed frames in {self.missed_frame_events} events."
+            (
+                f"Finished writing {self.frame_count} frames. "
+                + f"Avg. write time: {time_ms:.3f}ms, "
+                + f"Max queued frames: {self.max_queued_items}"
+                + s_missed_frames
+            )
         )
         self.prev_timestamp = None
         self.writer.close()
