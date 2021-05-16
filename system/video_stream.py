@@ -110,7 +110,7 @@ class ImageSource(mp.Process):
 
             if "acquiring" in self.state:
                 self.state["acquiring"] = False
-                        
+
         except KeyboardInterrupt:
             pass
         finally:
@@ -282,7 +282,7 @@ class VideoImageSource(ImageSource):
 
         self.frame_num += 1
         self.last_acquire_time = time.time() - t
-        return img, int(t * 1e9)
+        return img, t
 
     def on_finish(self):
         self.vcap.release()
