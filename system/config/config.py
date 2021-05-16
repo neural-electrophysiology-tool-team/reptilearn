@@ -15,7 +15,7 @@ experiment_data_root: Path = Path("/data/reptilearn/experiments/")
 media_dir: Path = Path("/data/reptilearn/media/")
 
 # Lens correction values for various camera and lens combinations.
-undistort_flir_firfly_4mm = {
+undistort_flir_firefly_4mm = {
     "mtx": np.array(
         [
             [1.14515564e03, 0.00000000e00, 7.09060713e02],
@@ -63,32 +63,6 @@ stream_frame_rate = 15
 # Cameras and other image sources are configured here.
 image_sources = dict(
     {
-        "left": {  # firefly-dl 1
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "20349302",
-            "exposure": 8000,
-            "trigger": "ttl",  # or "frame_rate"
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firfly_4mm,
-        },
-        "right": {  # firefly-dl 2
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "20349310",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firfly_4mm,
-        },
-        "back": {
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "19514975",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firfly_4mm,
-        },
         "top": {  # BFS-U3-16S2M
             "class": "image_sources.flir_cameras.FLIRImageSource",
             "cam_id": "0138A051",
@@ -97,6 +71,32 @@ image_sources = dict(
             # "frame_rate": 60,
             "image_shape": (1080, 1440),
             "undistort": undistort_flir_blackfly_computar,
+        },
+        "left": {  # firefly-dl 1
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "20349302",
+            "exposure": 8000,
+            "trigger": "ttl",  # or "frame_rate"
+            "image_shape": (1080, 1440),
+            "undistort": undistort_flir_firefly_4mm,
+        },
+        "right": {  # firefly-dl 2
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "20349310",
+            "exposure": 8000,
+            "trigger": "ttl",
+            # "frame_rate": 60,
+            "image_shape": (1080, 1440),
+            "undistort": undistort_flir_firefly_4mm,
+        },
+        "back": {
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "19514975",
+            "exposure": 8000,
+            "trigger": "ttl",
+            # "frame_rate": 60,
+            "image_shape": (1080, 1440),
+            "undistort": undistort_flir_firefly_4mm,
         },
     },
 )
@@ -116,13 +116,31 @@ image_observers = {
     }
 }
 
+# Video encoding parameters:
+# These parameters are passed to imageio.get_writer function
+# See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
+
+cpu_encoding_params = {
+    "codec": "libx264",
+    "quality": 7,
+    "macro_block_size": 8,  # to work with 1440x1080 image size
+}
+
+gpu_encoding_params = {
+    "codec": "h264_nvenc",
+    "quality": None,
+    "macro_block_size": 1,
+    "pixelformat": "bgr0",
+    "ffmpeg_log_level": "warning",
+    "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
+}
+
 video_record = {
-    "video_encoding": {
-        # These parameters are passed to imageio.get_writer function
-        # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
-        "codec": "libx264",
-        "quality": 5,
-        "macro_block_size": 8,  # to work with 1440x1080 image size
+    "encoding_params": {
+        "top": gpu_encoding_params,
+        "right": gpu_encoding_params,
+        "left": gpu_encoding_params,
+        "back": cpu_encoding_params,
     },
     "video_frame_rate": 60,
     "trigger_interval": 17,
