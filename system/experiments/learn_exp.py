@@ -1,3 +1,8 @@
+"""
+Learning experiment procedure as part of Tal's experiment system:
+The experiment procedure is capable of running an experiment with a given stimulus type and reward successful experiments.
+Author: Or Pardilov, 2021
+"""
 import experiment as exp
 import mqtt
 import data_log
@@ -10,7 +15,7 @@ import numpy as np
 import cv2 as cv
 import monitor
 import math
-
+import os
 
 class LearnExp(exp.Experiment):
     default_params = {
@@ -26,7 +31,7 @@ class LearnExp(exp.Experiment):
         "reward_delay": None,
         "record_overhead": 0,
         "default_end": (50, 50),
-        "radius": 300,
+        "radius": 200,
         "monitor_color": "yellow",
         "monitor_duration": 60,
         "stimulus": "led",
@@ -36,6 +41,7 @@ class LearnExp(exp.Experiment):
     }
 
     def setup(self):
+        #initializing needed class variables
         self.in_trial = False
         self.got_detection = False
         self.cancel_trials = None
@@ -50,30 +56,32 @@ class LearnExp(exp.Experiment):
         self.consq_end = False
         self.ex_type = None
         self.time = 0.0
+        self.data_dir=None
 
     def run(self, params):
+        #resetting init values
+        self.in_trial = False
+        self.got_detection = False
+        self.time = 0.0
+        self.cancel_trials = None
+        self.cancel_logic_trial = None
+        self.prev_det = None
+        self.prev_trial_detection = False
+        self.stim_cancel = None
+        self.consq_end = False
 
+
+
+        self.data_dir = exp.exp_state["data_dir"]
         self.cur_trial = params["num_trials"]
         self.consecutive = params["consecutive"]
+        #determining the experiment type
         self.ex_type = (
             "consecutive"
             if self.consecutive
             else ("continuous" if params["continuous"] else "regular")
         )
-        ##logging
-
-        self.learn_log = data_log.QueuedDataLogger(
-            columns=[
-                ("time", "timestamptz not null"),
-                ("trial", "int"),
-                ("type", "text"),
-                ("status", "text"),
-            ],
-            csv_path=exp.exp_state["data_dir"] / "learn_data.csv",
-            table_name="learn_status",
-        )
-        self.learn_log.start()
-
+        #logging yolo detections
         self.yolo_log = data_log.QueuedDataLogger(
             columns=[
                 ("time", "timestamptz not null"),
@@ -87,23 +95,15 @@ class LearnExp(exp.Experiment):
             table_name="bbox_position",
         )
         self.yolo_log.start()
+
+
         
         # detecting Aruco squares within arena
         self.detectAruco()
-        arena.day_lights(True)
+
         if params["record_all"]:  # record start at init
             video_record.start_record()
 
-        mqtt.client.subscribe_callback(
-            "reptilearn/learn_exp/end", self.on_end
-        )  # temp debug
-
-        """
-        mqtt.client.subscribe_callback(
-            "reptilearn/pogona_head_bbox",
-            mqtt.mqtt_json_callback(self.on_yolo_detection),
-        )  # sub to image detections
-        """
         if not self.consecutive:  # no need to schedule next trials if consecutive
             self.cancel_trials = schedule.repeat(
                 self.period_call,
@@ -111,6 +111,7 @@ class LearnExp(exp.Experiment):
                 params.get("num_of_exp", 1) - 1,
             )  # schedule the next trials
 
+        #starting image observers
         yolo = exp.image_observers["head_bbox"]
         yolo.on_detection = self.on_yolo_detection
         yolo.start_observing()
@@ -146,6 +147,7 @@ class LearnExp(exp.Experiment):
         self.log.info("run trial procedure finished")
 
     def stim(self):
+        #presenting chosen stimulus
         params = exp.get_merged_params()
         if params["stimulus"].lower() == "led":
             self.led_stimulus()
@@ -155,6 +157,10 @@ class LearnExp(exp.Experiment):
     def on_yolo_detection(self, payload):
         params = exp.get_merged_params()
         det = payload["detection"]
+        if det is not None and len(det) != 0:
+            self.yolo_log.log((payload["image_timestamp"], *det))
+        else:
+            self.yolo_log.log((payload["image_timestamp"], *((None,) * 5)))
         if (
             det is not None
             and self.prev_det is not None
@@ -163,18 +169,19 @@ class LearnExp(exp.Experiment):
         ):
             if self.check_detection(det):
                 # detection matched criteria
-                # self.log.info("YOLO success at "+str(det))
                 if self.in_trial and not self.prev_trial_detection:
                     if self.consecutive:
-                        self.stim()
-                        if (
-                            params["reward_detections"]
-                            and not params["bypass_detection"]
-                        ):
-                            self.dispatch_reward()
-                        self.consq_end = True
-                        self.got_detection = True
-                        self.time = 0.0
+                        if not self.consq_end:
+                            self.stim()
+                            if (
+                                params["reward_detections"]
+                                and not params["bypass_detection"]
+                                ):
+                                self.dispatch_reward()
+                            exp.event_logger.log("learn_exp/consecutive_trial_in_radius",None)
+                            self.consq_end = True
+                            self.got_detection = True
+                            self.time = 0.0
                     else:
                         # during trial and object moved since last success
                         self.got_detection = True
@@ -196,25 +203,18 @@ class LearnExp(exp.Experiment):
                 if self.prev_trial_detection:
                     # object location does not macth criteria
                     self.prev_trial_detection = False
-
                     if (
                         self.consq_end
                     ):  # during consecutive trial and holding to start the next
                         if self.time == 0.0:
                             self.time = time.time()
+                            exp.event_logger.log("learn_exp/consecutive_trial_out_radius",params.get("time_diff", 10)) #the remaining time
                         elif time.time() > self.time + params.get("time_diff", 10):
+                            #exp.event_logger.log("learn_exp/trial",{"status": "consecutive: out of radius, ended trial"})
                             self.consq_end = False
                             self.end_logic_trial()
-
-        if det is not None:
-            if det is not None and len(det) != 0:
-                self.yolo_log.log((payload["image_timestamp"], *det))
-            else:
-                self.yolo_log.log((payload["image_timestamp"], *((None,) * 5)))
-
-            self.frame_count += 1
-            if self.frame_count % 120 == 0:  # debug
-                self.log.info("INFO: GOT " + str(det))
+                        else:
+                            pass
 
         self.prev_det = det
 
@@ -237,6 +237,8 @@ class LearnExp(exp.Experiment):
 
     def led_stimulus(self):
         params = exp.get_merged_params()
+        if exp.state["arena", "signal_led"]:
+            arena.signal_led(False)
         self.stim_cancel = schedule.repeat(
             lambda: arena.signal_led(not exp.state["arena", "signal_led"]),
             params["led_duration"],
@@ -259,12 +261,13 @@ class LearnExp(exp.Experiment):
         if params["stimulus"] == "monitor":
             monitor.chnage_color("black")
         timestap = time.time()
+        #logging trial data
         if self.in_trial and not self.got_detection:
             self.log.info("Logic trial ended, failure")
-            self.learn_log.log((timestap, self.cur_trial, self.ex_type, "failure"))
+            exp.event_logger.log("learn_exp/logical_trial_ended", {"type": self.ex_type,"success": False})
         elif self.in_trial and self.got_detection:
             self.log.info("Logic trial ended, success")
-            self.learn_log.log((timestap, self.cur_trial, self.ex_type, "success"))
+            exp.event_logger.log("learn_exp/logical_trial_ended", {"type": self.ex_type,"success": True})
         else:
             self.log.info("Logic trial ended")
 
@@ -318,6 +321,7 @@ class LearnExp(exp.Experiment):
         arena.dispense_reward()
 
     def end(self, params):
+        #on end cancel all records and schedules
         if params.get("record_exp", True) or params["record_all"]:
             video_record.stop_record()
         if self.cancel_trials != None:
@@ -328,7 +332,9 @@ class LearnExp(exp.Experiment):
         mqtt.client.publish(topic="monitor/color", payload="black")
         exp.image_observers["head_bbox"].stop_observing()
         self.yolo_log.stop()
-        self.learn_log.stop()
+
+        if exp.state["arena", "signal_led"]:
+            arena.signal_led(False)
         mqtt.client.unsubscribe("reptilearn/pogona_head_bbox")
         mqtt.client.unsubscribe("reptilearn/learn_exp/end")
         self.log.info("exp ended")
@@ -336,59 +342,28 @@ class LearnExp(exp.Experiment):
     def period_call(self):
         exp.next_trial()
 
-    def on_end(self, client, userdata, message):
-        # debug: imitate detection
-        params = exp.get_merged_params()
-        self.log.info("on_end was called")
-        msg = str(message.payload.decode())
-        self.log.info("got " + msg)
-        if msg == "detected":
-            # detection matched criteria
-            self.log.info("detected")
-            if self.in_trial and not self.prev_trial_detection:
-                if self.consecutive:
-                    self.stim()
-                    if params["reward_detections"] and not params["bypass_detection"]:
-                        self.dispatch_reward()
-                    self.consq_end = True
-                    self.got_detection = True
-                else:
-                    # during trial and object moved since last success
-                    self.got_detection = True
-                    if params["reward_detections"] and not params["bypass_detection"]:
-                        self.dispatch_reward()
-
-                    self.cancel_logic_trial()  # got detection, canceling scheduled end
-                    self.end_logic_trial()
-
-            elif self.in_trial:
-                # during trial, object did not move since last success
-                self.log.info(
-                    "Ignored success, location did not changed since last success"
-                )
-            self.prev_trial_detection = True
-
-        elif self.prev_trial_detection:
-            # object location does not macth criteria
-            self.prev_trial_detection = False
-            if self.consq_end:  # during consecutive trial and holding to start the next
-                self.consq_end = False
-                self.end_logic_trial()
 
     def detectAruco(self):
         # detecting aruco marker
+        params = exp.get_merged_params()
         test_image, _ = exp.image_sources["top"].get_image()
+        #currently using 4x4 arucos
         arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
         arucoParams = cv.aruco.DetectorParameters_create()
         (corners, ids, rejected) = cv.aruco.detectMarkers(
             test_image, arucoDict, parameters=arucoParams
         )
+        img_w_markers= cv.cvtColor(test_image, cv.COLOR_GRAY2BGR)
         if corners != None and len(corners) > 0:
             detection = corners[0][0]
             mean_xy = np.mean(detection, axis=0)
             self.end_point = (mean_xy[0], mean_xy[1])
             self.log.info("End point is " + str(self.end_point))
+            img_w_markers= cv.aruco.drawDetectedMarkers( img_w_markers,corners)
         else:
-            params = exp.get_merged_params()
             self.log.info("Did not detect any aruco markers!")
             self.end_point = params["default_end"]
+        #saving annotated frame
+        img_w_circle = cv.circle(img_w_markers, self.end_point, radius=params["radius"], color=(0, 255, 0), thickness=5)
+        cv.imwrite(os.path.join(self.data_dir,
+                                "arena_reinforced_area_"+ datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".jpg"), img_w_circle)
