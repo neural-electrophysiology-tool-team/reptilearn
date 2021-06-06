@@ -63,6 +63,9 @@ def _gen_schedule_fn(thread_fn):
 
 def cancel_all():
     """Cancel all scheduled tasks."""
+    if len(_cancel_fns) == 0:
+        return
+    
     while len(_cancel_fns) != 0:
         _cancel_fns[0]()
 
