@@ -135,7 +135,7 @@ image_observers = {
 
 cpu_encoding_params = {
     "codec": "libx264",
-    "quality": 7,
+    "quality": 5,
     "macro_block_size": 8,  # to work with 1440x1080 image size
 }
 
