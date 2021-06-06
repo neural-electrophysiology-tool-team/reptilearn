@@ -221,7 +221,7 @@ class VideoWriter(ImageObserver):
         self.write_thread.start()
 
     def write_queue(self):
-        write_count = 0
+        self.write_count = 0
         self.avg_write_time = float("nan")
 
         while True:
@@ -239,13 +239,13 @@ class VideoWriter(ImageObserver):
             self.writer.append_data(img)
 
             dt = time.time() - t0
-            write_count += 1
-            if write_count == 1:
+            self.write_count += 1
+            if self.write_count == 1:
                 self.avg_write_time = dt
             else:
                 self.avg_write_time = (
-                    self.avg_write_time * (write_count - 1) + dt
-                ) / write_count
+                    self.avg_write_time * (self.write_count - 1) + dt
+                ) / self.write_count
 
             self.q.task_done()
 
@@ -283,7 +283,7 @@ class VideoWriter(ImageObserver):
 
         self.log.info(
             (
-                f"Finished writing {self.frame_count} frames. "
+                f"Finished writing {self.write_count} frames. "
                 + f"Avg. write time: {time_ms:.3f}ms, "
                 + f"Max queued frames: {self.max_queued_items}"
                 + s_missed_frames
