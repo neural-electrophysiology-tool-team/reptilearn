@@ -17,6 +17,7 @@ import sys
 import argparse
 import importlib
 import traceback
+from dotenv import load_dotenv
 
 import rl_logging
 import mqtt
@@ -29,6 +30,9 @@ import state as state_mod
 import experiment
 import video_record
 from dynamic_loading import instantiate_class
+
+# Load environment variables from .env file.
+load_dotenv()
 
 # Parse command-line arguments
 arg_parser = argparse.ArgumentParser(description="ReptiLearn")
@@ -430,7 +434,7 @@ def root():
 
 
 # Run Flask server
-socketio.run(app, use_reloader=False)
+socketio.run(app, use_reloader=False, host="0.0.0.0")
 
 
 # Shutdown (flask server was terminated due to KeyboardInterrupt)
