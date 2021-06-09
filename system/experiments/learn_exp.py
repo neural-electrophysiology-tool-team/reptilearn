@@ -362,7 +362,7 @@ class LearnExp(exp.Experiment):
             img_w_markers= cv.aruco.drawDetectedMarkers( img_w_markers,corners)
         else:
             self.log.info("Did not detect any aruco markers!")
-            self.end_point = params["default_end"]
+            self.end_point = tuple(params["default_end"])
         #saving annotated frame
         img_w_circle = cv.circle(img_w_markers, self.end_point, radius=params["radius"], color=(0, 255, 0), thickness=5)
         cv.imwrite(os.path.join(self.data_dir,
