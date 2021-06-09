@@ -5,7 +5,13 @@ import { Icon } from 'semantic-ui-react';
 
 export const VideoRecordView = ({ctrl_state}) => {
     const prefix_input_ref = React.useRef();
-    
+
+    React.useEffect(() => {
+        if (ctrl_state.video_record.filename_prefix && prefix_input_ref.current) {
+            prefix_input_ref.current.value = ctrl_state.video_record.filename_prefix;
+        }
+    }, [ctrl_state]);
+		    
     if (ctrl_state == null)
 	return null;
 
