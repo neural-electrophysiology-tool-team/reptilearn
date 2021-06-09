@@ -1,11 +1,11 @@
 from pathlib import Path
-from system.dynamic_loading import load_module
+from dynamic_loading import load_module
 import pandas as pd
 import re
 
 
 def load_config(config_name):
-    config, _ = load_module(Path(f"system/config/{config_name}.py"))
+    config, _ = load_module(Path(f"config/{config_name}.py"))
     return config
 
 
