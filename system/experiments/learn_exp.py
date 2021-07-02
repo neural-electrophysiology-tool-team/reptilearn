@@ -17,6 +17,7 @@ import monitor
 import math
 import os
 
+
 class LearnExp(exp.Experiment):
     default_params = {
         "record_all": True,
@@ -41,7 +42,7 @@ class LearnExp(exp.Experiment):
     }
 
     def setup(self):
-        #initializing needed class variables
+        # initializing needed class variables
         self.in_trial = False
         self.got_detection = False
         self.cancel_trials = None
@@ -56,10 +57,10 @@ class LearnExp(exp.Experiment):
         self.consq_end = False
         self.ex_type = None
         self.time = 0.0
-        self.data_dir=None
+        self.data_dir = None
 
     def run(self, params):
-        #resetting init values
+        # resetting init values
         self.in_trial = False
         self.got_detection = False
         self.time = 0.0
@@ -70,18 +71,16 @@ class LearnExp(exp.Experiment):
         self.stim_cancel = None
         self.consq_end = False
 
-
-
         self.data_dir = exp.exp_state["data_dir"]
         self.cur_trial = params["num_trials"]
         self.consecutive = params["consecutive"]
-        #determining the experiment type
+        # determining the experiment type
         self.ex_type = (
             "consecutive"
             if self.consecutive
             else ("continuous" if params["continuous"] else "regular")
         )
-        #logging yolo detections
+        # logging yolo detections
         self.yolo_log = data_log.QueuedDataLogger(
             columns=[
                 ("time", "timestamptz not null"),
@@ -96,8 +95,6 @@ class LearnExp(exp.Experiment):
         )
         self.yolo_log.start()
 
-
-        
         # detecting Aruco squares within arena
         self.detectAruco()
 
@@ -111,12 +108,14 @@ class LearnExp(exp.Experiment):
                 params.get("num_of_exp", 1) - 1,
             )  # schedule the next trials
 
-        #starting image observers
+        # starting image observers
         yolo = exp.image_observers["head_bbox"]
         yolo.on_detection = self.on_yolo_detection
         yolo.start_observing()
         self.log.info("Start Observing")
 
+        monitor.change_color("white")
+        
     def run_trial(self, params):
 
         self.in_trial = True
@@ -147,7 +146,7 @@ class LearnExp(exp.Experiment):
         self.log.info("run trial procedure finished")
 
     def stim(self):
-        #presenting chosen stimulus
+        # presenting chosen stimulus
         params = exp.get_merged_params()
         if params["stimulus"].lower() == "led":
             self.led_stimulus()
@@ -176,9 +175,11 @@ class LearnExp(exp.Experiment):
                             if (
                                 params["reward_detections"]
                                 and not params["bypass_detection"]
-                                ):
+                            ):
                                 self.dispatch_reward()
-                            exp.event_logger.log("learn_exp/consecutive_trial_in_radius",None)
+                            exp.event_logger.log(
+                                "learn_exp/consecutive_trial_in_radius", None
+                            )
                             self.consq_end = True
                             self.got_detection = True
                             self.time = 0.0
@@ -208,9 +209,12 @@ class LearnExp(exp.Experiment):
                     ):  # during consecutive trial and holding to start the next
                         if self.time == 0.0:
                             self.time = time.time()
-                            exp.event_logger.log("learn_exp/consecutive_trial_out_radius",params.get("time_diff", 10)) #the remaining time
+                            exp.event_logger.log(
+                                "learn_exp/consecutive_trial_out_radius",
+                                params.get("time_diff", 10),
+                            )  # the remaining time
                         elif time.time() > self.time + params.get("time_diff", 10):
-                            #exp.event_logger.log("learn_exp/trial",{"status": "consecutive: out of radius, ended trial"})
+                            # exp.event_logger.log("learn_exp/trial",{"status": "consecutive: out of radius, ended trial"})
                             self.consq_end = False
                             self.end_logic_trial()
                         else:
@@ -261,13 +265,18 @@ class LearnExp(exp.Experiment):
         if params["stimulus"] == "monitor":
             monitor.chnage_color("black")
         timestap = time.time()
-        #logging trial data
+        # logging trial data
         if self.in_trial and not self.got_detection:
             self.log.info("Logic trial ended, failure")
-            exp.event_logger.log("learn_exp/logical_trial_ended", {"type": self.ex_type,"success": False})
+            exp.event_logger.log(
+                "learn_exp/logical_trial_ended",
+                {"type": self.ex_type, "success": False},
+            )
         elif self.in_trial and self.got_detection:
             self.log.info("Logic trial ended, success")
-            exp.event_logger.log("learn_exp/logical_trial_ended", {"type": self.ex_type,"success": True})
+            exp.event_logger.log(
+                "learn_exp/logical_trial_ended", {"type": self.ex_type, "success": True}
+            )
         else:
             self.log.info("Logic trial ended")
 
@@ -321,7 +330,7 @@ class LearnExp(exp.Experiment):
         arena.dispense_reward()
 
     def end(self, params):
-        #on end cancel all records and schedules
+        # on end cancel all records and schedules
         if params.get("record_exp", True) or params["record_all"]:
             video_record.stop_record()
         if self.cancel_trials != None:
@@ -342,28 +351,40 @@ class LearnExp(exp.Experiment):
     def period_call(self):
         exp.next_trial()
 
-
     def detectAruco(self):
         # detecting aruco marker
         params = exp.get_merged_params()
         test_image, _ = exp.image_sources["top"].get_image()
-        #currently using 4x4 arucos
+        # currently using 4x4 arucos
         arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
         arucoParams = cv.aruco.DetectorParameters_create()
         (corners, ids, rejected) = cv.aruco.detectMarkers(
             test_image, arucoDict, parameters=arucoParams
         )
-        img_w_markers= cv.cvtColor(test_image, cv.COLOR_GRAY2BGR)
+        img_w_markers = cv.cvtColor(test_image, cv.COLOR_GRAY2BGR)
         if corners != None and len(corners) > 0:
             detection = corners[0][0]
             mean_xy = np.mean(detection, axis=0)
             self.end_point = (mean_xy[0], mean_xy[1])
             self.log.info("End point is " + str(self.end_point))
-            img_w_markers= cv.aruco.drawDetectedMarkers( img_w_markers,corners)
+            img_w_markers = cv.aruco.drawDetectedMarkers(img_w_markers, corners)
         else:
             self.log.info("Did not detect any aruco markers!")
             self.end_point = tuple(params["default_end"])
-        #saving annotated frame
-        img_w_circle = cv.circle(img_w_markers, self.end_point, radius=params["radius"], color=(0, 255, 0), thickness=5)
-        cv.imwrite(os.path.join(self.data_dir,
-                                "arena_reinforced_area_"+ datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".jpg"), img_w_circle)
+        # saving annotated frame
+        img_w_circle = cv.circle(
+            img_w_markers,
+            self.end_point,
+            radius=params["radius"],
+            color=(0, 255, 0),
+            thickness=5,
+        )
+        cv.imwrite(
+            os.path.join(
+                self.data_dir,
+                "arena_reinforced_area_"
+                + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                + ".jpg",
+            ),
+            img_w_circle,
+        )
