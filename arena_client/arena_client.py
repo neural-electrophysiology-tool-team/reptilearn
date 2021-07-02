@@ -33,11 +33,11 @@ ENCODING = "utf-8"
 
 
 def on_connect(client, userdata, flags, rc):
-    g_log.info("Connected to mqtt broker with result code " + str(rc))
+    g_log.info(f"Connected to mqtt broker with result code {rc}")
 
 
 def on_disconnect(client, userdata, rc):
-    g_log.info("Disconnected from mqtt broker with result code " + str(rc))
+    g_log.info(f"Disconnected from mqtt broker with result code {rc}")
 
 
 def json_or_not(payload):
@@ -64,7 +64,7 @@ def communicator_routine():
         payload = msg_cont[1]
 
         if topic == "arena/dispense_reward":
-            g_log.info("Sending reward")
+            g_log.info("Sending reward.")
             g_client.digital_writes("Reward 0 0\n")
         elif topic == "arena/signal_led":
             g_client.digital_writes(
@@ -85,7 +85,7 @@ def communicator_routine():
                     + "\n"
                 )
             else:
-                g_log.error("Digital line value is not a number : " + line_num)
+                g_log.error("Digital line value is not a number: {line_num}")
         elif topic == "arena/ttl_trigger/start":
             g_client.start_trigger(payload)
         elif topic == "arena/ttl_trigger/stop":
@@ -93,19 +93,18 @@ def communicator_routine():
         elif topic == "arena/sensors/poll":
             g_client.sensor_poll()
         else:
-            g_log.error("[ERROR] could not figure out message " + str(payload))
+            g_log.error(f"Could not figure out message {payload}")
 
 
 def on_message(client, userdata, message):
-    g_log.info("[INFO] message received ", str(message.payload.decode(ENCODING)))
-    g_log.info("[INFO] message topic=", message.topic)
     payload = str(message.payload.decode(ENCODING))
+    g_log.info(f"Message received {payload} on topic {message.topic}")
 
     # Messages are added to the message queue to prevent message losses
     if message.topic == "arena/sensors/set_interval":
         if payload.isnumeric():
             g_client.period = int(payload)
-            g_log.info("[INFO] Updated sensor interval to " + payload + " min")
+            g_log.info(f"Updated sensor interval to {payload} minute(s).")
     else:
         g_client.msg_q.put_nowait((message.topic, payload))
 
@@ -139,14 +138,13 @@ class TempClient:
         # Handling Poll request
         with self.sens_lock:
             self.sens_arduino.write(str.encode("Temppoll 0 0\n"))
-            g_log.info("waiting for feedback")
+            g_log.info("Waiting for feedback")
             sensors_info = self.sens_arduino.readline()
-            g_log.info("Received Sensors info: " + sensors_info.decode(ENCODING))
+            g_log.info(f"Received Sensors info: {sensors_info.decode(ENCODING)}")
         sensors_info = sensors_info.decode(ENCODING).strip().split(";")
         trans_dict = {}
         # Publishing the result as json dict
         for info in sensors_info:
-            serial_num = info.partition("Sensor_")[2].split(" ")[0]
             reading = info.partition(":")[2].replace(" ", "")
             if not reading:
                 continue
@@ -183,9 +181,9 @@ class TempClient:
             with self.sens_lock:
                 if self.trigger_arduino:
                     self.trigger_arduino.write(str.encode(send_str))
-                    g_log.info("START TRIGGER: sent " + send_str)
+                    g_log.info(f"START TRIGGER: sent {send_str}")
         except Exception as e:
-            g_log.error("while sending start trigger : " + str(e))
+            g_log.exception("While sending start trigger:")
             return
 
     def stop_trigger(self):
@@ -213,10 +211,10 @@ def sleeper_routine():  # checks on the temperature every second
 if __name__ == "__main__":
     ports_list = [tuple(p) for p in list(ports.comports())]
     if not ports_list:
-        g_log.error("No ports detected, quitting")
+        g_log.error("No ports detected, quitting.")
         exit(-1)
 
-    g_log.info("ports list:\n" + "\n".join([",".join(i) for i in ports_list]))
+    g_log.info("Ports list:\n" + "\n".join([",".join(i) for i in ports_list]))
     TriggerArduino = False
 
     # searching for the known arduino's serial numbers on the ports list
@@ -239,7 +237,7 @@ if __name__ == "__main__":
             for tuples in ports_list
             if config.arduino["arena_serial"] in tuples[2]
         ][0]
-        g_log.info("Arena port: " + arena_port)
+        g_log.info(f"Arena port: {arena_port}")
         SensArduino = serial.Serial(arena_port, 115200)  # connect to sensors arduino
         time.sleep(0.5)
         while SensArduino.in_waiting:
