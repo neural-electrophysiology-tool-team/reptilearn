@@ -38,14 +38,13 @@ class YOLOv4ImageObserver(ImageObserver):
                     self.on_detection(payload)
             except KeyboardInterrupt:
                 break
-            
+
             except Exception:
-                logging.getLogger("Main").exception("Exception while receiving detections:")
+                logging.getLogger("Main").exception(
+                    "Exception while receiving detections:"
+                )
 
     def setup(self):
-        # self.mqttc = mqtt.MQTTClient()
-        # self.mqttc.log = self.log
-        # self.mqttc.connect()
         self.detector.load()
         self.log.info(
             f"YOLOv4 detector loaded successfully ({self.detector.model_width}x{self.detector.model_height} cfg: {self.detector.cfg_path} weights: {self.detector.weights_path})."
@@ -59,7 +58,7 @@ class YOLOv4ImageObserver(ImageObserver):
 
     def on_image_update(self, img, image_timestamp):
         det = self.detector.detect_image(img)
-        detection_timestamp = time.time_ns()
+        detection_timestamp = time.time()
 
         if det is not None:
             det = det.tolist()
@@ -77,12 +76,5 @@ class YOLOv4ImageObserver(ImageObserver):
 
         self.det_pipe_child.send(payload)
 
-        """
-        self.mqttc.publish_json(
-            "reptilearn/pogona_head_bbox", payload
-        )
-        """
-
     def release(self):
-        # self.mqttc.disconnect()
         pass
