@@ -10,6 +10,7 @@ import mqtt
 from state import state
 import time
 from subprocess import Popen, PIPE
+import data_log
 
 _sensors_once_callback = None
 _log = None
@@ -21,7 +22,7 @@ def run_command(cmd):
     stdout, stderr = process.communicate()
     if stderr:
         _log.info(f'Error running cmd: "{cmd}"; {stderr}')
-    return stdout.decode('ascii')
+    return stdout.decode("ascii")
 
 
 def turn_touchscreen(on):
@@ -80,16 +81,42 @@ def _on_sensors(_, reading):
         _sensors_once_callback(reading)
         _sensors_once_callback = None
 
+    # NOTE: This line depends on specific arena sensors reading format
+    _sensor_log.log(
+        (
+            reading["timestamp"],
+            reading["temp"][0],
+            reading["temp"][1],
+            reading["temp"][2],
+            reading["humidity"],
+        )
+    )
+
 
 def init(logger, arena_defaults):
     """
     Initialize the arena module.
-    Connects to MQTT, sends arena defaults, and subscribes for sensor updates.
+    Connects to MQTT, inits sensor data logger, sends arena defaults, and subscribes for
+    sensor updates.
 
     - arena_defaults: A dict with signal_led and day_lights keys with default values.
     """
-    global _log
+    global _log, _sensor_log
     _log = logger
+
+    # NOTE: This data logger is specific to arena sensor reading format.
+    _sensor_log = data_log.QueuedDataLogger(
+        table_name="sensors",
+        log_to_db=True,
+        columns=(
+            ("time", "timestamptz not null"),
+            ("temp0", "double precision"),
+            ("temp1", "double precision"),
+            ("temp2", "double precision"),
+            ("humidity", "double precision"),
+        ),
+    )
+    _sensor_log.start()
 
     state["arena"] = {"sensors": None}
 
@@ -100,7 +127,12 @@ def init(logger, arena_defaults):
     signal_led(arena_defaults["signal_led"])
     day_lights(arena_defaults["day_lights"])
     turn_touchscreen(arena_defaults["touchscreen"])
-    
+
     mqtt.client.subscribe_callback(
         "arena/sensors", mqtt.mqtt_json_callback(_on_sensors)
     )
+
+
+def release():
+    mqtt.client.unsubscribe_callback("arena/sensors")
+    _sensor_log.stop()
