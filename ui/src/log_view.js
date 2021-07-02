@@ -2,7 +2,7 @@ import React from 'react';
 import {SocketContext} from './socket.js';
 
 export const LogView = () => {
-    const logContainer = React.useRef("");
+    const logContainer = React.useRef(localStorage.log || "");
     const textarea_ref = React.useRef();
     const [logMsg, setLogMsg] = React.useState(null);
     
@@ -19,7 +19,8 @@ export const LogView = () => {
             if (logContainer.current !== "")
                 logContainer.current += "\n";
             logContainer.current += msg;
-            
+
+	    localStorage.log = logContainer.current; 
             setLogMsg(msg);
 
 	    if (textarea_ref.current !== null) {
@@ -27,8 +28,12 @@ export const LogView = () => {
 		    textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
             }
         };
-        
+
 	socket.on("log", listener);
+
+	// scroll to top after loading from localstorage
+	textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
+	
         return () => { // cleanup
             socket.off("log", listener);
         };
