@@ -1,10 +1,11 @@
 from datetime import datetime
 import re
 
-from state import state
+from state import state, json_convert
 from dynamic_loading import load_module, find_subclass, reload_module
 import video_record
 import event_log
+import json
 
 
 class ExperimentException(Exception):
@@ -74,6 +75,7 @@ def run(exp_id, exp_params, exp_blocks=[]):
         raise ExperimentException("Experiment data directory already exists!")
 
     experiment_info = {
+        "name": cur_experiment_name,
         "id": exp_id,
         "params": exp_params,
         "blocks": exp_blocks,
@@ -104,6 +106,8 @@ def run(exp_id, exp_params, exp_blocks=[]):
 
     try:
         cur_experiment.run(params.get_self())
+        with open(data_path / "exp_state.json", "w") as f:
+            json.dump(exp_state.get_self(), f, default=json_convert)
         set_phase(0, 0)
     except Exception:
         log.exception("Exception while running experiment:")
@@ -125,6 +129,7 @@ def end():
         log.exception("Exception while ending experiment:")
     finally:
         exp_state["is_running"] = False
+
         event_logger.log("experiment/end", cur_experiment_name)
         event_logger.stop()
         exp_state.delete("cur_trial")
@@ -209,7 +214,11 @@ def load_experiments(experiments_dir=None):
     experiment_pys = experiments_dir.glob("*.py")
 
     for py in experiment_pys:
-        module, spec = load_module(py, package="experiments")
+        try:
+            module, spec = load_module(py, package="experiments")
+        except Exception:
+            log.exception("While loading experiments:")
+
         cls = find_subclass(module, Experiment)
         if cls is not None:
             experiment_specs[py.stem] = spec
@@ -237,8 +246,12 @@ def set_experiment(name):
         raise ExperimentException(f"Unknown experiment name: {name}")
 
     if cur_experiment is not None:
-        cur_experiment.release()
+        try:            
+            cur_experiment.release()
+        except Exception:
+            log.exception("While releasing experiment:")
 
+            
     if name is not None:
         spec = experiment_specs[name]
         module = reload_module(spec)
