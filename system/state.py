@@ -31,6 +31,7 @@ import multiprocessing as mp
 from copy import deepcopy
 import dicttools as dt
 import threading
+from pathlib import Path
 
 # The global state is a dict managed by _mgr stored in namespace _ns
 _mgr = None
@@ -153,6 +154,17 @@ def register_listener(on_update, on_ready=None):
         did_update_event.set()
 
     return listen, stop_listening
+
+
+def json_convert(v):
+    """
+    conversion for various datatypes that are not supported by the json module.
+    """
+    if hasattr(v, "tolist"):
+        return v.tolist()
+    if isinstance(v, Path):
+        return str(v)
+    raise TypeError(v)
 
 
 class StateDispatcher:

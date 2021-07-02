@@ -30,6 +30,7 @@ import state as state_mod
 import experiment
 import video_record
 from dynamic_loading import instantiate_class
+import state_log
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -53,6 +54,7 @@ except Exception:
 # Initialize state module
 state_mod.init()
 
+# Initialize Flask REST app
 app = flask.Flask("API")
 flask_cors.CORS(app)
 app.config["SECRET_KEY"] = "reptilearn"
@@ -60,68 +62,21 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 
 # Setup Logging
-class SocketIOHandler(logging.Handler):
-    def emit(self, record):
-        socketio.emit("log", self.format(record))
-
-
-class ExperimentLogHandler(logging.StreamHandler):
-    def __init__(self, log_filename="experiment.log"):
-        super().__init__()
-        state.add_callback(("experiment", "is_running"), self.on_experiment_run_update)
-        self.stream = None
-        self.log_filename = log_filename
-
-    def on_experiment_run_update(self, old, new):
-        if self.stream is not None:
-            self.acquire()
-            self.stream.close()
-            self.stream = None
-            self.release()
-
-        if old is False and new is True:  # Experiment is running
-            filename = state["experiment", "data_dir"] / self.log_filename
-            self.stream = open(filename, "a")
-
-    def emit(self, record):
-        if self.stream is not None:
-            logging.StreamHandler.emit(self, record)
-
-    def close(self):
-        self.acquire()
-        try:
-            try:
-                if self.stream is not None:
-                    try:
-                        self.flush()
-                    finally:
-                        self.stream.close()
-            finally:
-                logging.StreamHandler.close(self)
-        finally:
-            self.release()
-
-
-socketio_handler = SocketIOHandler()
-socketio_handler.setFormatter(rl_logging.formatter)
-experiment_log_handler = ExperimentLogHandler()
-experiment_log_handler.setFormatter(rl_logging.formatter)
 stderr_handler = logging.StreamHandler(sys.stderr)
 stderr_handler.setFormatter(rl_logging.formatter)
 
-log = rl_logging.init(
-    (socketio_handler, stderr_handler, experiment_log_handler), config.log_level
-)
-
-# Configure flask loggers to send messages over socketio and change level.
 app_log = logging.getLogger("werkzeug")
-app_log.addHandler(socketio_handler)
-app_log.addHandler(experiment_log_handler)
-app_log.setLevel(logging.WARNING)
-app.logger.addHandler(socketio_handler)
-app_log.addHandler(experiment_log_handler)
-app.logger.setLevel(logging.WARNING)
 
+log = rl_logging.init(
+    log_handlers=(
+        rl_logging.SocketIOHandler(socketio),
+        stderr_handler,
+        rl_logging.ExperimentLogHandler(),
+    ),
+    extra_loggers=(app_log, app.logger),
+    extra_log_level=logging.WARNING,
+    default_level=config.log_level,
+)
 
 # Initialize image sources and observers
 state["image_sources"] = {}
@@ -157,18 +112,10 @@ for img_src in image_sources.values():
     img_src.start()
 
 
-def convert_for_json(v):
-    if hasattr(v, "tolist"):
-        return v.tolist()
-    if isinstance(v, Path):
-        return str(v)
-    raise TypeError(v)
-
-
 # Broadcast state updates over SocketIO
 def send_state(old, new):
-    old_json = json.dumps(old, default=convert_for_json)
-    new_json = json.dumps(new, default=convert_for_json)
+    old_json = json.dumps(old, default=state_mod.json_convert)
+    new_json = json.dumps(new, default=state_mod.json_convert)
     socketio.emit("state", (old_json, new_json))
 
 
@@ -180,7 +127,7 @@ state_emitter_process.start()
 @socketio.on("connect")
 def handle_connect():
     log.info("New SocketIO connection. Emitting state")
-    blob = json.dumps(state.get_self(), default=convert_for_json)
+    blob = json.dumps(state.get_self(), default=state_mod.json_convert)
     emit("state", (None, blob))
 
 
@@ -188,7 +135,7 @@ def handle_connect():
 @app.route("/config/<attribute>")
 def route_config(attribute):
     return flask.Response(
-        json.dumps(getattr(config, attribute), default=convert_for_json),
+        json.dumps(getattr(config, attribute), default=state_mod.json_convert),
         mimetype="application/json",
     )
 
@@ -437,7 +384,7 @@ def root():
 socketio.run(app, use_reloader=False, host="0.0.0.0")
 
 
-# Shutdown (flask server was terminated due to KeyboardInterrupt)
+# Shutdown (flask server was terminated)
 log.info("System is shutting down...")
 stop_state_emitter()
 experiment.shutdown()
@@ -449,6 +396,7 @@ for img_src in image_sources.values():
 
 video_record.stop_trigger()
 schedule.cancel_all()
+arena.release()
 mqtt.shutdown()
 rl_logging.shutdown()
 state_mod.shutdown()

@@ -40,6 +40,7 @@ class SocketIOHandler(logging.Handler):
         self.socketio = socketio
         self.setFormatter(formatter)
         self.event_name = event_name
+        self.setFormatter(formatter)
         
     def emit(self, record):
         self.socketio.emit(self.event_name, self.format(record))
@@ -191,12 +192,14 @@ def _excepthook(exc_type, exc_value, exc_traceback, thread_name=None):
     logging.getLogger("Main").critical(msg, exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def init(log_handlers, default_level):
+def init(log_handlers, extra_loggers, extra_log_level, default_level):
     """
     Initializes the main logger that is used for exceptions, and the multiprocess
     listening logger.
 
     - log_handlers: A sequence of log handlers that are attached to both loggers.
+    - extra_loggers: Additional loggers that log_handlers should be added to.
+    - extra_log_level: Log level of extra_loggers.
     - default_level: This will be the log level of each logger, including loggers on other processes.
     """
     global _log_queue, _log_listener, _default_level
@@ -216,6 +219,11 @@ def init(log_handlers, default_level):
     _log_listener = threading.Thread(target=_listener_thread, args=(_log_queue,))
     _log_listener.start()
 
+    for el in extra_loggers:
+        for handler in log_handlers:
+            el.addHandler(handler)
+        el.setLevel(extra_log_level)
+        
     return main_logger
 
 
