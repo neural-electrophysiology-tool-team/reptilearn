@@ -101,7 +101,7 @@ image_sources = dict(
         "test": {
             "class": "video_stream.VideoImageSource",
             "video_path": Path(
-                "/data/reptilearn/experiments/yolo_first_one_20210419-152027/top_20210419-152613.mp4"
+                "/data/reptilearn/experiments/d_20210616_152604/paper_test_top_20210616-152613.mp4"
             ),
             "start_frame": 0,
             "end_frame": None,
@@ -189,7 +189,8 @@ event_log = {
     # can be defined in custom experiment modules. Either MQTT or state update
     # events can be used. See event_log.py for more information.
     "default_events": [
-        ("mqtt", "arena/#"),
+        ("mqtt", "arena/dispense_reward"),
+        ("mqtt", "arena/day_lights"),
         ("state", ("experiment", "cur_block")),
         ("state", ("experiment", "cur_trial")),
         ("state", ("video_record", "is_recording")),

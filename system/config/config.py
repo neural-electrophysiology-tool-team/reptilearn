@@ -175,7 +175,8 @@ event_log = {
     # can be defined in custom experiment modules. Either MQTT or state update
     # events can be used. See event_log.py for more information.
     "default_events": [
-        ("mqtt", "arena/#"),
+        ("mqtt", "arena/dispense_reward"),
+        ("mqtt", "arena/day_lights"),
         ("state", ("experiment", "cur_block")),
         ("state", ("experiment", "cur_trial")),
         ("state", ("video_record", "is_recording")),
