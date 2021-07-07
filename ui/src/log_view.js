@@ -2,7 +2,7 @@ import React from 'react';
 import {SocketContext} from './socket.js';
 
 export const LogView = () => {
-    const logContainer = React.useRef(localStorage.log || "");
+    const logContainer = React.useRef((localStorage.log + "\n===================") || "");
     const textarea_ref = React.useRef();
     const [logMsg, setLogMsg] = React.useState(null);
     
