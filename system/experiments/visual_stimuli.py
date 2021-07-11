@@ -29,7 +29,7 @@ class VisualStimuli(exp.Experiment):
         )
 
         random.shuffle(self.paths)
-        exp.exp_state["image_list"] = self.paths
+        exp.session_state["image_list"] = self.paths
 
         self.log.info(f"Loaded {len(self.paths)} images.")
 
@@ -38,7 +38,6 @@ class VisualStimuli(exp.Experiment):
             params["interstimuli_duration"],
         ] * len(self.paths)
         
-        self.log.info(intervals)
         self.cur_index = 0
         self.color = params["interstimuli_color"]
         monitor.change_color(self.color)
@@ -47,7 +46,6 @@ class VisualStimuli(exp.Experiment):
         video_record.start_record()
 
     def display_stimuli(self):
-        self.log.info(self.cur_index)
 
         if self.cur_index % 2 == 0:
             img_path = self.paths[self.cur_index // 2]
