@@ -1,6 +1,6 @@
 import React from 'react';
-import {Dropdown} from 'semantic-ui-react';
-import {api_url} from './config.js';
+import { Dropdown } from 'semantic-ui-react';
+import { api_url } from './config.js';
 
 export const ArenaControlView = ({ctrl_state}) => {
     const dispense_reward = () => {

@@ -21,67 +21,74 @@ log = None
 image_observers = None
 event_logger = None
 
-exp_state = None
+session_state = None
 params = None
 blocks = None
 
 
 def init(img_observers, img_sources, logger, config_module):
-    global log, image_observers, image_sources, config, exp_state, params, blocks
+    global log, image_observers, image_sources, config, session_state, params, blocks
 
-    state["experiment"] = {
-        "is_running": False,
-    }
-
-    exp_state = state.get_cursor("experiment")
-    params = exp_state.get_cursor("params")
-    blocks = exp_state.get_cursor("blocks")
+    session_state = state.get_cursor("session")
+    params = session_state.get_cursor("params")
+    blocks = session_state.get_cursor("blocks")
 
     config = config_module
     image_observers = img_observers
     image_sources = img_sources
     log = logger
-    refresh_experiment_list()
+    load_experiment_specs()
 
 
 def shutdown():
     if cur_experiment is not None:
-        if exp_state["is_running"]:
-            end()
+        if session_state["is_running"]:
+            end_session()
         set_experiment(None)
 
 
-def run(exp_id, exp_params, exp_blocks=[]):
-    global event_logger
+def start_session(session):
+    if session_state.exists(()) and session_state["is_running"] is True:
+        raise ExperimentException(
+            "Can't start new session while an experiment is running."
+        )
 
-    if exp_state["is_running"] is True:
-        raise ExperimentException("Experiment is already running.")
+    log.info(f"Starting session {session['id']}")
+    log.info("=================================================")
 
-    if cur_experiment is None:
-        raise ExperimentException("Can't run experiment. No experiment was set.")
+    session_state.set_self({"is_running": False, "id": session["id"]})
 
-    if len(exp_id.strip()) == 0 or len(re.findall(r"[^A-Za-z0-9_]", exp_id)) != 0:
-        raise ExperimentException(f"Invalid experiment id: '{exp_id}'")
+    set_experiment(session["experiment"])
+    if (
+        len(session["id"].strip()) == 0
+        or len(re.findall(r"[^A-Za-z0-9_]", session["id"])) != 0
+    ):
+        raise ExperimentException(f"Invalid experiment id: '{session['id']}'")
 
-    exp_dir = exp_id + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
-    data_path = config.experiment_data_root / exp_dir
-
-    params.set_self(exp_params)
-    blocks.set_self(exp_blocks)
+    session_dir = session["id"] + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+    data_path = config.experiment_data_root / session_dir
 
     try:
         data_path.mkdir()
     except FileExistsError:
         raise ExperimentException("Experiment data directory already exists!")
 
-    experiment_info = {
-        "name": cur_experiment_name,
-        "id": exp_id,
-        "params": exp_params,
-        "blocks": exp_blocks,
-    }
+    log.info(f"Data directory: {str(data_path)}")
+
+    session_state.set_self(
+        {
+            "is_running": False,
+            "experiment": session["experiment"],
+            "data_dir": data_path,
+        }
+    )
+
+    params.set_self(cur_experiment.default_params)
+    blocks.set_self(cur_experiment.default_blocks)
 
     csv_path = data_path / "events.csv" if config.event_log["log_to_csv"] else None
+
+    global event_logger
     event_logger = event_log.EventDataLogger(
         csv_path=csv_path,
         log_to_db=config.event_log["log_to_db"],
@@ -92,48 +99,53 @@ def run(exp_id, exp_params, exp_blocks=[]):
 
     for src, key in config.event_log["default_events"]:
         event_logger.add_event(src, key)
-    event_logger.log("experiment/run", experiment_info)
 
-    log.info("")
-
-    exp_state["data_dir"] = data_path
     state["video_record", "write_dir"] = data_path
-    exp_state["is_running"] = True
 
-    log.info(f"Running experiment {cur_experiment_name}:")
-    log.info("=================================================")
-    log.info(f"Data dir: {data_path}")
+
+def run_session():
+    if session_state["is_running"] is True:
+        raise ExperimentException("Experiment is already running.")
+
+    if not session_state.exists(()):
+        raise ExperimentException("Can't run experiment. No experiment was set.")
+
+    event_logger.log("session/run", session_state.get_self())
+
+    session_state["is_running"] = True
+
+    log.info("Running experiment...")
 
     try:
         cur_experiment.run(params.get_self())
-        with open(data_path / "exp_state.json", "w") as f:
-            json.dump(exp_state.get_self(), f, default=json_convert)
+        with open(session_state["data_dir"] / "session_state.json", "w") as f:
+            json.dump(session_state.get_self(), f, default=json_convert)
         set_phase(0, 0)
     except Exception:
         log.exception("Exception while running experiment:")
-        exp_state["is_running"] = False
+        session_state["is_running"] = False
 
 
-def end():
+def end_session():
     global event_logger
 
-    if exp_state["is_running"] is False:
-        raise ExperimentException("Experiment is not running.")
+    if session_state["is_running"] is False:
+        raise ExperimentException("Session is not running.")
 
     try:
-        merged_params = get_merged_params()
-        cur_experiment.end_trial(merged_params)
-        cur_experiment.end_block(merged_params)
+        phase_params = get_phase_params()
+        cur_experiment.end_trial(phase_params)
+        cur_experiment.end_block(phase_params)
         cur_experiment.end(params.get_self())
     except Exception:
-        log.exception("Exception while ending experiment:")
+        log.exception("Exception while ending session:")
     finally:
-        exp_state["is_running"] = False
+        session_state["is_running"] = False
 
-        event_logger.log("experiment/end", cur_experiment_name)
+        event_logger.log("session/end", cur_experiment_name)
         event_logger.stop()
-        exp_state.delete("cur_trial")
-        exp_state.delete("cur_block")
+        session_state.delete("cur_trial")
+        session_state.delete("cur_block")
         video_record.restore_after_experiment()
 
     log.info(f"Experiment {cur_experiment_name} has ended.")
@@ -143,47 +155,52 @@ def set_phase(block, trial):
     if blocks.exists(()):
         if len(blocks.get_self()) <= block and block != 0:
             raise ExperimentException(f"Block {block} is not defined.")
-    elif block != 0:
-        raise ExperimentException("Experiment doesn't have block definitions.")
+    else:
+        raise ExperimentException("Session doesn't have any block definitions.")
 
-    merged_params = get_merged_params()
-    num_trials = merged_params.get("num_trials", None)
-    if num_trials is not None and trial >= num_trials:
-        raise ExperimentException(f"Trial {trial} is out of range for block {block}.")
-
-    if not exp_state["is_running"]:
-        exp_state.update((), {"cur_block": block, "cur_trial": trial})
+    if not session_state["is_running"]:
+        session_state.update((), {"cur_block": block, "cur_trial": trial})
         return
     else:
-        cur_trial = exp_state.get("cur_trial", None)
-        cur_block = exp_state.get("cur_block", None)
+        cur_trial = session_state.get("cur_trial", None)
+        cur_block = session_state.get("cur_block", None)
 
-        if cur_trial is not None and cur_trial != trial:
-            cur_experiment.end_trial(merged_params)
-
-        if cur_block is not None and cur_block != block:
-            cur_experiment.end_block(merged_params)
-
-        exp_state.update((), {"cur_block": block, "cur_trial": trial})
-
-        if cur_block != block:
-            cur_experiment.run_block(merged_params)
+        prev_phase_params = get_phase_params()
 
         if cur_trial != trial or cur_block != block:
-            cur_experiment.run_trial(merged_params)
+            cur_experiment.end_trial(prev_phase_params)
+
+        if cur_block != block:
+            cur_experiment.end_block(prev_phase_params)
+
+        session_state.update((), {"cur_block": block, "cur_trial": trial})
+
+        next_phase_params = get_phase_params()
+
+        num_trials = next_phase_params.get("num_trials", None)
+        if num_trials is not None and trial >= num_trials:
+            raise ExperimentException(
+                f"Trial {trial} is out of range for block {block}."
+            )
+
+        if cur_block != block:
+            cur_experiment.run_block(next_phase_params)
+
+        if cur_trial != trial or cur_block != block:
+            cur_experiment.run_trial(next_phase_params)
 
 
 def next_trial():
-    if not exp_state["is_running"]:
+    if not session_state["is_running"]:
         log.warning(
             "experiment.py: Attempted to run next_trial() while experiment is not running"
         )
         return
 
-    cur_trial = exp_state["cur_trial"]
-    cur_block = exp_state["cur_block"]
+    cur_trial = session_state["cur_trial"]
+    cur_block = session_state["cur_block"]
 
-    num_trials = get_merged_params().get("num_trials", None)
+    num_trials = get_phase_params().get("num_trials", None)
 
     if num_trials is not None and cur_trial + 1 >= num_trials:
         next_block()
@@ -193,17 +210,17 @@ def next_trial():
 
 
 def next_block():
-    if not exp_state["is_running"]:
+    if not session_state["is_running"]:
         log.warning(
             "experiment.py: Attempted to run next_block() while experiment is not running"
         )
         return
 
-    cur_block = exp_state["cur_block"]
+    cur_block = session_state["cur_block"]
     if cur_block + 1 < get_num_blocks():
         set_phase(cur_block + 1, 0)
     else:
-        end()
+        end_session()
 
 
 def load_experiments(experiments_dir=None):
@@ -226,18 +243,16 @@ def load_experiments(experiments_dir=None):
     return experiment_specs
 
 
-def refresh_experiment_list():
+def load_experiment_specs():
     global experiment_specs
     experiment_specs = load_experiments()
-    log.info(
-        f"Loaded {len(experiment_specs)} experiment(s): {', '.join(experiment_specs.keys())}"
-    )
+    return experiment_specs
 
 
 def set_experiment(name):
     global cur_experiment, cur_experiment_name
 
-    if exp_state["is_running"] is True:
+    if session_state["is_running"] is True:
         raise ExperimentException(
             "Can't set experiment while an experiment is running."
         )
@@ -246,12 +261,11 @@ def set_experiment(name):
         raise ExperimentException(f"Unknown experiment name: {name}")
 
     if cur_experiment is not None:
-        try:            
+        try:
             cur_experiment.release()
         except Exception:
             log.exception("While releasing experiment:")
 
-            
     if name is not None:
         spec = experiment_specs[name]
         module = reload_module(spec)
@@ -263,14 +277,68 @@ def set_experiment(name):
         cur_experiment = None
         log.info("Unloaded experiment.")
 
-    exp_state["cur_experiment"] = name
+    session_state["cur_experiment"] = name
 
 
-def get_merged_params():
-    if blocks.exists(()) and len(blocks.get_self()) > 0 and "cur_block" in exp_state:
-        block_params = exp_state[("blocks", exp_state["cur_block"])]
+def can_update_params():
+    if not session_state.exists(()):
+        raise ExperimentException("Can't update params before starting a session")
+
+    if session_state["is_running"]:
+        raise ExperimentException("Can't update params while an experiment is running.")
+
+
+def update_params(new_params):
+    if new_params is None:
+        return update_params(cur_experiment.default_params)
+
+    can_update_params()
+    session_state["params"] = new_params
+
+
+def update_blocks(new_blocks):
+    if new_blocks is None:
+        return update_blocks(cur_experiment.default_blocks)
+
+    can_update_params()
+    session_state["blocks"] = new_blocks
+
+
+def update_block(block_idx, new_block):
+    print(block_idx, new_block)
+    if new_block is None:
+        if len(cur_experiment.default_blocks) > block_idx:
+            return update_block(block_idx, cur_experiment.default_blocks[block_idx])
+        else:
+            can_update_params()
+            return remove_block(block_idx)
+
+    can_update_params()
+    num_blocks = len(session_state["blocks"])
+
+    if block_idx < num_blocks:
+        session_state["blocks", block_idx] = new_block
+    elif block_idx == num_blocks:
+        session_state.append("blocks", new_block)
     else:
-        block_params = exp_state["params"]
+        raise ExperimentException(
+            f"Can't update block. Invalid block index: {block_idx}"
+        )
+
+
+def remove_block(block_idx):
+    pass
+
+
+def get_phase_params():
+    if (
+        blocks.exists(())
+        and len(blocks.get_self()) > 0
+        and "cur_block" in session_state
+    ):
+        block_params = session_state[("blocks", session_state["cur_block"])]
+    else:
+        block_params = session_state["params"]
 
     params_dict = params.get_self()
     params_dict.update(block_params)
@@ -278,8 +346,8 @@ def get_merged_params():
 
 
 def get_num_blocks():
-    if "blocks" in exp_state:
-        return len(exp_state["blocks"])
+    if "blocks" in session_state:
+        return len(session_state["blocks"])
     else:
         return 1
 
@@ -287,6 +355,7 @@ def get_num_blocks():
 class Experiment:
     default_params = {}
     default_blocks = [{}]
+    actions = []
 
     def __init__(self, logger):
         self.log = logger

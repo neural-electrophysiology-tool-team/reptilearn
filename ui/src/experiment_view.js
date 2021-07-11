@@ -4,10 +4,12 @@ import ReactJson from 'react-json-view';
 import {api_url} from './config.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
+import { Dropdown, Modal, Button, Icon } from 'semantic-ui-react';
 
 /*
   assign object o to object n without overwriting existing properties of o.
  */
+/*
 const assign_keep_old = (o, n) => {
     if (o === null || o === undefined)
         return n;
@@ -19,18 +21,20 @@ const assign_keep_old = (o, n) => {
     });
     return n;
 };
+*/
 
 export const ExperimentView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
-    const [experimentParams, setExperimentParams] = React.useState({});
-    const [experimentBlocks, setExperimentBlocks] = React.useState([]);
-    const [defaultParams, setDefaultParams] = React.useState(null);
-    const [defaultBlocks, setDefaultBlocks] = React.useState(null);
-    const experimentIdInput = React.useRef();
+
+    const [openNewSessionModal, setOpenNewSessionModal] = React.useState(false);
+    const [selectedExperimentIdx, setSelectedExperimentIdx] = React.useState(0);
+    
+    const experiment_id_ref = React.useRef();
     
     const exp_url = api_url + "/experiment";
 
     const update_defaults = (override_blocks) => {
+	/*
 	fetch(exp_url + "/default_params")
 	    .then(res => res.json())
 	    .then(new_defaults => {
@@ -55,8 +59,10 @@ export const ExperimentView = ({ctrl_state}) => {
                     setDefaultBlocks(new_default_blocks);
                 }
             });
+	*/
     };
 
+    /*
     const merge_params = (new_defaults) => {
         setExperimentParams(assign_keep_old(experimentParams, new_defaults));
     };
@@ -67,8 +73,9 @@ export const ExperimentView = ({ctrl_state}) => {
             blocks.push(merge_block(new_block, i));
         });
         setExperimentBlocks(blocks);
-    };
+    };*/
 
+    /*
     const merge_block = (new_defaults, block_idx) => {
         const new_default_block = {...new_defaults};
         const experiment_block = (experimentBlocks.length > block_idx) ?
@@ -76,138 +83,141 @@ export const ExperimentView = ({ctrl_state}) => {
 
         return assign_keep_old(experiment_block, new_default_block);        
     };
+    */
     
     const reset_params = () => {
-        setExperimentParams(defaultParams);
+        fetch(api_url + "/session/params/update", { method: "POST" });
     };
 
     const reset_all_blocks = () => {
-        setExperimentBlocks(defaultBlocks);
-    };
-    
-    const set_experiment = (exp_name, override_blocks) => {
-        if (is_running) {
-            update_defaults(false);
-            return;
-        }
-
-        const new_exp = override_blocks|| exp_name !== ctrl_state.experiment.cur_experiment;
-	if (new_exp) {
-	    setExperimentParams({});
-            setExperimentBlocks([{}]);
-	}
-
-	fetch(exp_url + `/set/${exp_name}`)
-	    .then((res) => {
-                update_defaults(new_exp);
-            });
+        fetch(api_url + "/session/blocks/update", { method: "POST" });
     };
 
-    const refresh_experiment_list = () => {
-        fetch(exp_url + "/refresh_list")
-            .then(res => res.json())
-            .then(res => setExperimentList(res));
-    };
-
-    const select_experiment = (opt, idx) => {
-        if (idx >= experimentList.length) {
-            if (opt === "None")
-                set_experiment("None");
-            else
-                refresh_experiment_list();
-        }
-        else {
-            set_experiment(opt);
-        }
-    };
-    
-    const run_experiment = () => {
-        const id = experimentIdInput.current.value.trim() === "" ?
-              cur_exp_name : experimentIdInput.current.value;
+    const start_new_session = () => {
+        setOpenNewSessionModal(false);
+        const exp_name = experimentList[selectedExperimentIdx];
         
-	fetch(exp_url + "/run", {
+	fetch(api_url + "/session/start", {
 	    method: "POST",
 	    headers: {
 		"Accept": "application/json",
 		"Content-Type": "application/json"
 	    },
 	    body: JSON.stringify({
-                "id": id,
-                "params": experimentParams,
-		"blocks": experimentBlocks})
+                "id": experiment_id_ref.current.value || exp_name,
+                "experiment": exp_name
+            })
 	});
-	
+        
+    };
+
+    const run_experiment = () => {
+        fetch(api_url + "/session/run");
     };
 
     const end_experiment = () => {
-	fetch(exp_url + "/end");
+	fetch(api_url + "/session/end");
     };
 
     const on_params_changed = (e) => {
-	setExperimentParams(e.updated_src);
+        fetch(api_url + "/session/params/update", {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(e.updated_src)
+        });
+    };
+
+    const update_blocks = (blocks) => {
+	fetch(api_url + "/session/blocks/update", {
+	    method: "POST",
+	    headers: {
+		"Accept": "application/json",
+		"Content-Type": "application/json"
+            },
+            body: JSON.stringify(blocks)
+	});
     };
 
     const next_block = () => {
-        fetch(exp_url + "/next_block");
+        fetch(api_url + "/session/next_block");
     };
 
     const next_trial = () => {
-        fetch(exp_url + "/next_trial");
+        fetch(api_url + "/session/next_trial");
     };
-
-    React.useEffect(() => {
-	fetch(exp_url + "/list")
-	    .then(res => res.json())
-            .then(
-                (res) => {
-                    setExperimentList(res);
-                    if (ctrl_state != null && ctrl_state.experiment.cur_experiment != null) {
-                        set_experiment(ctrl_state.experiment.cur_experiment, true);
-                    }                    
-                }
-            );               
-    }, []);
     
     if (!ctrl_state)
 	return null;
 
-    const cur_exp_name = ctrl_state.experiment.cur_experiment;
-    const is_running = ctrl_state.experiment.is_running;
+    const session = ctrl_state.session;
+    const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
+    const cur_block = ctrl_state.session ? ctrl_state.session.cur_block : undefined;
+    
+    const open_new_session_modal = () => {
+	fetch(api_url + "/experiment/list")
+	    .then(res => res.json())
+            .then(
+                (res) => {
+                    setExperimentList(res);
+                }
+            )
+            .then(() => setOpenNewSessionModal(true));
+    };
+    
+    const session_menu = (
+        <button className="title">
+          <Dropdown text='Session'>
+            <Dropdown.Menu>
+              <Dropdown.Item text='Start new session...'
+                             onClick={open_new_session_modal}
+                             disabled={is_running}/>
+              <Dropdown.Item text='Continue session...'
+                             disabled={is_running}/>
+            </Dropdown.Menu>
+          </Dropdown>
+        </button>
+    );
 
-    const experiment_selector = (() => {
-        const sep = "\u2500\u2500\u2500\u2500\u2500";
-        const cur_exp_idx = cur_exp_name ? experimentList.indexOf(cur_exp_name) : null;
-        const select_idx = cur_exp_idx!==null ? cur_exp_idx : experimentList.length + 1;
-        
-        return <Selector
-                 options={experimentList.concat([sep, "None", "Refresh list"])}
-		 selected={select_idx}
-		 on_select={select_experiment}
-                 disabled_options={[sep]}
-	         disabled={ctrl_state.experiment.is_running}
-               />;
-    })();
-
+    const new_session_modal = (
+        <Modal
+          onClose={() => setOpenNewSessionModal(false)}
+          onOpen={() => setOpenNewSessionModal(true)}
+          open={openNewSessionModal}
+          size='mini'
+        >
+          <Modal.Header>Start a new session</Modal.Header>
+          <Modal.Content>
+            Experiment:
+            <Selector options={experimentList}
+                      selected={selectedExperimentIdx}
+                      on_select={(exp, i) => setSelectedExperimentIdx(i)}/>
+            <br/>
+            Session id:
+            <input type="text"
+                   ref={experiment_id_ref}
+                   placeholder={experimentList[selectedExperimentIdx]}
+                   size="16"/>
+          </Modal.Content>
+          <Modal.Actions>
+            <Button onClick={start_new_session} primary>Ok</Button>
+            <Button onClick={() => setOpenNewSessionModal(false)}>Cancel</Button>
+          </Modal.Actions>
+        </Modal>
+    );
+    
     const exp_controls = (() => {
-        if (cur_exp_name == null)
+        if (!session)
             return null;
 
         const run_end_btn = is_running ?
-          <button onClick={end_experiment}>End</button>
-	  : <button onClick={run_experiment}>Run</button>;
+          <button onClick={end_experiment}><Icon size="small" fitted name="stop"/></button>
+	  : <button onClick={run_experiment}><Icon size="small" fitted name="play"/></button>;
         
         return (
             <React.Fragment>
-              <button onClick={(e) => set_experiment(cur_exp_name)}
-		      disabled={is_running}>
-	        Reload
-	      </button>
-              id:
-              <input type="text"
-                     ref={experimentIdInput}
-                     placeholder={cur_exp_name}
-                     disabled={is_running}
-                     size="16"/>
               {run_end_btn}
             </React.Fragment>
         );
@@ -216,56 +226,51 @@ export const ExperimentView = ({ctrl_state}) => {
     const run_state_toolbar = !is_running ? null :
           <div className="subsection_header">
             <label>block:</label>
-            <input type="text" readOnly value={ctrl_state.experiment.cur_block+1} size="3"/>
+            <input type="text" readOnly value={ctrl_state.session.cur_block+1} size="3"/>
             <button onClick={next_block}>+</button>
             <label> trial:</label>
-            <input type="text" readOnly value={ctrl_state.experiment.cur_trial+1} size="3"/>
+            <input type="text" readOnly value={ctrl_state.session.cur_trial+1} size="3"/>
             <button onClick={next_trial}>+</button>
           </div>;
 
-    const params_div = experimentParams !== null ?
-          (
-              <React.Fragment>
-                <div className="subsection_header">
-                  <span className="title">Parameters</span>
-                  <button onClick={reset_params} disabled={is_running}>Reset</button>
-                </div>
-                <div className="subsection">
-	          <ReactJson src={experimentParams}
-		             name={null}
-		             onEdit={on_params_changed}
-		             onAdd={on_params_changed}
-                             onDelete={on_params_changed}
-	          />
-                </div>
-              </React.Fragment>
-
-          ) : null;
-
     const params_height = is_running ? "calc(100% - 48px)" : "calc(100% - 20px)";
+    
+    const exp_interaction = ctrl_state.session ? (
+        <div style={{overflow: "scroll", height: params_height}}>
+          <div className="subsection_header">
+            <span className="title">Parameters</span>
+            <button onClick={reset_params} disabled={is_running}>Reset</button>
+          </div>
+          <div className="subsection">
+	    <ReactJson src={ctrl_state.session.params}
+		       name={null}
+		       onEdit={is_running ? undefined : on_params_changed}
+		       onAdd={is_running ? undefined : on_params_changed}
+                       onDelete={is_running ? undefined : on_params_changed}
+	    />
+          </div>
+
+          <div className="subsection_header">
+            <span className="title">Blocks</span>
+            <button onClick={reset_all_blocks} disabled={is_running}>Reset all</button>
+          </div>
+          <BlocksView is_running={is_running}
+                      ctrl_state={ctrl_state}
+                      set_blocks={update_blocks}
+                      cur_block={cur_block}/>
+        </div>        
+    ) : null;
     
     return (
         <ReflexContainer orientation="horizontal">
           <ReflexElement minSize={26} style={{overflow: "hidden"}}>
             <div className="section_header">
-              <span className="title">Experiment</span>
-              {experiment_selector}
+              {session_menu}
+              {new_session_modal}
               {exp_controls}
             </div>
             {run_state_toolbar}
-            <div style={{overflow: "scroll", height: params_height}}>
-              {params_div}
-              <div className="subsection_header">
-                <span className="title">Blocks</span>
-                <button onClick={reset_all_blocks} disabled={is_running}>Reset all</button>
-              </div>
-              <BlocksView is_running={is_running}
-                          params={experimentParams}
-                          blocks={experimentBlocks}
-                          default_blocks={defaultBlocks}
-                          set_blocks={setExperimentBlocks}
-                          cur_block={ctrl_state.experiment.cur_block}/>
-            </div>            
+            {exp_interaction}
           </ReflexElement>
           <ReflexSplitter/>
           <ReflexElement minSize={26} style={{overflow: "hidden"}}>
@@ -279,6 +284,6 @@ export const ExperimentView = ({ctrl_state}) => {
               />
             </div>
           </ReflexElement>        
-        </ReflexContainer>       
+        </ReflexContainer>
     );
 };

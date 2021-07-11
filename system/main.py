@@ -2,7 +2,7 @@
 Main module. Run this module to start the system.
 Author: Tal Eisenberg, 2021
 
-Run 'python main.py -h' for help on command line arguments.
+Run 'python main.py -h' for help about command line arguments.
 """
 
 import threading
@@ -12,7 +12,6 @@ import flask_cors
 from flask_socketio import SocketIO, emit
 import cv2
 import json
-from pathlib import Path
 import sys
 import argparse
 import importlib
@@ -30,7 +29,6 @@ import state as state_mod
 import experiment
 import video_record
 from dynamic_loading import instantiate_class
-import state_log
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -232,80 +230,86 @@ def route_state():
 
 @app.route("/experiment/list")
 def route_experiment_list():
-    return flask.jsonify(list(experiment.experiment_specs.keys()))
+    return flask.jsonify(list(experiment.load_experiment_specs().keys()))
 
 
-@app.route("/experiment/refresh_list")
-def route_experiment_refresh_list():
-    experiment.refresh_experiment_list()
-    return route_experiment_list()
-
-
-@app.route("/experiment/set/<name>")
-def route_experiment_set(name):
-    if name == "None":
-        name = None
-    experiment.set_experiment(name)
-    return flask.Response("ok")
-
-
-@app.route("/experiment/default_params")
-def route_experiment_default_params():
-    if experiment.cur_experiment is None:
-        return flask.jsonify(None)
-    return flask.jsonify(
-        {
-            "params": experiment.cur_experiment.default_params,
-            "blocks": experiment.cur_experiment.default_blocks,
-        }
-    )
-
-
-@app.route("/experiment/run", methods=["POST"])
-def route_experiment_run():
-    params = flask.request.json["params"]
-
-    if not isinstance(params, dict):
-        return flask.abort(400, "Invalid params json.")
-
-    blocks = flask.request.json.get("blocks", [])
-    exp_id = flask.request.json["id"]
-
+# Session Routes
+@app.route("/session/start", methods=["POST"])
+def route_session_start():
     try:
-        experiment.run(exp_id, params, blocks)
-        return flask.Response("ok")
+        exp_interface = experiment.start_session(flask.request.json)
+        return flask.jsonify(exp_interface)
     except Exception as e:
-        log.exception("Exception while running experiment")
+        log.exception("Exception while starting new session.")
         flask.abort(500, e)
 
 
-@app.route("/experiment/end")
-def route_experiment_end():
+@app.route("/session/run")
+def route_session_run():
     try:
-        experiment.end()
+        experiment.run_session()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while ending experiment.")
+        log.exception("Exception while running session:")
         flask.abort(500, e)
 
 
-@app.route("/experiment/next_block")
-def route_experiment_next_block():
+@app.route("/session/end")
+def route_session_end():
+    try:
+        experiment.end_session()
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while ending session:")
+        flask.abort(500, e)
+
+
+@app.route("/session/next_block")
+def route_session_next_block():
     try:
         experiment.next_block()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while moving to next block.")
+        log.exception("Exception while moving to next block:")
         flask.abort(500, e)
 
 
-@app.route("/experiment/next_trial")
-def route_experiment_next_trial():
+@app.route("/session/next_trial")
+def route_session_next_trial():
     try:
         experiment.next_trial()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while moving to next trial.")
+        log.exception("Exception while moving to next trial:")
+        flask.abort(500, e)
+
+
+@app.route("/session/params/update", methods=["POST"])
+def route_session_params_update():
+    try:
+        experiment.update_params(flask.request.json)
+        return flask.Response("ok")
+    except Exception as e:
+        s = state.get_self()
+        send_state(s, s)
+        log.exception("Exception while updating params:")
+        flask.abort(500, e)
+
+
+@app.route("/session/blocks/update", methods=["POST"])
+@app.route("/session/blocks/update/<idx>", methods=["POST"])
+def route_session_blocks_update(idx=None):
+    try:
+        if idx is not None:
+            experiment.update_block(int(idx), flask.request.json)
+        else:
+            experiment.update_blocks(flask.request.json)
+
+        return flask.Response("ok")
+    except Exception as e:
+        s = state.get_self()
+        send_state(s, s)
+        log.exception("Exception while updating blocks:")
         flask.abort(500, e)
 
 
