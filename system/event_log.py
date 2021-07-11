@@ -126,7 +126,7 @@ class EventDataLogger(DataLogger):
             else:
                 if event is not None:
                     self.logger.debug(f"Logging event: {event}")
-                    return event[0], event[1], json.dumps(event[2])
+                    return event[0], event[1], json.dumps(event[2], default=state.json_convert)
                 else:
                     self.logger.debug("Stopping event logger")
                     return None
