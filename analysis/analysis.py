@@ -118,12 +118,17 @@ def experiment_info(exp_dir):
 
     info["images"] = list(exp_dir.glob("*.jpg")) + list(exp_dir.glob("*.png"))
 
-    exp_state_json = exp_dir / "exp_state.json"
-    if exp_state_json.exists():
-        with open(exp_state_json, "r") as f:
-            info["exp_state"] = json.load(f)
+    session_state_json = exp_dir / "session_state.json"
+    if session_state_json.exists():
+        with open(session_state_json, "r") as f:
+            info["session_state"] = json.load(f)
     else:
-        info["exp_state"] = None
+        session_state_json = exp_dir / "exp_state.json"
+        if session_state_json.exists():
+            with open(session_state_json, "r") as f:
+                info["session_state"] = json.load(f)
+        else:
+            info["session_state"] = None
 
     return info
 
@@ -265,7 +270,7 @@ def extract_event_clips(
 
         print(f"\t{clip_path}")
 
-        ffmpeg_extract_subclip(r.path, start_frame, end_frame, clip_path)
+        extract_clip(r.path, start_frame, end_frame, clip_path)
 
     return clip_paths
 
