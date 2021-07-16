@@ -43,6 +43,7 @@ class DataLogger(mp.Process):
             self.csv_writer = csv.writer(self.csv_file, delimiter=",")
             if not ex:
                 self.csv_writer.writerow(self.col_names)
+                self.csv_file.flush()
         else:
             self.csv_file = None
             self.csv_writer = None
@@ -63,17 +64,18 @@ class DataLogger(mp.Process):
 
         if self.csv_writer is not None:
             self.csv_writer.writerow(data)
+            self.csv_file.flush()
 
     def run(self):
         self._init_log()
 
-        self.logger.debug("Starting data logger...")
+        self.logger.debug("Data logger started.")
 
         while True:
             data = self._get_data()
 
             if data is None:
-                self.logger.debug("Stopping data logger...")
+                self.logger.debug("Stopping data logger.")
                 break
             else:
                 self._write(data)
