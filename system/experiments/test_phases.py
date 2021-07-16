@@ -18,6 +18,10 @@ class TestPhasesExperiment(exp.Experiment):
         {"run_msg": f"block {i}", "end_msg": f"end block {i}"} for i in range(5)
     ]
 
+    def setup(self):
+        self.actions["run block 3"] = {"run": lambda: exp.set_phase(3, 0)}
+        self.actions["stop experiment"] = {"run": exp.stop_experiment}
+
     def run_trial(self, params):
         self.log.info("new trial")
 
@@ -45,7 +49,7 @@ class TestPhasesExperiment(exp.Experiment):
 
     def update_test_cb():
         session_state["test_cb"] = random.randint(0, 100)
-        
+
         # self.cancel_seq = schedule.sequence(
         #    update_test_cb, [2, 2, 5, 2, 2, 3], repeats=4
         # )
