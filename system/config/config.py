@@ -177,8 +177,8 @@ event_log = {
     "default_events": [
         ("mqtt", "arena/dispense_reward"),
         ("mqtt", "arena/day_lights"),
-        ("state", ("experiment", "cur_block")),
-        ("state", ("experiment", "cur_trial")),
+        ("state", ("session", "cur_block")),
+        ("state", ("session", "cur_trial")),
         ("state", ("video_record", "is_recording")),
     ],
     # Whether to log events to the database.

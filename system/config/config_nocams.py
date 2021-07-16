@@ -66,7 +66,7 @@ image_sources = dict(
         "top": {  # BFS-U3-16S2M
             "class": "video_stream.VideoImageSource",
             "video_path": Path(
-                "/data/reptilearn/experiments/d_20210616_152604/paper_test_top_20210616-152613.mp4"
+                "/data/reptilearn/experiments/pv20_20210714_140216/top_20210714-145857.mp4"
             ),
             "start_frame": 0,
             "end_frame": None,
@@ -79,7 +79,7 @@ image_sources = dict(
         "left": {  # firefly-dl 1
             "class": "video_stream.VideoImageSource",
             "video_path": Path(
-                "/data/reptilearn/experiments/d_20210616_152604/paper_test_left_20210616-152613.mp4"
+                "/data/reptilearn/experiments/pv20_20210714_140216/left_20210714-145857.mp4"
             ),
             "start_frame": 0,
             "end_frame": None,
@@ -92,7 +92,7 @@ image_sources = dict(
         "right": {  # firefly-dl 2
             "class": "video_stream.VideoImageSource",
             "video_path": Path(
-                "/data/reptilearn/experiments/d_20210616_152604/paper_test_right_20210616-152613.mp4"
+                "/data/reptilearn/experiments/pv20_20210714_140216/right_20210714-145857.mp4"
             ),
             "start_frame": 0,
             "end_frame": None,
@@ -105,7 +105,7 @@ image_sources = dict(
         "back": {
             "class": "video_stream.VideoImageSource",
             "video_path": Path(
-                "/data/reptilearn/experiments/d_20210616_152604/paper_test_back_20210616-152613.mp4"
+                "/data/reptilearn/experiments/pv20_20210714_140216/back_20210714-145857.mp4"
             ),
             "start_frame": 0,
             "end_frame": None,
@@ -119,8 +119,8 @@ image_sources = dict(
 )
 
 # Image observers are defined here. These process images from image sources in real-time.
-image_observers = {
-    "head_bbox": {
+image_observers = {}
+"""    "head_bbox": {
         "src_id": "top",
         "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
         "args": {
@@ -131,7 +131,7 @@ image_observers = {
             "cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg",
         },
     }
-}
+}"""
 
 # Video encoding parameters:
 # These parameters are passed to imageio.get_writer function
@@ -195,8 +195,8 @@ event_log = {
     "default_events": [
         ("mqtt", "arena/dispense_reward"),
         ("mqtt", "arena/day_lights"),
-        ("state", ("experiment", "cur_block")),
-        ("state", ("experiment", "cur_trial")),
+        ("state", ("session", "cur_block")),
+        ("state", ("session", "cur_trial")),
         ("state", ("video_record", "is_recording")),
     ],
     # Whether to log events to the database.
