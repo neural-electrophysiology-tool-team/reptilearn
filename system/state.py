@@ -31,7 +31,6 @@ import multiprocessing as mp
 from copy import deepcopy
 import dicttools as dt
 import threading
-from pathlib import Path
 
 # The global state is a dict managed by _mgr stored in namespace _ns
 _mgr = None
@@ -156,17 +155,6 @@ def register_listener(on_update, on_ready=None):
     return listen, stop_listening
 
 
-def json_convert(v):
-    """
-    conversion for various datatypes that are not supported by the json module.
-    """
-    if hasattr(v, "tolist"):
-        return v.tolist()
-    if isinstance(v, Path):
-        return str(v)
-    raise TypeError(v)
-
-
 class StateDispatcher:
     """
     Listens for state updates and run callbacks when specific state paths have changed value.
@@ -238,14 +226,18 @@ class Cursor:
     this path and its children. The class implements partial path versions of each state function,
     which accept a partial state path starting from the Cursor's root key. For example:
 
+    ```
     c = state.get_cursor(("x", "y"))
     c.update("z", {"a": 0, "b": 1})
+    ```
 
     This will update the dictionary at state path ("x", "y", "z") with the new supplied values.
     see the dicttools module docs for the full list of available functions/methods.
 
     Cursors are usually created by calling the get_cursor() method of another higher-level Cursor.
     The global state attribute (see below) holds a Cursor pointing to the root state path.
+
+    `state.get_cursor()`
 
     Subscript operators:
     cursor[x] will return a copy of the value at state path x.

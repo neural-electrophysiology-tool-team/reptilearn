@@ -1,11 +1,13 @@
 from datetime import datetime
 import re
 
-from state import state, json_convert
+from state import state
+from json_convert import json_convert
 from dynamic_loading import load_module, find_subclass, reload_module
 import video_record
 import event_log
 import json
+import shutil
 
 
 class ExperimentException(Exception):
@@ -16,7 +18,6 @@ config = None
 
 experiment_specs = None
 cur_experiment = None
-cur_experiment_name = None
 log = None
 image_observers = None
 event_logger = None
@@ -24,14 +25,16 @@ event_logger = None
 session_state = None
 params = None
 blocks = None
+actions = None
 
 
 def init(img_observers, img_sources, logger, config_module):
-    global log, image_observers, image_sources, config, session_state, params, blocks
+    global log, image_observers, image_sources, config, session_state, params, blocks, actions
 
     session_state = state.get_cursor("session")
     params = session_state.get_cursor("params")
     blocks = session_state.get_cursor("blocks")
+    actions = session_state.get_cursor("actions")
 
     config = config_module
     image_observers = img_observers
@@ -41,31 +44,42 @@ def init(img_observers, img_sources, logger, config_module):
 
 
 def shutdown():
-    if cur_experiment is not None:
+    if session_state.exists(()):
         if session_state["is_running"]:
-            end_session()
-        set_experiment(None)
+            stop_experiment()
+        close_session()
 
 
-def start_session(session):
+def _update_state_file():
+    with open(session_state["data_dir"] / "session_state.json", "w") as f:
+        json.dump(session_state.get_self(), f, default=json_convert)
+
+
+def create_session(session):
+    global cur_experiment
+
     if session_state.exists(()) and session_state["is_running"] is True:
         raise ExperimentException(
             "Can't start new session while an experiment is running."
         )
 
+    if session_state.exists(()):
+        close_session()
+
     log.info(f"Starting session {session['id']}")
     log.info("=================================================")
 
-    session_state.set_self({"is_running": False, "id": session["id"]})
+    if session["experiment"] not in experiment_specs.keys():
+        raise ExperimentException(f"Unknown experiment: {session['experiment']}.")
 
-    set_experiment(session["experiment"])
     if (
         len(session["id"].strip()) == 0
         or len(re.findall(r"[^A-Za-z0-9_]", session["id"])) != 0
     ):
         raise ExperimentException(f"Invalid experiment id: '{session['id']}'")
 
-    session_dir = session["id"] + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+    start_time = datetime.now()
+    session_dir = session["id"] + "_" + start_time.strftime("%Y%m%d_%H%M%S")
     data_path = config.experiment_data_root / session_dir
 
     try:
@@ -75,16 +89,24 @@ def start_session(session):
 
     log.info(f"Data directory: {str(data_path)}")
 
+    spec = experiment_specs[session["experiment"]]
+    module = reload_module(spec)
+    cls = find_subclass(module, Experiment)
+    cur_experiment = cls(log)
+
     session_state.set_self(
         {
             "is_running": False,
             "experiment": session["experiment"],
             "data_dir": data_path,
+            "id": session["id"],
+            "start_time": start_time,
+            "params": cur_experiment.get_default_params(),
+            "blocks": cur_experiment.get_default_blocks(),
         }
     )
 
-    params.set_self(cur_experiment.default_params)
-    blocks.set_self(cur_experiment.default_blocks)
+    state["video_record", "write_dir"] = data_path
 
     csv_path = data_path / "events.csv" if config.event_log["log_to_csv"] else None
 
@@ -100,33 +122,79 @@ def start_session(session):
     for src, key in config.event_log["default_events"]:
         event_logger.add_event(src, key)
 
-    state["video_record", "write_dir"] = data_path
+    cur_experiment.setup()
+    actions.set_self(cur_experiment.actions.keys())
+
+    event_logger.log("session/create", session_state.get_self())
+    _update_state_file()
 
 
-def run_session():
+def close_session():
+    global cur_experiment
+
+    if not session_state.exists(()):
+        raise ExperimentException("There is no started session.")
+
+    if session_state["is_running"] is True:
+        raise ExperimentException("Can't close session while experiment is running.")
+
+    _update_state_file()
+
+    if cur_experiment is not None:
+        try:
+            cur_experiment.release()
+        except Exception:
+            log.exception("While releasing experiment:")
+
+    cur_experiment = None
+
+    if event_logger is not None:
+        event_logger.log("session/close", session_state.get_self())
+        event_logger.stop()
+
+    video_record.restore_after_experiment_session()
+    session_state.delete(())
+    log.info("Closed session.")
+
+
+def delete_session():
+    if not session_state.exists(()):
+        raise ExperimentException("There is no started session.")
+
+    if session_state["is_running"] is True:
+        raise ExperimentException("Can't delete session while experiment is running.")
+
+    data_dir = session_state["data_dir"]
+    close_session()
+    shutil.rmtree(data_dir)
+    log.info(f"Deleted session data at {data_dir}")
+
+
+def run_experiment():
     if session_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
     if not session_state.exists(()):
         raise ExperimentException("Can't run experiment. No experiment was set.")
 
-    event_logger.log("session/run", session_state.get_self())
-
     session_state["is_running"] = True
 
-    log.info("Running experiment...")
+    log.info(f"Running experiment {session_state['experiment']}.")
+
+    event_logger.log("session/run", session_state.get_self())
 
     try:
         cur_experiment.run(params.get_self())
-        with open(session_state["data_dir"] / "session_state.json", "w") as f:
-            json.dump(session_state.get_self(), f, default=json_convert)
         set_phase(0, 0)
+        _update_state_file()
     except Exception:
         log.exception("Exception while running experiment:")
         session_state["is_running"] = False
 
+    _update_state_file()
 
-def end_session():
+
+def stop_experiment():
     global event_logger
 
     if session_state["is_running"] is False:
@@ -142,13 +210,14 @@ def end_session():
     finally:
         session_state["is_running"] = False
 
-        event_logger.log("session/end", cur_experiment_name)
-        event_logger.stop()
+        event_logger.log("session/stop", session_state.get_self())
+
         session_state.delete("cur_trial")
         session_state.delete("cur_block")
-        video_record.restore_after_experiment()
 
-    log.info(f"Experiment {cur_experiment_name} has ended.")
+        _update_state_file()
+
+    log.info(f"Experiment {session_state['experiment']} has ended.")
 
 
 def set_phase(block, trial):
@@ -220,7 +289,7 @@ def next_block():
     if cur_block + 1 < get_num_blocks():
         set_phase(cur_block + 1, 0)
     else:
-        end_session()
+        stop_session()
 
 
 def load_experiments(experiments_dir=None):
@@ -249,37 +318,6 @@ def load_experiment_specs():
     return experiment_specs
 
 
-def set_experiment(name):
-    global cur_experiment, cur_experiment_name
-
-    if session_state["is_running"] is True:
-        raise ExperimentException(
-            "Can't set experiment while an experiment is running."
-        )
-
-    if name not in experiment_specs.keys() and name is not None:
-        raise ExperimentException(f"Unknown experiment name: {name}")
-
-    if cur_experiment is not None:
-        try:
-            cur_experiment.release()
-        except Exception:
-            log.exception("While releasing experiment:")
-
-    if name is not None:
-        spec = experiment_specs[name]
-        module = reload_module(spec)
-        cls = find_subclass(module, Experiment)
-        cur_experiment = cls(log)
-        cur_experiment_name = name
-        log.info(f"Loaded experiment {name}.")
-    else:
-        cur_experiment = None
-        log.info("Unloaded experiment.")
-
-    session_state["cur_experiment"] = name
-
-
 def can_update_params():
     if not session_state.exists(()):
         raise ExperimentException("Can't update params before starting a session")
@@ -290,7 +328,7 @@ def can_update_params():
 
 def update_params(new_params):
     if new_params is None:
-        return update_params(cur_experiment.default_params)
+        return update_params(cur_experiment.get_default_params())
 
     can_update_params()
     session_state["params"] = new_params
@@ -298,14 +336,13 @@ def update_params(new_params):
 
 def update_blocks(new_blocks):
     if new_blocks is None:
-        return update_blocks(cur_experiment.default_blocks)
+        return update_blocks(cur_experiment.get_default_blocks())
 
     can_update_params()
     session_state["blocks"] = new_blocks
 
 
 def update_block(block_idx, new_block):
-    print(block_idx, new_block)
     if new_block is None:
         if len(cur_experiment.default_blocks) > block_idx:
             return update_block(block_idx, cur_experiment.default_blocks[block_idx])
@@ -327,7 +364,11 @@ def update_block(block_idx, new_block):
 
 
 def remove_block(block_idx):
-    pass
+    session_state.delete(("blocks", block_idx))
+
+
+def run_action(label):
+    cur_experiment.actions[label]["run"]()
 
 
 def get_phase_params():
@@ -353,13 +394,11 @@ def get_num_blocks():
 
 
 class Experiment:
-    default_params = {}
-    default_blocks = [{}]
-    actions = []
-
     def __init__(self, logger):
         self.log = logger
-        self.setup()
+        self.actions = {}
+        self.default_params = {}
+        self.default_blocks = [{}]
 
     def run(self, params):
         pass
@@ -384,3 +423,15 @@ class Experiment:
 
     def release(self):
         pass
+
+    def get_default_params(self):
+        try:
+            return type(self).default_params
+        except AttributeError:
+            return self.default_params
+
+    def get_default_blocks(self):
+        try:
+            return type(self).default_blocks
+        except AttributeError:
+            return self.default_blocks

@@ -29,6 +29,8 @@ import state as state_mod
 import experiment
 import video_record
 from dynamic_loading import instantiate_class
+from json_convert import json_convert
+
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -69,7 +71,7 @@ log = rl_logging.init(
     log_handlers=(
         rl_logging.SocketIOHandler(socketio),
         stderr_handler,
-        rl_logging.ExperimentLogHandler(),
+        rl_logging.SessionLogHandler(),
     ),
     extra_loggers=(app_log, app.logger),
     extra_log_level=logging.WARNING,
@@ -112,9 +114,8 @@ for img_src in image_sources.values():
 
 # Broadcast state updates over SocketIO
 def send_state(old, new):
-    old_json = json.dumps(old, default=state_mod.json_convert)
-    new_json = json.dumps(new, default=state_mod.json_convert)
-    socketio.emit("state", (old_json, new_json))
+    new_json = json.dumps(new, default=json_convert)
+    socketio.emit("state", new_json)
 
 
 state_listen, stop_state_emitter = state_mod.register_listener(send_state)
@@ -125,15 +126,15 @@ state_emitter_process.start()
 @socketio.on("connect")
 def handle_connect():
     log.info("New SocketIO connection. Emitting state")
-    blob = json.dumps(state.get_self(), default=state_mod.json_convert)
-    emit("state", (None, blob))
+    blob = json.dumps(state.get_self(), default=json_convert)
+    emit("state", blob)
 
 
 # Flask REST API
 @app.route("/config/<attribute>")
 def route_config(attribute):
     return flask.Response(
-        json.dumps(getattr(config, attribute), default=state_mod.json_convert),
+        json.dumps(getattr(config, attribute), default=json_convert),
         mimetype="application/json",
     )
 
@@ -234,30 +235,50 @@ def route_experiment_list():
 
 
 # Session Routes
-@app.route("/session/start", methods=["POST"])
+@app.route("/session/create", methods=["POST"])
 def route_session_start():
     try:
-        exp_interface = experiment.start_session(flask.request.json)
+        exp_interface = experiment.create_session(flask.request.json)
         return flask.jsonify(exp_interface)
     except Exception as e:
         log.exception("Exception while starting new session.")
         flask.abort(500, e)
 
 
+@app.route("/session/close")
+def route_session_close():
+    try:
+        experiment.close_session()
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while closing session.")
+        flask.abort(500, e)
+
+
 @app.route("/session/run")
 def route_session_run():
     try:
-        experiment.run_session()
+        experiment.run_experiment()
         return flask.Response("ok")
     except Exception as e:
         log.exception("Exception while running session:")
         flask.abort(500, e)
 
 
-@app.route("/session/end")
-def route_session_end():
+@app.route("/session/stop")
+def route_session_stop():
     try:
-        experiment.end_session()
+        experiment.stop_experiment()
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while ending session:")
+        flask.abort(500, e)
+
+
+@app.route("/session/delete")
+def route_session_delete():
+    try:
+        experiment.delete_session()
         return flask.Response("ok")
     except Exception as e:
         log.exception("Exception while ending session:")
@@ -377,6 +398,16 @@ def route_arena(cmd, value="unused"):
 def route_save_image(src_id):
     video_record.save_image([src_id])
     return flask.Response("ok")
+
+
+@app.route("/run_action/<label>")
+def route_run_action(label):
+    try:
+        experiment.run_action(label)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception(f"Exception while running action {label}:")
+        flask.abort(500, e)
 
 
 @app.route("/")
