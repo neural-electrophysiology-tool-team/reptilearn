@@ -5,6 +5,7 @@ import {api_url} from './config.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
 import { Dropdown, Modal, Button, Icon } from 'semantic-ui-react';
+import { ActionsView } from './actions_view.js';
 
 /*
   assign object o to object n without overwriting existing properties of o.
@@ -25,14 +26,17 @@ const assign_keep_old = (o, n) => {
 
 export const ExperimentView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
-
+    const [ctrlStatePath, setCtrlStatePath] = React.useState();
+    
     const [openNewSessionModal, setOpenNewSessionModal] = React.useState(false);
+    const [openDeleteModal, setOpenDeleteModal] = React.useState(false);
+    
     const [selectedExperimentIdx, setSelectedExperimentIdx] = React.useState(0);
+
     
     const experiment_id_ref = React.useRef();
+    const path_input_ref = React.useRef();
     
-    const exp_url = api_url + "/experiment";
-
     const update_defaults = (override_blocks) => {
 	/*
 	fetch(exp_url + "/default_params")
@@ -93,11 +97,11 @@ export const ExperimentView = ({ctrl_state}) => {
         fetch(api_url + "/session/blocks/update", { method: "POST" });
     };
 
-    const start_new_session = () => {
+    const create_session = () => {
         setOpenNewSessionModal(false);
         const exp_name = experimentList[selectedExperimentIdx];
         
-	fetch(api_url + "/session/start", {
+	fetch(api_url + "/session/create", {
 	    method: "POST",
 	    headers: {
 		"Accept": "application/json",
@@ -111,12 +115,21 @@ export const ExperimentView = ({ctrl_state}) => {
         
     };
 
+    const close_session = () => {
+        fetch(api_url + "/session/close");
+    };
+
+    const delete_session = () => {
+        setOpenDeleteModal(false);
+        fetch(api_url + "/session/delete");
+    };
+    
     const run_experiment = () => {
         fetch(api_url + "/session/run");
     };
 
-    const end_experiment = () => {
-	fetch(api_url + "/session/end");
+    const stop_experiment = () => {
+	fetch(api_url + "/session/stop");
     };
 
     const on_params_changed = (e) => {
@@ -148,10 +161,40 @@ export const ExperimentView = ({ctrl_state}) => {
     const next_trial = () => {
         fetch(api_url + "/session/next_trial");
     };
+
+    const update_ctrl_state_path = () => {
+        if (!path_input_ref.current) {
+            setCtrlStatePath(ctrl_state);
+            return;
+        }
+        
+        const path = path_input_ref.current.value;
+        if (path.trim().length === 0) {
+            setCtrlStatePath(ctrl_state);
+            return;
+        }
+        
+        const path_terms = path.split('.');
+
+        let cur = ctrl_state;
+        for (const term of path_terms) {
+            if (cur[term]) {
+                cur = cur[term];
+            }
+            else {
+                setCtrlStatePath({});
+                return;
+            }
+        }
+
+        setCtrlStatePath(cur);
+    };
+
+    React.useEffect(update_ctrl_state_path, [ctrl_state]);
     
     if (!ctrl_state)
 	return null;
-
+    
     const session = ctrl_state.session;
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
     const cur_block = ctrl_state.session ? ctrl_state.session.cur_block : undefined;
@@ -166,21 +209,49 @@ export const ExperimentView = ({ctrl_state}) => {
             )
             .then(() => setOpenNewSessionModal(true));
     };
+
     
+    const session_title = session ? `Session ${session.id}` : "Session";
+
     const session_menu = (
-        <button className="title">
-          <Dropdown text='Session'>
-            <Dropdown.Menu>
-              <Dropdown.Item text='Start new session...'
-                             onClick={open_new_session_modal}
-                             disabled={is_running}/>
-              <Dropdown.Item text='Continue session...'
-                             disabled={is_running}/>
-            </Dropdown.Menu>
-          </Dropdown>
+          <button className="title">
+            <Dropdown text={session_title}>
+              <Dropdown.Menu>
+                <Dropdown.Item text='Start new session...'
+                               onClick={open_new_session_modal}
+                               disabled={is_running}/>
+                <Dropdown.Item text='Continue session...'
+                               disabled={is_running}/>
+                <Dropdown.Divider/>
+                <Dropdown.Item text='Close session'
+                               disabled={!session}
+                               onClick={close_session}/>
+                
+                <Dropdown.Item text='Delete session...'
+                               onClick={() => setOpenDeleteModal(true)}
+                               disabled={!session}/>
+                
+              </Dropdown.Menu>
+            </Dropdown>
         </button>
     );
 
+    const delete_session_modal = session ? (
+        <Modal size="small"
+               onClose={() => setOpenDeleteModal(false)}
+               onOpen={() => setOpenDeleteModal(true)}
+               open={openDeleteModal}>
+          <Modal.Header>Are you sure?</Modal.Header>
+          <Modal.Content>
+            <p>This will delete data directory:</p>
+            <p>{session.data_dir}</p>
+          </Modal.Content>
+          <Modal.Actions>
+            <Button onClick={delete_session} negative>Yes</Button>
+            <Button onClick={() => setOpenDeleteModal(false)} positive>No</Button>
+          </Modal.Actions>
+        </Modal>
+    ) : null;
     const new_session_modal = (
         <Modal
           onClose={() => setOpenNewSessionModal(false)}
@@ -190,19 +261,34 @@ export const ExperimentView = ({ctrl_state}) => {
         >
           <Modal.Header>Start a new session</Modal.Header>
           <Modal.Content>
-            Experiment:
-            <Selector options={experimentList}
-                      selected={selectedExperimentIdx}
-                      on_select={(exp, i) => setSelectedExperimentIdx(i)}/>
-            <br/>
-            Session id:
-            <input type="text"
-                   ref={experiment_id_ref}
-                   placeholder={experimentList[selectedExperimentIdx]}
-                   size="16"/>
+            <table>
+              <tbody className="full-width">
+                <tr>
+                  <th>Experiment:</th>
+                  <td>
+                    <Selector options={experimentList}
+                              selected={selectedExperimentIdx}
+                              on_select={(exp, i) => setSelectedExperimentIdx(i)}
+                              className="full-width"/> 
+                  </td>
+                </tr>
+                <tr>
+                  <th>Session id:</th>
+                  <td>
+                    <input type="text"
+                           ref={experiment_id_ref}
+                           placeholder={experimentList[selectedExperimentIdx]}
+                           className="full-width"
+                           autoFocus/>
+                  </td>
+                </tr>                
+              </tbody>
+            </table>
+
+            <br/>            
           </Modal.Content>
           <Modal.Actions>
-            <Button onClick={start_new_session} primary>Ok</Button>
+            <Button onClick={create_session} primary>Ok</Button>
             <Button onClick={() => setOpenNewSessionModal(false)}>Cancel</Button>
           </Modal.Actions>
         </Modal>
@@ -213,29 +299,37 @@ export const ExperimentView = ({ctrl_state}) => {
             return null;
 
         const run_end_btn = is_running ?
-          <button onClick={end_experiment}><Icon size="small" fitted name="stop"/></button>
+          <button onClick={stop_experiment}><Icon size="small" fitted name="stop"/></button>
 	  : <button onClick={run_experiment}><Icon size="small" fitted name="play"/></button>;
         
-        return (
+        const actions_view = ctrl_state.session.actions && ctrl_state.session.actions.length > 0 ?
+              <ActionsView actions={ctrl_state.session.actions}/>
+              : null;
+              
+        
+        return(
             <React.Fragment>
               {run_end_btn}
+              {actions_view}
             </React.Fragment>
         );
     })();
-          
-    const run_state_toolbar = !is_running ? null :
+
+    const run_state_toolbar = (!is_running ||
+                               session.cur_block === undefined ||
+                               session.cur_trial === undefined) ? null :
           <div className="subsection_header">
             <label>block:</label>
-            <input type="text" readOnly value={ctrl_state.session.cur_block+1} size="3"/>
+            <input type="text" readOnly value={session.cur_block+1} size="3"/>
             <button onClick={next_block}>+</button>
             <label> trial:</label>
-            <input type="text" readOnly value={ctrl_state.session.cur_trial+1} size="3"/>
+            <input type="text" readOnly value={session.cur_trial+1} size="3"/>
             <button onClick={next_trial}>+</button>
           </div>;
 
     const params_height = is_running ? "calc(100% - 48px)" : "calc(100% - 20px)";
     
-    const exp_interaction = ctrl_state.session ? (
+    const exp_interaction = session ? (
         <div style={{overflow: "scroll", height: params_height}}>
           <div className="subsection_header">
             <span className="title">Parameters</span>
@@ -255,7 +349,8 @@ export const ExperimentView = ({ctrl_state}) => {
             <button onClick={reset_all_blocks} disabled={is_running}>Reset all</button>
           </div>
           <BlocksView is_running={is_running}
-                      ctrl_state={ctrl_state}
+                      params={ctrl_state.session.params}
+                      blocks={ctrl_state.session.blocks}
                       set_blocks={update_blocks}
                       cur_block={cur_block}/>
         </div>        
@@ -267,6 +362,7 @@ export const ExperimentView = ({ctrl_state}) => {
             <div className="section_header">
               {session_menu}
               {new_session_modal}
+              {delete_session_modal}
               {exp_controls}
             </div>
             {run_state_toolbar}
@@ -276,9 +372,13 @@ export const ExperimentView = ({ctrl_state}) => {
           <ReflexElement minSize={26} style={{overflow: "hidden"}}>
             <div className="section_header">
               <span className="title">State</span>
+              <input type="search"
+                     placeholder="path"
+                     ref={path_input_ref}
+                     onChange={update_ctrl_state_path}/>
             </div>
             <div style={{overflow: "scroll", height: "calc(100% - 18px)"}}>
-              <ReactJson src={ctrl_state}
+              <ReactJson src={ctrlStatePath}
                          name={null}
                          style={{height: "auto"}}
               />

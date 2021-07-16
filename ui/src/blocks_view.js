@@ -4,13 +4,7 @@ import ReactJson from 'react-json-view';
 import {Selector} from './components.js';
 import {api_url} from './config.js';
 
-export const BlocksView = ({is_running, cur_block, ctrl_state, set_blocks}) => {
-    if (!ctrl_state.session || !ctrl_state.session.params || !ctrl_state.session.blocks)
-	return null;
-    
-    const params = ctrl_state.session.params;
-    const blocks = ctrl_state.session.blocks;
-    
+export const BlocksView = ({is_running, cur_block, params, blocks, set_blocks}) => {
     const reset_block = (idx) => {
         fetch(api_url + `/session/blocks/update/${idx}`, { method: "POST" });
     };
@@ -89,7 +83,7 @@ export const BlocksView = ({is_running, cur_block, ctrl_state, set_blocks}) => {
                />;
     };
 
-    if (blocks === null)
+    if (!blocks)
         return null;
     
     const block_divs = blocks.map((block, idx) => (
