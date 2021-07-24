@@ -224,12 +224,12 @@ export const ExperimentView = ({ctrl_state}) => {
                                disabled={is_running}/>
                 <Dropdown.Divider/>
                 <Dropdown.Item text='Close session'
-                               disabled={!session}
+                               disabled={!session || is_running}
                                onClick={close_session}/>
                 
                 <Dropdown.Item text='Delete session...'
                                onClick={() => setOpenDeleteModal(true)}
-                               disabled={!session}/>
+                               disabled={!session || is_running}/>
                 
               </Dropdown.Menu>
             </Dropdown>
