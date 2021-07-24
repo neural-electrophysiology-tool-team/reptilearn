@@ -15,13 +15,14 @@ class ExperimentException(Exception):
 
 
 config = None
+log = None
+image_observers = None
 
 experiment_specs = None
 cur_experiment = None
-log = None
-image_observers = None
 event_logger = None
 
+# Cursors
 session_state = None
 params = None
 blocks = None
@@ -171,6 +172,10 @@ def delete_session():
 
 
 def run_experiment():
+    """
+    Run the experiment of the current session. Calls the `run` function, and starts
+    trial 0 of block 0
+    """
     if session_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
@@ -195,6 +200,9 @@ def run_experiment():
 
 
 def stop_experiment():
+    """
+    Stop a currently running experiment.
+    """
     global event_logger
 
     if session_state["is_running"] is False:
@@ -260,6 +268,10 @@ def set_phase(block, trial):
 
 
 def next_trial():
+    """
+    Move to the next trial. The next block will start if the number of trials in the current block
+    have reached the value of the num_trials session parameter.
+    """
     if not session_state["is_running"]:
         log.warning(
             "experiment.py: Attempted to run next_trial() while experiment is not running"
@@ -279,6 +291,9 @@ def next_trial():
 
 
 def next_block():
+    """
+    Move to the next block. The experiment will stop if the current block is the last one.
+    """
     if not session_state["is_running"]:
         log.warning(
             "experiment.py: Attempted to run next_block() while experiment is not running"
@@ -289,7 +304,7 @@ def next_block():
     if cur_block + 1 < get_num_blocks():
         set_phase(cur_block + 1, 0)
     else:
-        stop_session()
+        stop_experiment()
 
 
 def load_experiments(experiments_dir=None):
@@ -302,12 +317,12 @@ def load_experiments(experiments_dir=None):
     for py in experiment_pys:
         try:
             module, spec = load_module(py, package="experiments")
+            cls = find_subclass(module, Experiment)
+            if cls is not None:
+                experiment_specs[py.stem] = spec
+
         except Exception:
             log.exception("While loading experiments:")
-
-        cls = find_subclass(module, Experiment)
-        if cls is not None:
-            experiment_specs[py.stem] = spec
 
     return experiment_specs
 
@@ -372,6 +387,10 @@ def run_action(label):
 
 
 def get_phase_params():
+    """
+    Return the parameters of the current block. These are determined by the
+    session parameters overriden by values in the block parameters.
+    """
     if (
         blocks.exists(())
         and len(blocks.get_self()) > 0
@@ -394,6 +413,15 @@ def get_num_blocks():
 
 
 class Experiment:
+    """
+    An abstract class representing an experiment. This is the entry point for running
+    experiment modules. An experiment module must contain a class inheriting from the 
+    Experiment class.
+
+    self.log - A logging.Logger for logging.
+
+    ...
+    """
     def __init__(self, logger):
         self.log = logger
         self.actions = {}
