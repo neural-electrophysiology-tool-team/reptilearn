@@ -190,7 +190,7 @@ class StateDispatcher:
         Add a callback to the dispatch table. Aftwards, whenever a state update changes the value
         at path, the on_update(old_val, new_val) function will be called.
 
-        If a callback was previously set with this path, it will be overwritten.
+        If a callback was previously set with this path, it will be removed.
         """
         self._dispatch_table[path] = on_update
 
@@ -203,8 +203,8 @@ class StateDispatcher:
 
 def partial_path_fn(f, path_prefix):
     """
-    Return a function the calls path function f with the supplied path_prefix concatenated to the
-    beginning of its 1st arg.
+    Return a function that calls path function f with the supplied path_prefix concatenated to
+    the beginning of its 1st argument.
     """
 
     def fn(path, *args, **kwargs):
@@ -306,7 +306,7 @@ class Cursor:
     def parent(self):
         """
         Return a cursor pointing to the parent path of this cursor.
-        When called on the root state cursor raise a KeyError exception.
+        When called on the root state cursor a KeyError exception is raised.
         """
         if len(self.path) == 0:
             raise KeyError(f"path {self.path} has no parent.")
