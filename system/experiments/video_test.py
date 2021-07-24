@@ -1,66 +1,44 @@
-import random
+import video_record
 import experiment as exp
-from experiment import session_state
 import arena
-import schedule
-import mqtt
-from state import state
+import monitor
+import pandas as pd
 
 
-class TestExperiment(exp.Experiment):
+class VideoPlayExperiment(exp.Experiment):
     default_params = {
-        "run_msg": "TestExperiment is running",
-        "end_msg": "TestExperiment has ended",
-        "blink_dur": 1.0,
-        "param": 5,
+        "vid_path": "/data/amit/videos/headbobbing1.mp4",
+        "background_color": "white",
+        "record_video": False,
     }
 
-    default_blocks = [
-        {"run_msg": f"block {i}", "end_msg": f"end block {i}"} for i in range(5)
-    ]
-
-    def run_trial(self, params):
-        self.log.info("new trial")
-
-    def run_block(self, params):
-        self.log.info(params["run_msg"])
-        arena.signal_led(True)
-        if "blink_dur" in params:
-            schedule.once(lambda: arena.signal_led(False), params["blink_dur"])
+    def setup(self):
+        arena.turn_touchscreen(True)
+        monitor.on_playback_end(self.playback_ended)
 
     def run(self, params):
-        self.log.info(params["run_msg"])
-        state.add_callback(
-            ("arena", "sensors"),
-            lambda o, n: self.log.info(f"Sensors update: {o} -> {n}"),
-        )
+        monitor.set_color(params["background_color"])
+        if params["record_video"]:
+            video_record.start_record()
 
-        session_state.add_callback(
-            "test_cb", lambda o, n: self.log.info(f"test: {o} -> {n}")
-        )
-
-        mqtt.client.subscribe_callback(
-            "arena/ttl_trigger/start",
-            mqtt.mqtt_json_callback(lambda t, p: self.log.info(f"{t} {p}")),
-        )
-
-        def update_test_cb():
-            session_state["test_cb"] = random.randint(0, 100)
-
-        #self.cancel_seq = schedule.sequence(
-        #    update_test_cb, [2, 2, 5, 2, 2, 3], repeats=4
-        #)
-        arena.sensors_poll()
-        arena.sensors_set_interval(10)
-
+    def run_block(self, params):
+        self.log.info("Playing video...")
+        monitor.play_video(params["vid_path"])
+    
     def end_block(self, params):
-        self.log.info(params["end_msg"])
+        monitor.stop_video()
 
     def end(self, params):
-        self.log.info(params["end_msg"])
-        state.remove_callback(("arena", "sensors"))
-        session_state.remove_callback("test_cb")
-        arena.sensors_set_interval(60)
-        #if self.cancel_seq:
-        #    self.cancel_seq()
-        mqtt.client.unsubscribe_callback("arena/ttl_trigger/start")
+        if params["record_video"]:
+            video_record.stop_record()
+
+    def release(self):
+        arena.turn_touchscreen(False)
+        monitor.unsubscribe_playback_end()
+
+    def playback_ended(self, timestamps):
+        csv_path = exp.session_state["data_dir"] / "video_timestamps.csv"
+        self.log.info(f"Video playback finished. Saving timestamps to: {csv_path}")
+        df = pd.DataFrame(data=timestamps, columns=["frame", "time"])
+        df.to_csv(csv_path, index=False)
+        exp.next_block()
