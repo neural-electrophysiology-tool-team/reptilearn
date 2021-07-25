@@ -241,7 +241,17 @@ def route_session_start():
         exp_interface = experiment.create_session(flask.request.json)
         return flask.jsonify(exp_interface)
     except Exception as e:
-        log.exception("Exception while starting new session.")
+        log.exception("Exception while starting new session:")
+        flask.abort(500, e)
+
+
+@app.route("/session/continue/<session_name>")
+def route_session_continue(session_name):
+    try:
+        experiment.continue_session(session_name)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while continuing session:")
         flask.abort(500, e)
 
 
@@ -251,7 +261,7 @@ def route_session_close():
         experiment.close_session()
         return flask.Response("ok")
     except Exception as e:
-        log.exception("Exception while closing session.")
+        log.exception("Exception while closing session:")
         flask.abort(500, e)
 
 
@@ -305,6 +315,16 @@ def route_session_next_trial():
         flask.abort(500, e)
 
 
+@app.route("/session/reset_phase")
+def route_session_reset_phase():
+    try:
+        experiment.set_phase(0, 0)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while resetting experiment phase:")
+        flask.abort(500, e)
+
+
 @app.route("/session/params/update", methods=["POST"])
 def route_session_params_update():
     try:
@@ -331,6 +351,16 @@ def route_session_blocks_update(idx=None):
         s = state.get_self()
         send_state(s, s)
         log.exception("Exception while updating blocks:")
+        flask.abort(500, e)
+
+
+@app.route("/session/list")
+def route_session_list():
+    try:
+        sessions = experiment.get_session_list()
+        return flask.jsonify(sessions)
+    except Exception as e:
+        log.exception("Exception while getting session list:")
         flask.abort(500, e)
 
 

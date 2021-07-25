@@ -8,6 +8,8 @@ import video_record
 import event_log
 import json
 import shutil
+import pandas as pd
+from pathlib import Path
 
 
 class ExperimentException(Exception):
@@ -52,13 +54,36 @@ def shutdown():
 
 
 def _update_state_file():
-    with open(session_state["data_dir"] / "session_state.json", "w") as f:
+    with open(Path(session_state["data_dir"]) / "session_state.json", "w") as f:
         json.dump(session_state.get_self(), f, default=json_convert)
 
 
-def create_session(session):
-    global cur_experiment
+def split_name_datetime(fn):
+    """
+    Duplicate from analysis.py!
+    Split a string formatted as {name}_%Y%m%d_%H%M%S into name and a datetime64 object.
+    """
+    match = re.search("(.*)_([0-9]*)[-_]([0-9]*)", fn.stem)
+    dt = pd.to_datetime(match.group(2) + " " + match.group(3), format="%Y%m%d %H%M%S")
+    name = match.group(1)
+    return name, dt, fn.name
 
+
+def get_session_list():
+    sl = list(
+        map(
+            split_name_datetime,
+            filter(
+                lambda p: (p / "session_state.json").exists(),
+                config.session_data_root.glob("*"),
+            ),
+        )
+    )
+    sl.sort(key=lambda s: s[1])
+    return sl
+
+
+def create_session(session):
     if session_state.exists(()) and session_state["is_running"] is True:
         raise ExperimentException(
             "Can't start new session while an experiment is running."
@@ -77,23 +102,20 @@ def create_session(session):
         len(session["id"].strip()) == 0
         or len(re.findall(r"[^A-Za-z0-9_]", session["id"])) != 0
     ):
-        raise ExperimentException(f"Invalid experiment id: '{session['id']}'")
+        raise ExperimentException(f"Invalid session id: '{session['id']}'")
 
     start_time = datetime.now()
     session_dir = session["id"] + "_" + start_time.strftime("%Y%m%d_%H%M%S")
-    data_path = config.experiment_data_root / session_dir
+    data_path = config.session_data_root / session_dir
 
     try:
         data_path.mkdir()
     except FileExistsError:
-        raise ExperimentException("Experiment data directory already exists!")
+        raise ExperimentException("Session data directory already exists!")
 
     log.info(f"Data directory: {str(data_path)}")
 
-    spec = experiment_specs[session["experiment"]]
-    module = reload_module(spec)
-    cls = find_subclass(module, Experiment)
-    cur_experiment = cls(log)
+    load_experiment(session["experiment"])
 
     session_state.set_self(
         {
@@ -104,12 +126,19 @@ def create_session(session):
             "start_time": start_time,
             "params": cur_experiment.get_default_params(),
             "blocks": cur_experiment.get_default_blocks(),
+            "cur_block": 0,
+            "cur_trial": 0,
         }
     )
 
-    state["video_record", "write_dir"] = data_path
+    init_session()
 
-    csv_path = data_path / "events.csv" if config.event_log["log_to_csv"] else None
+
+def init_session(continue_session=False):
+    data_dir = Path(session_state["data_dir"])
+    state["video_record", "write_dir"] = data_dir
+
+    csv_path = data_dir / "events.csv" if config.event_log["log_to_csv"] else None
 
     global event_logger
     event_logger = event_log.EventDataLogger(
@@ -126,8 +155,53 @@ def create_session(session):
     cur_experiment.setup()
     actions.set_self(cur_experiment.actions.keys())
 
-    event_logger.log("session/create", session_state.get_self())
+    event_logger.log(
+        f"session/{'continue_session' if continue_session else 'create'}",
+        session_state.get_self(),
+    )
     _update_state_file()
+
+
+def continue_session(session_name):
+    # make sure loggers use append to csv files
+    # add session vars for local stuff
+    # if is running delete session vars and change to not running
+
+    if session_state.exists(()):
+        close_session()
+
+    log.info(f"Continuing session {session_name}")
+    log.info("=================================================")
+
+    data_path = config.session_data_root / session_name
+    if not data_path.exists():
+        raise ExperimentException(
+            f"Session data directory {str(data_path)} doesn't exist!"
+        )
+
+    state_path = data_path / "session_state.json"
+    if not state_path.exists():
+        raise ExperimentException(f"Can't find session state file: {str(state_path)}")
+
+    with open(state_path, "r") as f:
+        session = json.load(f)
+        session["data_dir"] = data_path
+    if session["experiment"] not in experiment_specs.keys():
+        raise ExperimentException(f"Unknown experiment: {session['experiment']}.")
+
+    log.info(f"Data directory: {str(data_path)}")
+
+    load_experiment(session["experiment"])
+
+    if session["is_running"]:
+        log.warning(
+            "The current session was running when last closed, or it wasn't closed properly. It's state might not be consistent."
+        )
+        session["is_running"] = False
+
+    session_state.set_self(session)
+
+    init_session(continue_session=True)
 
 
 def close_session():
@@ -160,7 +234,7 @@ def close_session():
 
 def delete_session():
     if not session_state.exists(()):
-        raise ExperimentException("There is no started session.")
+        raise ExperimentException("Can't delete session. No session is open currently.")
 
     if session_state["is_running"] is True:
         raise ExperimentException("Can't delete session while experiment is running.")
@@ -190,7 +264,8 @@ def run_experiment():
 
     try:
         cur_experiment.run(params.get_self())
-        set_phase(0, 0)
+        st = session_state.get_self()
+        set_phase(st["cur_block"], st["cur_trial"], force_run=True)
         _update_state_file()
     except Exception:
         log.exception("Exception while running experiment:")
@@ -220,15 +295,13 @@ def stop_experiment():
 
         event_logger.log("session/stop", session_state.get_self())
 
-        session_state.delete("cur_trial")
-        session_state.delete("cur_block")
-
+        set_phase(0, 0)
         _update_state_file()
 
     log.info(f"Experiment {session_state['experiment']} has ended.")
 
 
-def set_phase(block, trial):
+def set_phase(block, trial, force_run=False):
     if blocks.exists(()):
         if len(blocks.get_self()) <= block and block != 0:
             raise ExperimentException(f"Block {block} is not defined.")
@@ -260,10 +333,10 @@ def set_phase(block, trial):
                 f"Trial {trial} is out of range for block {block}."
             )
 
-        if cur_block != block:
+        if cur_block != block or force_run:
             cur_experiment.run_block(next_phase_params)
 
-        if cur_trial != trial or cur_block != block:
+        if cur_trial != trial or cur_block != block or force_run:
             cur_experiment.run_trial(next_phase_params)
 
 
@@ -272,12 +345,6 @@ def next_trial():
     Move to the next trial. The next block will start if the number of trials in the current block
     have reached the value of the num_trials session parameter.
     """
-    if not session_state["is_running"]:
-        log.warning(
-            "experiment.py: Attempted to run next_trial() while experiment is not running"
-        )
-        return
-
     cur_trial = session_state["cur_trial"]
     cur_block = session_state["cur_block"]
 
@@ -294,17 +361,12 @@ def next_block():
     """
     Move to the next block. The experiment will stop if the current block is the last one.
     """
-    if not session_state["is_running"]:
-        log.warning(
-            "experiment.py: Attempted to run next_block() while experiment is not running"
-        )
-        return
-
     cur_block = session_state["cur_block"]
     if cur_block + 1 < get_num_blocks():
         set_phase(cur_block + 1, 0)
     else:
-        stop_experiment()
+        if session_state["is_running"]:
+            stop_experiment()
 
 
 def load_experiments(experiments_dir=None):
@@ -331,6 +393,14 @@ def load_experiment_specs():
     global experiment_specs
     experiment_specs = load_experiments()
     return experiment_specs
+
+
+def load_experiment(experiment_name):
+    global cur_experiment
+    spec = experiment_specs[experiment_name]
+    module = reload_module(spec)
+    cls = find_subclass(module, Experiment)
+    cur_experiment = cls(log)
 
 
 def can_update_params():
@@ -415,13 +485,14 @@ def get_num_blocks():
 class Experiment:
     """
     An abstract class representing an experiment. This is the entry point for running
-    experiment modules. An experiment module must contain a class inheriting from the 
+    experiment modules. An experiment module must contain a class inheriting from the
     Experiment class.
 
     self.log - A logging.Logger for logging.
 
     ...
     """
+
     def __init__(self, logger):
         self.log = logger
         self.actions = {}

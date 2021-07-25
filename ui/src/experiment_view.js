@@ -6,7 +6,7 @@ import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
 import { Dropdown, Modal, Button, Icon } from 'semantic-ui-react';
 import { ActionsView } from './actions_view.js';
-
+import { SessionListView } from './session_list_view.js';
 /*
   assign object o to object n without overwriting existing properties of o.
  */
@@ -30,6 +30,7 @@ export const ExperimentView = ({ctrl_state}) => {
     
     const [openNewSessionModal, setOpenNewSessionModal] = React.useState(false);
     const [openDeleteModal, setOpenDeleteModal] = React.useState(false);
+    const [openSessionListModal, setOpenSessionListModal] = React.useState(false);
     
     const [selectedExperimentIdx, setSelectedExperimentIdx] = React.useState(0);
 
@@ -115,6 +116,11 @@ export const ExperimentView = ({ctrl_state}) => {
         
     };
 
+    const continue_session = (session_name) => {
+        setOpenSessionListModal(false);
+        fetch(api_url + "/session/continue/" + session_name);
+    };
+    
     const close_session = () => {
         fetch(api_url + "/session/close");
     };
@@ -160,6 +166,10 @@ export const ExperimentView = ({ctrl_state}) => {
 
     const next_trial = () => {
         fetch(api_url + "/session/next_trial");
+    };
+
+    const reset_phase = () => {
+	fetch(api_url + "/session/reset_phase");
     };
 
     const update_ctrl_state_path = () => {
@@ -210,6 +220,9 @@ export const ExperimentView = ({ctrl_state}) => {
             .then(() => setOpenNewSessionModal(true));
     };
 
+    const open_session_list_modal = () => {
+	setOpenSessionListModal(true);
+    };
     
     const session_title = session ? `Session ${session.id}` : "Session";
 
@@ -221,7 +234,8 @@ export const ExperimentView = ({ctrl_state}) => {
                                onClick={open_new_session_modal}
                                disabled={is_running}/>
                 <Dropdown.Item text='Continue session...'
-                               disabled={is_running}/>
+                               disabled={is_running}
+			       onClick={open_session_list_modal}/>
                 <Dropdown.Divider/>
                 <Dropdown.Item text='Close session'
                                disabled={!session || is_running}
@@ -252,6 +266,7 @@ export const ExperimentView = ({ctrl_state}) => {
           </Modal.Actions>
         </Modal>
     ) : null;
+    
     const new_session_modal = (
         <Modal
           onClose={() => setOpenNewSessionModal(false)}
@@ -293,7 +308,13 @@ export const ExperimentView = ({ctrl_state}) => {
           </Modal.Actions>
         </Modal>
     );
-    
+
+    const session_list_modal = (
+        <SessionListView onSelect={session_name => continue_session(session_name)}
+                         open={openSessionListModal}
+                         setOpen={setOpenSessionListModal}/>
+    );
+
     const exp_controls = (() => {
         if (!session)
             return null;
@@ -315,9 +336,7 @@ export const ExperimentView = ({ctrl_state}) => {
         );
     })();
 
-    const run_state_toolbar = (!is_running ||
-                               session.cur_block === undefined ||
-                               session.cur_trial === undefined) ? null :
+    const phase_toolbar = !session ? null :
           <div className="subsection_header">
             <label>block:</label>
             <input type="text" readOnly value={session.cur_block+1} size="3"/>
@@ -325,6 +344,7 @@ export const ExperimentView = ({ctrl_state}) => {
             <label> trial:</label>
             <input type="text" readOnly value={session.cur_trial+1} size="3"/>
             <button onClick={next_trial}>+</button>
+            <button onClick={reset_phase}><Icon size="small" fitted name="undo"/></button>
           </div>;
 
     const params_height = is_running ? "calc(100% - 48px)" : "calc(100% - 20px)";
@@ -362,10 +382,11 @@ export const ExperimentView = ({ctrl_state}) => {
             <div className="section_header">
               {session_menu}
               {new_session_modal}
-              {delete_session_modal}
+	      {delete_session_modal}
+	      {session_list_modal}
               {exp_controls}
             </div>
-            {run_state_toolbar}
+            {phase_toolbar}
             {exp_interaction}
           </ReflexElement>
           <ReflexSplitter/>
