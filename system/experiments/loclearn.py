@@ -1,5 +1,5 @@
 import experiment as exp
-from experiment import exp_state
+from experiment import session_state
 from state import state
 import arena
 import schedule
@@ -64,7 +64,7 @@ class BBoxDataCollector:
                 ("y2", "double precision"),
                 ("confidence", "double precision"),
             ],
-            csv_path=exp.exp_state["data_dir"] / "head_bbox.csv",
+            csv_path=session_state["data_dir"] / "head_bbox.csv",
             table_name="bbox_position",
         )
         self.bbox_log.start()
@@ -87,8 +87,6 @@ class BBoxDataCollector:
 
 
 class LocationExperiment(exp.Experiment):
-    image_source_id = "top"
-
     default_params = {
         "reinforced_area": {
             "location": [0, 0],
@@ -99,7 +97,7 @@ class LocationExperiment(exp.Experiment):
         "reward_radius": 200,
         "reward_delay": 5,  # seconds
         "dispense_reward": True,
-        "area_stay_duration": 5,  # seconds
+        "area_stay_duration": 2,  # seconds
         "cooldown_duration": 10,  # seconds
         "cue": {
             "type": "led",  # "led" | "led_blink" | "display"
@@ -109,29 +107,35 @@ class LocationExperiment(exp.Experiment):
             "display_duration": 10,
         },
         "record_video": True,
+        "image_source_id": "top",
     }
 
-    def setup(self):
+    def find_aruco(self):
+        # we can also save the image here
         center, corners, self.aruco_img = detect_aruco(
-            LocationExperiment.image_source_id
+            session_state["params", "image_source_id"]
         )
 
         if center is not None:
-            self.log.info("Found aruco markers (see state.experiment.aruco).")
-            exp_state["aruco"] = center
+            self.log.info("Found aruco markers (see state.session.aruco).")
+            session_state["aruco"] = center
         else:
             self.log.info("No aruco markers found.")
 
+    def setup(self):
+        self.actions["Find aruco markers"] = {"run": self.find_aruco}
+
+        self.find_aruco()
         self.bbox_collector = BBoxDataCollector(self.log)
 
     def run(self, params):
         self.find_reinforced_location(params)
         self.bbox_collector.run(self.on_bbox_detection)
-        exp_state["is_in_area"] = False
+        session_state["is_in_area"] = False
         self.in_out_time = None
-        exp_state.add_callback("is_in_area", self.is_in_area_changed)
-        exp_state["cooldown"] = False
-        exp_state["reward_scheduled"] = False
+        session_state.add_callback("is_in_area", self.is_in_area_changed)
+        session_state["cooldown"] = False
+        session_state["reward_scheduled"] = False
         self.cancel_cooldown = None
         self.cancel_reward_delay = None
         self.cancel_blink = None
@@ -139,7 +143,7 @@ class LocationExperiment(exp.Experiment):
             video_record.start_record()
 
     def run_trial(self, params):
-        if exp_state["cur_trial"] == 0:
+        if session_state["cur_trial"] == 0:
             return
 
         # Success
@@ -149,26 +153,24 @@ class LocationExperiment(exp.Experiment):
         else:
             self.log.info("Trial ended.")
 
-        exp_state["reward_scheduled"] = False
+        session_state["reward_scheduled"] = False
 
     def end(self, params):
         self.bbox_collector.end()
-        exp_state.remove_callback("is_in_area")
+        session_state.remove_callback("is_in_area")
         if params["record_video"]:
             video_record.stop_record()
 
-    def release(self):
-        if "aruco" in exp_state:
-            exp_state.delete("aruco")
-
     def find_reinforced_location(self, params):
         if params["reinforced_area"]["use_aruco"] and self.aruco_img is not None:
-            if "aruco" in exp_state:
-                exp_state["reinforced_location"] = exp_state["aruco"]
+            if "aruco" in session_state:
+                session_state["reinforced_location"] = session_state["aruco"]
             else:
-                exp_state["reinforced_location"] = params["reinforced_area"]["location"]
+                session_state["reinforced_location"] = params["reinforced_area"][
+                    "location"
+                ]
         else:
-            exp_state["reinforced_location"] = params["reinforced_area"]["location"]
+            session_state["reinforced_location"] = params["reinforced_area"]["location"]
 
         if self.aruco_img is not None:
             img = np.copy(self.aruco_img)
@@ -177,13 +179,13 @@ class LocationExperiment(exp.Experiment):
 
         img = cv.circle(
             img,
-            tuple(exp_state["reinforced_location"]),
+            tuple(session_state["reinforced_location"]),
             radius=params["reinforced_area"]["radius"],
             color=(0, 255, 0),
             thickness=5,
         )
         now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        area_image_path = exp_state["data_dir"] / f"reinforced_area_{now_str}.jpg"
+        area_image_path = session_state["data_dir"] / f"reinforced_area_{now_str}.jpg"
         self.log.info(f"Saving area image to {area_image_path}")
         cv.imwrite(str(area_image_path), img)
 
@@ -196,40 +198,49 @@ class LocationExperiment(exp.Experiment):
             # later might take part in logic
             return
 
-        params = exp.get_merged_params()
+        params = exp.get_phase_params()
         centroid = bbox.xyxy_to_centroid(np.array(det))
-        was_in_area = exp_state["is_in_area"]
+        was_in_area = session_state["is_in_area"]
 
-        loc = exp_state["reinforced_location"]
+        loc = session_state["reinforced_location"]
         dist_to_location = (centroid[0] - loc[0]) ** 2 + (centroid[1] - loc[1]) ** 2
         is_in_area = dist_to_location <= params["reinforced_area"]["radius"] ** 2
         if was_in_area != is_in_area:
             self.in_out_time = time.time()
-            exp_state["is_in_area"] = is_in_area
+            session_state["is_in_area"] = is_in_area
 
         return dist_to_location
 
     def maybe_end_trial(self):
-        params = exp.get_merged_params()
-        if exp_state["is_in_area"] and time.time() - self.in_out_time > params["area_stay_duration"]:
-            exp_state["reward_scheduled"] = True
-            self.cancel_blink = led_blink(params["cue"]["num_blinks"], params["cue"]["led_duration"])
-            self.cancel_reward_delay = schedule.once(exp.next_trial, params["reward_delay"])
+        params = exp.get_phase_params()
+        if (
+            session_state["is_in_area"]
+            and time.time() - self.in_out_time > params["area_stay_duration"]
+        ):
+            session_state["reward_scheduled"] = True
+            self.cancel_blink = led_blink(
+                params["cue"]["num_blinks"], params["cue"]["led_duration"]
+            )
+            self.cancel_reward_delay = schedule.once(
+                exp.next_trial, params["reward_delay"]
+            )
 
     def maybe_end_cooldown(self):
-        if not exp_state["is_in_area"] and exp_state["cooldown"]:
-            exp_state["cooldown"] = False
+        if not session_state["is_in_area"] and session_state["cooldown"]:
+            session_state["cooldown"] = False
 
     def is_in_area_changed(self, old, new):
         # TODO: make sure area changed continuously
-        params = exp.get_merged_params()
+        params = exp.get_phase_params()
 
         if not old and new:
-            exp.event_logger.log("loclearn/entered_area", {"cooldown": exp_state["cooldown"]})
-            if exp_state["cooldown"]:
+            exp.event_logger.log(
+                "loclearn/entered_area", {"cooldown": session_state["cooldown"]}
+            )
+            if session_state["cooldown"]:
                 self.log.info("Animal entered the reinforced area during cooldown.")
                 self.cancel_cooldown()
-                exp_state["cooldown"] = False
+                session_state["cooldown"] = False
             else:
                 self.log.info("Animal entered the reinforced area.")
                 schedule.once(self.maybe_end_trial, params["area_stay_duration"])
@@ -242,7 +253,8 @@ class LocationExperiment(exp.Experiment):
             if self.cancel_reward_delay is not None:
                 self.cancel_reward_delay()
 
-            if exp_state["reward_scheduled"]:
-                exp_state["cooldown"] = True
-                self.cancel_cooldown = schedule.once(self.maybe_end_cooldown, params["cooldown_duration"])
-            
+            if session_state["reward_scheduled"]:
+                session_state["cooldown"] = True
+                self.cancel_cooldown = schedule.once(
+                    self.maybe_end_cooldown, params["cooldown_duration"]
+                )

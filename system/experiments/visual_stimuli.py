@@ -19,17 +19,24 @@ class VisualStimuli(exp.Experiment):
     }
 
     def setup(self):
-        monitor.change_color("lightgrey")
         arena.turn_touchscreen(True)
+        self.actions["Clear screen"] = {"run": self.clear}
+        monitor.set_color("lightgrey")
 
+    def clear(self, color=None):
+        if color is None:
+            color = exp.get_phase_params()["interstimuli_color"]
+        self.log.info("Clearing screen.")
+        monitor.set_color(color)
+        monitor.clear()
+        
     def run(self, params):
-        self.paths = (
-            list(Path(params["stimuli_path"]).rglob("*.jpg"))
-            + list(Path(params["stimuli_path"]).rglob("*.JPG"))
+        self.paths = list(Path(params["stimuli_path"]).rglob("*.jpg")) + list(
+            Path(params["stimuli_path"]).rglob("*.JPG")
         )
 
         random.shuffle(self.paths)
-        exp.exp_state["image_list"] = self.paths
+        exp.session_state["image_list"] = self.paths
 
         self.log.info(f"Loaded {len(self.paths)} images.")
 
@@ -37,33 +44,32 @@ class VisualStimuli(exp.Experiment):
             params["stimuli_duration"],
             params["interstimuli_duration"],
         ] * len(self.paths)
-        
-        self.log.info(intervals)
+
         self.cur_index = 0
-        self.color = params["interstimuli_color"]
-        monitor.change_color(self.color)
-        
+        self.clear(params["interstimuli_color"])
+
         self.cancel_sequence = schedule.sequence(self.display_stimuli, intervals)
         video_record.start_record()
 
     def display_stimuli(self):
-        self.log.info(self.cur_index)
 
         if self.cur_index % 2 == 0:
             img_path = self.paths[self.cur_index // 2]
             monitor.show_image(img_path)
             exp.event_logger.log("show_image", str(img_path))
         else:
-            monitor.change_color(self.color)
+            monitor.clear()
             exp.event_logger.log("image_off", None)
-            
+
         if self.cur_index == len(self.paths) * 2 - 1:
-            monitor.change_color(self.color)
             exp.next_block()
 
         self.cur_index += 1
 
     def end(self, params):
-        monitor.change_color(self.color)
+        monitor.clear()
         self.cancel_sequence()
         video_record.stop_record()
+
+    def release(self):
+        arena.turn_touchscreen(False)

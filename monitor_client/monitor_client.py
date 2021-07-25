@@ -4,19 +4,36 @@ Random colors from the colors list can be presented, specific colors or images/v
 given their path.
 
 Author: Or Pardilov, 2021
+Author: Tal Eisenberg
 
-Starts a listening thread for MQTT messages which adds messages to a queue, the main 
-thread executes them and maintains the gui.
+Starts a listening thread for MQTT messages which adds messages to a queue, 
+the main thread executes them and maintains the gui.
 """
 
-from tkinter import Tk, Label
+# TODO:
+# - possibly move frame acquisition to queue
+
+import tkinter
 from PIL import ImageTk, Image
-import cv2
+import json
 import paho.mqtt.client as mqtt
 import queue
 import os
 import random
 import config
+import imageio
+import logging
+import sys
+import time
+import threading
+
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="[%(levelname)s] - %(asctime)s: %(message)s",
+)
+
+log = logging.getLogger("Monitor")
 
 ENCODING = "utf-8"
 
@@ -28,40 +45,58 @@ with open("color_lst.txt", "r") as cfile:
 
 
 def on_connect(client, userdata, flags, rc):
-    print("[INFO] Connected to mqtt broker with result code " + str(rc))
+    log.info(f"Connected to mqtt broker with result code {rc}")
 
 
 def on_disconnect(client, userdata, rc):
-    print("[INFO] Disconnected from mqtt broker with result code " + str(rc))
+    log.info(f"Disconnected from mqtt broker with result code {rc}")
 
 
 def on_message(client, userdata, message):
-    print("[INFO] message received ", str(message.payload.decode(ENCODING)))
-    print("[INFO] message topic=", message.topic)
     payload = str(message.payload.decode(ENCODING))
+    msg = f"Message received topic={message.topic}"
+    if payload is not None and len(payload) > 0:
+        msg += f" payload={payload}"
+    log.info(msg)
+
     # messages are added to a queue to avoid messages drop
-    fs.tasks_q.put_nowait((message.topic, payload))
+    fs.tasks_q.put((message.topic, payload))
 
 
 class FsWindow:
     """FsWindow class wraps the GUI data and variables"""
 
     def __init__(self):
-        self.tki = Tk()
+        self.color = "black"
+
+        self.tki = tkinter.Tk()
         # starts GUI on fullscreen
         self.tki.attributes("-fullscreen", True)
-        self.panel = Label(self.tki)
+        self.size = (self.tki.winfo_screenwidth(), self.tki.winfo_screenheight())
+        self.panel = tkinter.Canvas(self.tki)
+        self.panel.configure(bg=self.color, width=self.size[0], height=self.size[1])
         self.panel.pack()
 
         self.tki.bind("<Escape>", self.exit_fs)
         self.tki.bind("<F>", self.enter_fs)
 
-        self.vid_cap = None
-        self.vid_loop = True
+        self.vid_reader = None
+        self.vid_loop = False
         self.vid_stop = False
 
-        self.size = (self.tki.winfo_screenwidth(), self.tki.winfo_screenheight())
         self.tasks_q = queue.Queue()
+
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.on_connect = on_connect
+        self.mqtt_client.on_disconnect = on_disconnect
+        self.mqtt_client.connect(config.mqtt["host"], config.mqtt["port"])
+        self.mqtt_client.on_message = on_message
+        self.mqtt_client.subscribe("monitor/image")
+        self.mqtt_client.subscribe("monitor/play_video")
+        self.mqtt_client.subscribe("monitor/stop_video")
+        self.mqtt_client.subscribe("monitor/color")
+        self.mqtt_client.subscribe("monitor/clear")
+        self.mqtt_client.loop_start()
 
     def update_size(self):
         self.size = (self.tki.winfo_screenwidth(), self.tki.winfo_screenheight())
@@ -72,92 +107,145 @@ class FsWindow:
     def exit_fs(self, event=None):
         self.tki.attributes("-fullscreen", False)
 
+    def clear(self):
+        self.panel.delete(self.image_on_canvas)
+        self.image_on_canvas = None
+        self.load_color()
+
     def load_img(self, im_path):
         # loads image from a given path to screen
-        pil_image = Image.open(im_path)
-        # resizing
-        width, height = pil_image.size
-        w, h = self.tki.winfo_screenwidth(), self.tki.winfo_screenheight()
-        ratio = min(w / width, h / height)
-        width = int(width * ratio)
-        height = int(height * ratio)
-        pil_image = pil_image.resize((width, height), Image.ANTIALIAS)
-        # presenting
+        pil_image, x = self.resize_image(Image.open(im_path))
         imgtk = ImageTk.PhotoImage(pil_image)
         self.panel.imgtk = imgtk
-        self.panel.configure(image=self.panel.imgtk)
+        self.image_on_canvas = self.panel.create_image(
+            x, 0, image=imgtk, anchor=tkinter.NW
+        )
 
     def load_video(self, vid_path):
         # starts the presentation of a video
         self.update_size()
-        self.vid_cap = cv2.VideoCapture(vid_path)
+        self.vid_reader = imageio.get_reader(vid_path, "ffmpeg")
+        video_meta = self.vid_reader.get_meta_data()
+        self.vid_fps = video_meta["fps"]
+        self.vid_length = self.vid_reader.count_frames()
+        self.vid_frame_dur = 1 / self.vid_fps
+        self.vid_stop = False
+        self.vid_timestamps = []
+        self.prev_frame = None
+        self.play_start_time = time.time()
+        self.image_on_canvas = None
+        log.info(f"Playing video {vid_path} @ {self.vid_fps}fps")
         self.player_loop()
 
+    def resize_image(self, pil_image):
+        width, height = pil_image.size
+        w, h = self.size
+        if width == w and height == h:
+            return pil_image, 0
+
+        ratio = min(w / width, h / height)
+        width = int(width * ratio)
+        height = int(height * ratio)
+        x_center = (w - width) // 2
+        return pil_image.resize((width, height), Image.ANTIALIAS), x_center
+
     def player_loop(self):
-        ready, frame = self.vid_cap.read()
+        if self.vid_stop:
+            self.on_video_end()
+            return
 
-        if ready and not self.vid_stop:
-            cv2img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-            # cv2img = cv2.resize(cv2img, self.size, interpolation=cv2.INTER_NEAREST)
-            cv2img = Image.fromarray(cv2img)
-            self.panel.imgtk = ImageTk.PhotoImage(cv2img)
-            self.panel.configure(image=self.panel.imgtk)
+        try:
+            frame_time = time.time() - self.play_start_time
+            cur_frame = int(frame_time // self.vid_frame_dur)
+            frame_start_time = cur_frame * self.vid_frame_dur
 
-            self.tki.after(1, self.player_loop)
-        else:
-            if self.vid_loop and not self.vid_stop:
-                self.vid_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # replay the video
-                print("rerun")
-                self.tki.after(1, self.player_loop)
+            if self.prev_frame is None or self.prev_frame != cur_frame:
+                image = self.vid_reader.get_data(cur_frame)
+                pil_image, x = self.resize_image(Image.fromarray(image))
+
+                imgtk = ImageTk.PhotoImage(pil_image)
+
+                if self.image_on_canvas is None:
+                    self.image_on_canvas = self.panel.create_image(
+                        x, 0, image=imgtk, anchor=tkinter.NW
+                    )
+                    self.panel.image = imgtk
+                else:
+                    self.panel.itemconfig(self.image_on_canvas, image=imgtk)
+                    self.panel.image = imgtk
+
+                self.tki.update_idletasks()
+                ts = time.time()
+                self.vid_timestamps.append((cur_frame, ts))
+                self.prev_frame = cur_frame
+
+            delay = int((self.vid_frame_dur - frame_start_time) // 1000)
+            self.tki.after(delay, self.player_loop)
+
+        except IndexError:
+            if self.vid_loop:
+                log.info("Replaying video")
+                self.tki.after(self.vid_frame_dur, self.player_loop)
             else:
-                self.vid_cap.release()
-                return
+                self.on_video_end()
+
+    def on_video_end(self):
+        log.info("Finished playing video.")
+        self.vid_stop = False
+        self.vid_loop = False
+        self.vid_reader.close()
+        self.mqtt_client.publish(
+            "monitor/playback_ended", json.dumps(self.vid_timestamps)
+        )
+        self.clear()
 
     def update_g(self):
-        # excuets messages from queue
-        if not self.tasks_q.empty():
+        while True:
             msg = self.tasks_q.get()
+            if msg is None:
+                break
             topic = msg[0]
             payload = msg[1]
             if topic == "monitor/image":
                 if os.path.exists(payload):
                     self.load_img(payload)
                 else:
-                    print("[ERROR] The image in " + payload + " was not found")
+                    log.error(f"The image in {payload} was not found.")
+
             elif topic == "monitor/play_video":
                 if os.path.exists(payload):
                     self.load_video(payload)
                 else:
-                    print("[ERROR] The video in " + payload + " was not found")
+                    log.error(f"The image in {payload} was not found.")
+
             elif topic == "monitor/stop_video":
                 self.vid_stop = True
-                self.load_color("black")
+
             elif topic == "monitor/color":
-                self.load_color(payload)
-            else:
-                print("[ERROR] nothing to do with that topic: " + topic)
+                self.set_color(payload)
 
-        self.tki.after(200, self.update_g)
+            elif topic == "monitor/clear":
+                self.clear()
 
-    def load_color(self, color):
-        # loads a color to the screen
+    def set_color(self, color):
         if color == "random":
             color = random.choice(COLORS)
-        self.panel.configure(image="")
-        self.panel.configure(bg=color, width=fs.size[0], height=fs.size[0])
+
+        if color != self.color:
+            self.color = color
+            self.load_color()
+
+    def load_color(self):
+        self.panel.configure(bg=self.color)
 
 
 if __name__ == "__main__":
     fs = FsWindow()
-    fs.panel.configure(bg="black", width=fs.size[0], height=fs.size[0])
-
-    msq_client = mqtt.Client()
-    msq_client.on_connect = on_connect
-    msq_client.on_disconnect = on_disconnect
-    msq_client.connect(config.mqtt["host"], config.mqtt["port"])
-    msq_client.on_message = on_message
-    msq_client.subscribe("monitor/#")
-    msq_client.loop_start()
-
-    fs.update_g()
+    t = threading.Thread(target=fs.update_g)
+    t.start()
     fs.tki.mainloop()
+    log.info("Shutting down...")
+    fs.tasks_q.putnowait(None)
+    log.info("Waiting for listener thread.")
+    t.join()
+    log.info("Exiting")

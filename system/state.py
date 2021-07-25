@@ -31,7 +31,6 @@ import multiprocessing as mp
 from copy import deepcopy
 import dicttools as dt
 import threading
-from pathlib import Path
 
 # The global state is a dict managed by _mgr stored in namespace _ns
 _mgr = None
@@ -156,17 +155,6 @@ def register_listener(on_update, on_ready=None):
     return listen, stop_listening
 
 
-def json_convert(v):
-    """
-    conversion for various datatypes that are not supported by the json module.
-    """
-    if hasattr(v, "tolist"):
-        return v.tolist()
-    if isinstance(v, Path):
-        return str(v)
-    raise TypeError(v)
-
-
 class StateDispatcher:
     """
     Listens for state updates and run callbacks when specific state paths have changed value.
@@ -202,7 +190,7 @@ class StateDispatcher:
         Add a callback to the dispatch table. Aftwards, whenever a state update changes the value
         at path, the on_update(old_val, new_val) function will be called.
 
-        If a callback was previously set with this path, it will be overwritten.
+        If a callback was previously set with this path, it will be removed.
         """
         self._dispatch_table[path] = on_update
 
@@ -215,8 +203,8 @@ class StateDispatcher:
 
 def partial_path_fn(f, path_prefix):
     """
-    Return a function the calls path function f with the supplied path_prefix concatenated to the
-    beginning of its 1st arg.
+    Return a function that calls path function f with the supplied path_prefix concatenated to
+    the beginning of its 1st argument.
     """
 
     def fn(path, *args, **kwargs):
@@ -238,14 +226,18 @@ class Cursor:
     this path and its children. The class implements partial path versions of each state function,
     which accept a partial state path starting from the Cursor's root key. For example:
 
+    ```
     c = state.get_cursor(("x", "y"))
     c.update("z", {"a": 0, "b": 1})
+    ```
 
     This will update the dictionary at state path ("x", "y", "z") with the new supplied values.
     see the dicttools module docs for the full list of available functions/methods.
 
     Cursors are usually created by calling the get_cursor() method of another higher-level Cursor.
     The global state attribute (see below) holds a Cursor pointing to the root state path.
+
+    `state.get_cursor()`
 
     Subscript operators:
     cursor[x] will return a copy of the value at state path x.
@@ -314,7 +306,7 @@ class Cursor:
     def parent(self):
         """
         Return a cursor pointing to the parent path of this cursor.
-        When called on the root state cursor raise a KeyError exception.
+        When called on the root state cursor a KeyError exception is raised.
         """
         if len(self.path) == 0:
             raise KeyError(f"path {self.path} has no parent.")

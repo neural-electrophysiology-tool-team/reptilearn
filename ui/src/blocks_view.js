@@ -2,16 +2,11 @@ import React from 'react';
 import { Icon } from 'semantic-ui-react';
 import ReactJson from 'react-json-view';
 import {Selector} from './components.js';
+import {api_url} from './config.js';
 
-export const BlocksView = ({is_running, cur_block, params, blocks, default_blocks, set_blocks}) => {
+export const BlocksView = ({is_running, cur_block, params, blocks, set_blocks}) => {
     const reset_block = (idx) => {
-        const bs = [...blocks];
-
-        if (idx < default_blocks.length)
-            bs[idx] = default_blocks[idx];
-        else
-            bs[idx] = {};
-        set_blocks(bs);
+        fetch(api_url + `/session/blocks/update/${idx}`, { method: "POST" });
     };
     
     const remove_block = (idx) => {
@@ -88,7 +83,7 @@ export const BlocksView = ({is_running, cur_block, params, blocks, default_block
                />;
     };
 
-    if (blocks === null)
+    if (!blocks)
         return null;
     
     const block_divs = blocks.map((block, idx) => (
@@ -133,9 +128,9 @@ export const BlocksView = ({is_running, cur_block, params, blocks, default_block
           <div className="subsection">
 	    <ReactJson src={blocks[idx]}
                        name={null}
-                       onEdit={(e) => on_block_changed(e, idx)}
-                       onAdd={(e) => on_block_changed(e, idx)}
-                       onDelete={(e) => on_block_changed(e,idx)}/>                 
+                       onEdit={is_running ? undefined : (e) => on_block_changed(e, idx)}
+                       onAdd={is_running ? undefined : (e) => on_block_changed(e, idx)}
+                       onDelete={is_running ? undefined : (e) => on_block_changed(e,idx)}/>                 
           </div>
         </div>
     ));

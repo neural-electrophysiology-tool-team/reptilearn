@@ -31,7 +31,7 @@ class TimerExperiment(exp.Experiment):
         )
 
     def run_trial(self, params):
-        self.log.info(f"{exp.exp_state['cur_trial']}: {time.time()}")
+        self.log.info(f"{exp.session_state['cur_trial']}: {time.time()}")
         arena.signal_led(True)
         schedule.once(lambda: arena.signal_led(False), params["interval"] / 2)
 
