@@ -4,10 +4,14 @@ Random colors from the colors list can be presented, specific colors or images/v
 given their path.
 
 Author: Or Pardilov, 2021
+Author: Tal Eisenberg
 
-Starts a listening thread for MQTT messages which adds messages to a queue, the main 
-thread executes them and maintains the gui.
+Starts a listening thread for MQTT messages which adds messages to a queue, 
+the main thread executes them and maintains the gui.
 """
+
+# TODO:
+# - possibly move frame acquisition to queue
 
 import tkinter
 from PIL import ImageTk, Image
