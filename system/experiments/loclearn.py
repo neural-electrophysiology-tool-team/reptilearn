@@ -175,7 +175,7 @@ class LocationExperiment(exp.Experiment):
         if self.aruco_img is not None:
             img = np.copy(self.aruco_img)
         else:
-            img, _ = exp.image_sources[LocationExperiment.image_source_id].get_image()
+            img, _ = exp.image_sources[params["image_source_id"]].get_image()
 
         img = cv.circle(
             img,
