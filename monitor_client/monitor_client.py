@@ -245,7 +245,7 @@ if __name__ == "__main__":
     t.start()
     fs.tki.mainloop()
     log.info("Shutting down...")
-    fs.tasks_q.putnowait(None)
+    fs.tasks_q.put_nowait(None)
     log.info("Waiting for listener thread.")
     t.join()
     log.info("Exiting")
