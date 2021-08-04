@@ -12,7 +12,6 @@ import flask_cors
 from flask_socketio import SocketIO, emit
 import cv2
 import json
-from pathlib import Path
 import sys
 import argparse
 import importlib
@@ -30,7 +29,6 @@ import state as state_mod
 import experiment
 import video_record
 from dynamic_loading import instantiate_class
-import state_log
 
 # Load environment variables from .env file.
 load_dotenv()
