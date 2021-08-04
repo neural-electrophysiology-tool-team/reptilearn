@@ -1,5 +1,5 @@
 """
-Provide facilities for multiprocess logging, logging exception, logging handlers for experiment log files
+Provide facilities for multiprocess logging, logging exception, logging handlers for session log files
 and socketio logging.
 Author: Tal Eisenberg, 2021
 
@@ -46,36 +46,36 @@ class SocketIOHandler(logging.Handler):
         self.socketio.emit(self.event_name, self.format(record))
 
 
-class ExperimentLogHandler(logging.StreamHandler):
+class SessionLogHandler(logging.StreamHandler):
     """
-    a Log handler that sends log records to experiment log files.
-    The handler will create a log file in the experiment data directory once
-    an experiment has started and start writing log records in it. Once the
-    experiment has ended the handler will stop logging until a new experiment
+    a Log handler that sends log records to session log files.
+    The handler will create a log file in the session data directory once
+    a session is created and start writing log records into it. Once the
+    session is closed the handler will stop logging until a new one
     begins.
 
     The handler uses rl_logging.formatter by default.
     """
-    def __init__(self, log_filename="experiment.log"):
+    def __init__(self, log_filename="session.log"):
         """
         - log_filename: The handler will create log files using this name in
                         new experiment data directories.
         """
         super().__init__()
-        state.add_callback(("experiment", "is_running"), self._on_experiment_run_update)
+        state.add_callback(("session", "data_dir"), self._on_dir_update)
         self.stream = None
         self.log_filename = log_filename
         self.setFormatter(formatter)
 
-    def _on_experiment_run_update(self, old, new):
+    def _on_dir_update(self, old, new):
         if self.stream is not None:
             self.acquire()
             self.stream.close()
             self.stream = None
             self.release()
 
-        if old is False and new is True:  # Experiment is running
-            filename = state["experiment", "data_dir"] / self.log_filename
+        if new is not None:
+            filename = new / self.log_filename
             self.stream = open(filename, "a")
 
     def emit(self, record):

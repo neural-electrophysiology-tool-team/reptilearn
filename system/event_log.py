@@ -6,6 +6,7 @@ import state
 import time
 import json
 from data_log import DataLogger
+from json_convert import json_convert
 
 
 class EventDataLogger(DataLogger):
@@ -126,7 +127,7 @@ class EventDataLogger(DataLogger):
             else:
                 if event is not None:
                     self.logger.debug(f"Logging event: {event}")
-                    return event[0], event[1], json.dumps(event[2])
+                    return event[0], event[1], json.dumps(event[2], default=json_convert)
                 else:
                     self.logger.debug("Stopping event logger")
                     return None

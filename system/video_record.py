@@ -57,7 +57,7 @@ def init(image_sources, logger, config):
         w.start()
 
 
-def restore_after_experiment():
+def restore_after_experiment_session():
     rec_state["write_dir"] = _config.media_dir
     rec_state["filename_prefix"] = ""
 

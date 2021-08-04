@@ -4,6 +4,7 @@ The experiment procedure is capable of running an experiment with a given stimul
 Author: Or Pardilov, 2021
 """
 import experiment as exp
+from experiment import session_state
 import mqtt
 import data_log
 import arena
@@ -71,7 +72,7 @@ class LearnExp(exp.Experiment):
         self.stim_cancel = None
         self.consq_end = False
 
-        self.data_dir = exp.exp_state["data_dir"]
+        self.data_dir = session_state["data_dir"]
         self.cur_trial = params["num_trials"]
         self.consecutive = params["consecutive"]
         # determining the experiment type
@@ -90,7 +91,7 @@ class LearnExp(exp.Experiment):
                 ("y2", "double precision"),
                 ("confidence", "double precision"),
             ],
-            csv_path=exp.exp_state["data_dir"] / "head_bbox.csv",
+            csv_path=session_state["data_dir"] / "head_bbox.csv",
             table_name="bbox_position",
         )
         self.yolo_log.start()

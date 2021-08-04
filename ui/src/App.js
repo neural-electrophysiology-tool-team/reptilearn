@@ -12,7 +12,7 @@ const App = () => {
     const [sourcesConfig, setSourcesConfig] = React.useState(null);
     const socket = React.useContext(SocketContext);
     
-    const handle_new_state = React.useCallback((old_state, new_state) => {
+    const handle_new_state = React.useCallback(new_state => {
 	setCtrlState(JSON.parse(new_state));
     }, []);
 
