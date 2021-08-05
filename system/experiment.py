@@ -156,7 +156,7 @@ def init_session(continue_session=False):
     actions.set_self(cur_experiment.actions.keys())
 
     event_logger.log(
-        f"session/{'continue_session' if continue_session else 'create'}",
+        f"session/{'continue' if continue_session else 'create'}",
         session_state.get_self(),
     )
     _update_state_file()

@@ -93,7 +93,6 @@ class LocationExperiment(exp.Experiment):
             "radius": 200,
             "use_aruco": True,  # Bypass the location value with Aruco marker coordinates
         },
-        "rewarded_location": None,
         "reward_radius": 200,
         "reward_delay": 5,  # seconds
         "dispense_reward": True,
@@ -250,6 +249,7 @@ class LocationExperiment(exp.Experiment):
             self.log.info("Animal left the reinforced area.")
             if self.cancel_blink is not None:
                 self.cancel_blink()
+                arena.signal_led(False)
             if self.cancel_reward_delay is not None:
                 self.cancel_reward_delay()
 

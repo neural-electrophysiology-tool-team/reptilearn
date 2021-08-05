@@ -27,8 +27,8 @@ def split_name_datetime(fn):
     return name, dt
 
 
-def list_experiments(experiment_data_root: Path):
-    exp_dirs = list(filter(lambda p: p.is_dir(), experiment_data_root.glob("*")))
+def list_sessions(session_data_root: Path):
+    exp_dirs = list(filter(lambda p: p.is_dir(), session_data_root.glob("*")))
     dts = []
     names = []
     for exp_dir in exp_dirs:
@@ -42,7 +42,7 @@ def list_experiments(experiment_data_root: Path):
     return df.sort_index()
 
 
-def experiment_stats(exp_dir):
+def session_stats(exp_dir):
     exp_path = Path(exp_dir)
     video_files = list(exp_path.glob("*.mp4")) + list(exp_path.glob("*.avi"))
     image_files = list(exp_path.glob("*.png")) + list(exp_path.glob("*.jpg"))
@@ -55,14 +55,14 @@ def experiment_stats(exp_dir):
     }
 
 
-def experiment_stats_df(exps):
+def sessions_stats_df(exps):
     df = pd.DataFrame(columns=["video_count", "image_count", "csv_count"])
     vids = []
     imgs = []
     csvs = []
 
     for exp_dir in exps.dir:
-        stats = experiment_stats(exp_dir)
+        stats = session_stats(exp_dir)
         vids.append(stats["video_count"])
         imgs.append(stats["image_count"])
         csvs.append(stats["csv_count"])
@@ -73,17 +73,17 @@ def experiment_stats_df(exps):
     return df
 
 
-def experiment_info(exp_dir):
-    exp_dir = Path(exp_dir)
+def session_info(session_dir):
+    session_dir = Path(session_dir)
     info = {}
 
     ts_paths = []
-    videos = list(exp_dir.glob("*.mp4")) + list(exp_dir.glob("*.avi"))
+    videos = list(session_dir.glob("*.mp4")) + list(session_dir.glob("*.avi"))
     info["videos"] = {}
 
     for vid_path in videos:
         name, dt = split_name_datetime(vid_path)
-        ts_path = exp_dir / (vid_path.stem + ".csv")
+        ts_path = session_dir / (vid_path.stem + ".csv")
         if not ts_path.exists():
             ts_path = None
             duration = None
@@ -105,7 +105,7 @@ def experiment_info(exp_dir):
             "duration": duration,
         }
 
-    for csv_path in filter(lambda p: p not in ts_paths, exp_dir.glob("*.csv")):
+    for csv_path in filter(lambda p: p not in ts_paths, session_dir.glob("*.csv")):
         if "events.csv" in csv_path.name:
             info["event_log"] = csv_path
         elif "head_bbox.csv" in csv_path.name:
@@ -116,14 +116,14 @@ def experiment_info(exp_dir):
 
             info["csvs"].append(csv_path)
 
-    info["images"] = list(exp_dir.glob("*.jpg")) + list(exp_dir.glob("*.png"))
+    info["images"] = list(session_dir.glob("*.jpg")) + list(session_dir.glob("*.png"))
 
-    session_state_json = exp_dir / "session_state.json"
+    session_state_json = session_dir / "session_state.json"
     if session_state_json.exists():
         with open(session_state_json, "r") as f:
             info["session_state"] = json.load(f)
     else:
-        session_state_json = exp_dir / "exp_state.json"
+        session_state_json = session_dir / "exp_state.json"
         if session_state_json.exists():
             with open(session_state_json, "r") as f:
                 info["session_state"] = json.load(f)
@@ -133,13 +133,13 @@ def experiment_info(exp_dir):
     return info
 
 
-def find_src_videos(exp_info, src_id):
+def find_src_videos(session_info, src_id):
     vids = {}
 
-    for vid_ts in exp_info["videos"]:
-        for vid_name in exp_info["videos"][vid_ts].keys():
+    for vid_ts in session_info["videos"]:
+        for vid_name in session_info["videos"][vid_ts].keys():
             if vid_name.endswith(src_id):
-                vids[vid_ts] = copy.deepcopy(exp_info["videos"][vid_ts][vid_name])
+                vids[vid_ts] = copy.deepcopy(session_info["videos"][vid_ts][vid_name])
 
     return vids
 
@@ -153,10 +153,10 @@ def load_timestamps(info):
         tdf.timestamp = pd.to_datetime(tdf.timestamp, unit="s")
         info["timestamps"] = tdf
     elif "videos" in info:
-        # experiment info
+        # session info
         info["videos"] = load_timestamps(info["videos"])
     else:
-        # exp_info["videos"]
+        # session_info["videos"]
         for ts in info:
             info[ts] = load_timestamps(info[ts])
 
@@ -201,17 +201,19 @@ def find_video_position(info, timestamp):
     return res
 
 
-def read_event_log(exp_info):
-    events = pd.read_csv(exp_info["event_log"])
+def read_event_log(session_info):
+    events = pd.read_csv(session_info["event_log"])
     events.time = pd.to_datetime(events.time, unit="s")
     return events
 
 
 def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
-    """Makes a new video file playing video file ``filename`` between
+    """
+    Makes a new video file playing video file ``filename`` between
     the times ``t1`` and ``t2``.
 
-    from: https://zulko.github.io/moviepy/_modules/moviepy/video/io/ffmpeg_tools.html"""
+    from: https://zulko.github.io/moviepy/_modules/moviepy/video/io/ffmpeg_tools.html
+    """
     name, ext = os.path.splitext(filename)
     if not targetname:
         T1, T2 = [int(1000 * t) for t in [t1, t2]]
@@ -300,10 +302,3 @@ def get_head_centroids(info, cam_undist=None):
         bboxes = undistort.undistort_data(bboxes, 1440, 1080, cam_undist)
     centroids = bbox.xyxy_to_centroid(bboxes.to_numpy())
     return centroids
-
-
-def is_in_reinforced_area(info):
-    if "reinforced_area" not in info["exp_state"]:
-        raise Exception("Experiment state does not contain a 'reinforced_area' key")
-
-    area = info["exp_state"]["reinforced_area"]
