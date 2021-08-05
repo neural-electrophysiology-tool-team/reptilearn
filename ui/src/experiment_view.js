@@ -347,7 +347,7 @@ export const ExperimentView = ({ctrl_state}) => {
             <button onClick={reset_phase}><Icon size="small" fitted name="undo"/></button>
           </div>;
 
-    const params_height = is_running ? "calc(100% - 48px)" : "calc(100% - 20px)";
+    const params_height = session ? "calc(100% - 48px)" : "calc(100% - 20px)";
     
     const exp_interaction = session ? (
         <div style={{overflow: "scroll", height: params_height}}>

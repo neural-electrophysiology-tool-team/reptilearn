@@ -8,8 +8,8 @@ import pandas as pd
 class VideoPlayExperiment(exp.Experiment):
     default_params = {
         "vid_path": "/data/amit/videos/headbobbing1.mp4",
-        "background_color": "white",
-        "record_video": False,
+        "background_color": "black",
+        "record_video": True,
     }
 
     def setup(self):
@@ -23,8 +23,9 @@ class VideoPlayExperiment(exp.Experiment):
 
     def run_block(self, params):
         self.log.info("Playing video...")
-        monitor.play_video(params["vid_path"])
-    
+        if len(params["vid_path"]) > 0:
+            monitor.play_video(params["vid_path"])
+
     def end_block(self, params):
         monitor.stop_video()
 

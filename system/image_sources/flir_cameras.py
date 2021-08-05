@@ -33,7 +33,6 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
                 self.cam.AcquisitionFrameRate.SetValue(self.config["frame_rate"])
                 self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
-
         except PySpin.SpinnakerException as exc:
             self.log.error(f"(configure_images); {exc}")
 
