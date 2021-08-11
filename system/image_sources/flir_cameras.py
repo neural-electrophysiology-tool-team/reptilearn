@@ -74,7 +74,11 @@ class FLIRImageSource(ImageSource):
         
         self.image_result = self.cam.GetNextImage()
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
-        return (self.image_result.GetNDArray(), timestamp)
+        try:
+            img = self.image_result.GetNDArray()
+            return (img, timestamp)
+        except Exception:
+            self.log.exception("Exception while getting image from flir camera:")
 
     def on_finish(self):
         if self.cam.IsStreaming():
