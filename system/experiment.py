@@ -3,7 +3,7 @@ import re
 
 from state import state
 from json_convert import json_convert
-from dynamic_loading import load_module, find_subclass, reload_module
+from dynamic_loading import load_modules, find_subclass, reload_module
 import video_record
 import event_log
 import json
@@ -58,32 +58,47 @@ def _update_state_file():
         json.dump(session_state.get_self(), f, default=json_convert)
 
 
-def split_name_datetime(fn):
+def split_name_datetime(s):
     """
     Duplicate from analysis.py!
-    Split a string formatted as {name}_%Y%m%d_%H%M%S into name and a datetime64 object.
+    Split a string with format {name}_%Y%m%d_%H%M%S into name and a datetime64 objects.
+
+    Return name (string), dt (np.datetime64)
     """
-    match = re.search("(.*)_([0-9]*)[-_]([0-9]*)", fn.stem)
+    match = re.search("(.*)_([0-9]*)[-_]([0-9]*)", s)
     dt = pd.to_datetime(match.group(2) + " " + match.group(3), format="%Y%m%d %H%M%S")
     name = match.group(1)
-    return name, dt, fn.name
+    return name, dt
 
 
 def get_session_list():
-    sl = list(
-        map(
-            split_name_datetime,
-            filter(
-                lambda p: (p / "session_state.json").exists(),
-                config.session_data_root.glob("*"),
-            ),
-        )
-    )
+    """
+    Return a list of sessions stored under the `config.session_data_root` path.
+    Each list element is a tuple of (id, dt, fn) where id is the session id,
+    dt is a np.datetime64 object of the session creation datetime encoded in
+    the directory name, and fn is the full session directory name.
+    """
+    paths = list(filter(
+        lambda p: (p / "session_state.json").exists(),
+        config.session_data_root.glob("*"),
+    ))
+    nds = list(map(split_name_datetime, [p.stem for p in paths]))
+    sl = [(nd[0], nd[1], p.name) for nd, p in zip(nds, paths)]
     sl.sort(key=lambda s: s[1])
     return sl
 
 
-def create_session(session):
+def create_session(session_id, experiment):
+    """
+    Create and activate a new session.
+
+    session_id: String used as the base of the session directory name.
+    experiment: An experiment module name
+
+    Creates a session directory, loads the experiment, updates session state,
+    and calls init_session().
+
+    """
     if session_state.exists(()) and session_state["is_running"] is True:
         raise ExperimentException(
             "Can't start new session while an experiment is running."
@@ -92,20 +107,20 @@ def create_session(session):
     if session_state.exists(()):
         close_session()
 
-    log.info(f"Starting session {session['id']}")
+    log.info(f"\nStarting session {session_id}")
     log.info("=================================================")
 
-    if session["experiment"] not in experiment_specs.keys():
-        raise ExperimentException(f"Unknown experiment: {session['experiment']}.")
+    if experiment not in experiment_specs.keys():
+        raise ExperimentException(f"Unknown experiment: {experiment}.")
 
     if (
-        len(session["id"].strip()) == 0
-        or len(re.findall(r"[^A-Za-z0-9_]", session["id"])) != 0
+        len(session_id.strip()) == 0
+        or len(re.findall(r"[^A-Za-z0-9_]", session_id)) != 0
     ):
-        raise ExperimentException(f"Invalid session id: '{session['id']}'")
+        raise ExperimentException(f"Invalid session id: '{session_id}'")
 
     start_time = datetime.now()
-    session_dir = session["id"] + "_" + start_time.strftime("%Y%m%d_%H%M%S")
+    session_dir = session_id + "_" + start_time.strftime("%Y%m%d_%H%M%S")
     data_path = config.session_data_root / session_dir
 
     try:
@@ -115,14 +130,14 @@ def create_session(session):
 
     log.info(f"Data directory: {str(data_path)}")
 
-    load_experiment(session["experiment"])
+    load_experiment(experiment)
 
     session_state.set_self(
         {
             "is_running": False,
-            "experiment": session["experiment"],
+            "experiment": experiment,
             "data_dir": data_path,
-            "id": session["id"],
+            "id": session_id,
             "start_time": start_time,
             "params": cur_experiment.get_default_params(),
             "blocks": cur_experiment.get_default_blocks(),
@@ -134,43 +149,21 @@ def create_session(session):
     init_session()
 
 
-def init_session(continue_session=False):
-    data_dir = Path(session_state["data_dir"])
-    state["video_record", "write_dir"] = data_dir
-
-    csv_path = data_dir / "events.csv" if config.event_log["log_to_csv"] else None
-
-    global event_logger
-    event_logger = event_log.EventDataLogger(
-        csv_path=csv_path,
-        log_to_db=config.event_log["log_to_db"],
-        table_name=config.event_log["table_name"],
-    )
-    if not event_logger.start(wait=5):
-        raise ExperimentException("Event logger can't connect. Timeout elapsed.")
-
-    for src, key in config.event_log["default_events"]:
-        event_logger.add_event(src, key)
-
-    cur_experiment.setup()
-    actions.set_self(cur_experiment.actions.keys())
-
-    event_logger.log(
-        f"session/{'continue' if continue_session else 'create'}",
-        session_state.get_self(),
-    )
-    _update_state_file()
-
-
 def continue_session(session_name):
-    # make sure loggers use append to csv files
+    """
+    Continue a session stored under the directory
+    `config.session_data_root / session_name`
+
+    Load the session experiment module, load latest session state from the session_state.json file,
+    and call init_session().
+    """
     # add session vars for local stuff
     # if is running delete session vars and change to not running
 
     if session_state.exists(()):
         close_session()
 
-    log.info(f"Continuing session {session_name}")
+    log.info(f"\nContinuing session {session_name}")
     log.info("=================================================")
 
     data_path = config.session_data_root / session_name
@@ -204,7 +197,44 @@ def continue_session(session_name):
     init_session(continue_session=True)
 
 
+def init_session(continue_session=False):
+    """
+    Initialize the session event logger (stored as a global event_logger object),
+    calls the experiment class setup() hook, and creates session_state.json file.
+    """
+    data_dir = Path(session_state["data_dir"])
+    state["video_record", "write_dir"] = data_dir
+
+    csv_path = data_dir / "events.csv" if config.event_log["log_to_csv"] else None
+
+    global event_logger
+    event_logger = event_log.EventDataLogger(
+        csv_path=csv_path,
+        log_to_db=config.event_log["log_to_db"],
+        table_name=config.event_log["table_name"],
+    )
+    if not event_logger.start(wait=5):
+        raise ExperimentException("Event logger can't connect. Timeout elapsed.")
+
+    for src, key in config.event_log["default_events"]:
+        event_logger.add_event(src, key)
+
+    cur_experiment.setup()
+    actions.set_self(cur_experiment.actions.keys())
+
+    event_logger.log(
+        f"session/{'continue' if continue_session else 'create'}",
+        session_state.get_self(),
+    )
+    _update_state_file()
+
+
 def close_session():
+    """
+    Close the current session. Updates the session state file,
+    calls the experiment class release() hook, shutdowns the event logger,
+    removes session state from the global state.
+    """
     global cur_experiment
 
     if not session_state.exists(()):
@@ -233,6 +263,9 @@ def close_session():
 
 
 def delete_session():
+    """
+    Close the current session and delete its data directory.
+    """
     if not session_state.exists(()):
         raise ExperimentException("Can't delete session. No session is open currently.")
 
@@ -247,8 +280,8 @@ def delete_session():
 
 def run_experiment():
     """
-    Run the experiment of the current session. Calls the `run` function, and starts
-    trial 0 of block 0
+    Run the experiment of the current session. Calls the experiment class run(params) hook, and starts
+    trial 0 of block 0. Updates the session state file.
     """
     if session_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
@@ -276,10 +309,8 @@ def run_experiment():
 
 def stop_experiment():
     """
-    Stop a currently running experiment.
+    Stop the currently running experiment.
     """
-    global event_logger
-
     if session_state["is_running"] is False:
         raise ExperimentException("Session is not running.")
 
@@ -302,6 +333,14 @@ def stop_experiment():
 
 
 def set_phase(block, trial, force_run=False):
+    """
+    Set the current block and trial numbers.
+    Calls the run_block(params) and run_trial(params) experiment class hooks.
+
+    block, trial: int indices (starting with 0).
+    force_run: When True, the hooks will be called even when the parameters are
+    the same as the current phase.
+    """
     if blocks.exists(()):
         if len(blocks.get_self()) <= block and block != 0:
             raise ExperimentException(f"Block {block} is not defined.")
@@ -342,8 +381,8 @@ def set_phase(block, trial, force_run=False):
 
 def next_trial():
     """
-    Move to the next trial. The next block will start if the number of trials in the current block
-    have reached the value of the num_trials session parameter.
+    Move to the next trial. The next block will start if the number of trials
+    in the current block have reached the value of the num_trials session parameter.
     """
     cur_trial = session_state["cur_trial"]
     cur_block = session_state["cur_block"]
@@ -359,7 +398,8 @@ def next_trial():
 
 def next_block():
     """
-    Move to the next block. The experiment will stop if the current block is the last one.
+    Move to the next block. The experiment will stop if the current block is
+    the last one.
     """
     cur_block = session_state["cur_block"]
     if cur_block + 1 < get_num_blocks():
@@ -369,35 +409,28 @@ def next_block():
             stop_experiment()
 
 
-def load_experiments(experiments_dir=None):
-    if experiments_dir is None:
-        experiments_dir = config.experiment_modules_dir
-
-    experiment_specs = {}
-    experiment_pys = experiments_dir.glob("*.py")
-
-    for py in experiment_pys:
-        try:
-            module, spec = load_module(py, package="experiments")
-            cls = find_subclass(module, Experiment)
-            if cls is not None:
-                experiment_specs[py.stem] = spec
-
-        except Exception:
-            log.exception("While loading experiments:")
-
-    return experiment_specs
-
-
 def load_experiment_specs():
+    """
+    Load all experiment modules found in the `config.experiment_modules_dir`
+    Path, and return a list of all experiment module specs.
+    """
     global experiment_specs
-    experiment_specs = load_experiments()
+    experiment_specs = dict(
+        filter(
+            lambda k_mod_spec: find_subclass(k_mod_spec[1][0], Experiment),
+            load_modules(config.experiment_modules_dir, log).items(),
+        )
+    )
     return experiment_specs
 
 
 def load_experiment(experiment_name):
+    """
+    Load an experiment module. Reload the module and instantiate the experiment
+    class.
+    """
     global cur_experiment
-    spec = experiment_specs[experiment_name]
+    _, spec = experiment_specs[experiment_name]
     module = reload_module(spec)
     cls = find_subclass(module, Experiment)
     cur_experiment = cls(log)
@@ -459,7 +492,7 @@ def run_action(label):
 def get_phase_params():
     """
     Return the parameters of the current block. These are determined by the
-    session parameters overriden by values in the block parameters.
+    session parameters overriden by values in the current block parameters.
     """
     if (
         blocks.exists(())
@@ -484,13 +517,15 @@ def get_num_blocks():
 
 class Experiment:
     """
-    An abstract class representing an experiment. This is the entry point for running
-    experiment modules. An experiment module must contain a class inheriting from the
-    Experiment class.
+    An abstract class representing an experiment. This is the entry point for
+    running experiment modules. An experiment module must contain a class
+    inheriting from the Experiment class.
 
     self.log - A logging.Logger for logging.
 
-    ...
+    Provides various experiment lifecycle methods. Some methods accept a
+    params argument. This is a dictionary (not a cursor) of the current
+    parameters according to the current block number.
     """
 
     def __init__(self, logger):
@@ -500,36 +535,58 @@ class Experiment:
         self.default_blocks = [{}]
 
     def run(self, params):
+        """Called by run_experiment()"""
         pass
 
     def run_block(self, params):
+        """Called by set_phase()"""
         pass
 
     def run_trial(self, params):
+        """Called by set_phase()"""
         pass
 
     def end(self, params):
+        """Called by stop_experiment()"""
         pass
 
     def end_block(self, params):
+        """Called by set_phase() and stop_experiment()"""
         pass
 
     def end_trial(self, params):
+        """Called by set_phase() and stop_experiment()"""
         pass
 
     def setup(self):
+        """Called by init_session() after the session was created or continued."""
         pass
 
     def release(self):
+        """Called by close_session()"""
         pass
 
     def get_default_params(self):
+        """
+        Return by default the static class attribute `default_params`.
+        If the static attribute is not defined return the instance attribute
+        with the same name.
+
+        Can be overriden to define default parameters dynamically.
+        """
         try:
             return type(self).default_params
         except AttributeError:
             return self.default_params
 
     def get_default_blocks(self):
+        """
+        Return by default the static class attribute `default_blocks`.
+        If the static attribute is not defined return the instance attribute
+        with the same name.
+
+        Can be overriden to define default block parameters dynamically.
+        """
         try:
             return type(self).default_blocks
         except AttributeError:

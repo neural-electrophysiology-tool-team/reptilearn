@@ -17,6 +17,8 @@ import argparse
 import importlib
 import traceback
 from dotenv import load_dotenv
+from dateutil import parser
+import datetime
 
 import rl_logging
 import mqtt
@@ -27,8 +29,10 @@ import image_utils
 from state import state
 import state as state_mod
 import experiment
+import task
 import video_record
 from dynamic_loading import instantiate_class
+from json_convert import json_convert
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -100,6 +104,7 @@ image_observers = {
 mqtt.init(log, config)
 arena.init(log, config.arena_defaults)
 video_record.init(image_sources, log, config)
+task.init(log, config)
 experiment.init(image_observers, image_sources, log, config)
 
 # Start processes of image observers and sources
@@ -236,7 +241,8 @@ def route_experiment_list():
 @app.route("/session/create", methods=["POST"])
 def route_session_start():
     try:
-        exp_interface = experiment.create_session(flask.request.json)
+        session = flask.request.json
+        exp_interface = experiment.create_session(session["id"], session["experiment"])
         return flask.jsonify(exp_interface)
     except Exception as e:
         log.exception("Exception while starting new session:")
@@ -359,6 +365,33 @@ def route_session_list():
         return flask.jsonify(sessions)
     except Exception as e:
         log.exception("Exception while getting session list:")
+        flask.abort(500, e)
+
+
+@app.route("/task/list")
+def route_task_list():
+    return flask.jsonify(task.all_tasks())
+
+
+@app.route("/task/run/<module>/<fn>")
+def route_task_run(module, fn):
+    try:
+        task.run(module, fn)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while running task.")
+        flask.abort(500, e)
+
+
+@app.route("/task/schedule/<module>/<fn>", methods=["POST"])
+def route_task_schedule(module, fn):
+    try:
+        dt = parser.parse(flask.request.json).astimezone()
+        task.schedule(module, fn, dt)
+        log.info(f"Scheduled task {module}.{fn} at {dt}")
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while running task.")
         flask.abort(500, e)
 
 
