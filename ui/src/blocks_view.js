@@ -73,7 +73,8 @@ export const BlocksView = ({is_running, cur_block, params, blocks, set_blocks}) 
         let options = ["Override", ...Object.keys(params).filter(
             key => block[key] === undefined
         )];
-        if (block["num_trials"] === undefined)
+	
+        if (!options.includes("num_trials"))
             options.push("num_trials");
         
         return <Selector options={options}
