@@ -5,6 +5,7 @@ import {ExperimentView} from './experiment_view.js';
 import {ArenaControlView} from './arena_control_view.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {LogView} from './log_view.js';
+import {TasksView} from './tasks_view.js';
 
 export const MainPanelView = ({ctrl_state, sources_config}) => {
     if (!sources_config) {
@@ -21,6 +22,7 @@ export const MainPanelView = ({ctrl_state, sources_config}) => {
             <span className="title">ReptiLearn</span>
             <VideoRecordView ctrl_state={ctrl_state}/>
             <ArenaControlView ctrl_state={ctrl_state}/>
+	    <TasksView />
           </ReflexElement>
           <ReflexElement>
             <ReflexContainer orientation="horizontal" windowResizeAware={true}>
