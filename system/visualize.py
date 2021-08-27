@@ -293,7 +293,11 @@ def offline_bbox_visualizer(
                 bbox = bbox * (bbox > 0)  # zero out negative coords.
                 bbox = bbox.astype(int)
                 cv.rectangle(
-                    write_frame, tuple(bbox[:2]), tuple(bbox[2:4]), color, line_thickness
+                    write_frame,
+                    tuple(bbox[:2]),
+                    tuple(bbox[2:4]),
+                    color,
+                    line_thickness,
                 )
 
     return fn
@@ -423,6 +427,33 @@ def offline_trajectory_visualizer(
                 future_color,
                 line_thickness,
             )
+
+    return fn
+
+
+def offline_frame_marker(marked_frames, color=(0, 255, 0), max_alpha=0.5, duration=30):
+    last_marked = None
+
+    def fn(orig_frame, write_frame, frame_counter):
+        nonlocal last_marked
+
+        if marked_frames[frame_counter]:
+            last_marked = frame_counter
+
+        if last_marked is not None:
+            cur_duration = frame_counter - last_marked
+            if cur_duration > duration:
+                last_marked = None
+                return
+
+            alpha = max_alpha * (1 - cur_duration / duration)
+
+            overlay = write_frame.copy()
+            cv.rectangle(
+                overlay, (0, 0), (overlay.shape[1], overlay.shape[0]), color, -1
+            )
+
+            cv.addWeighted(overlay, alpha, write_frame, 1 - alpha, 0, write_frame)
 
     return fn
 
@@ -634,6 +665,7 @@ def process_video(
     start_frame=0,
     num_frames=None,
     frame_rate=None,
+    speed=1,
     resize_to_width=None,
 ):
     """
@@ -659,9 +691,13 @@ def process_video(
     :param start_frame: the first frame to be processed.
     :param num_frames: number of frames to process or None to process the whole video.
     :param frame_rate: the framerate of the processed video or None to use the original framerate.
+    :param speed: the speed of the output video relative to the original video. Use an integer value k greater than 1 to process each kth frame of the input video.
     :param resize_to_width: when not None, the output is resized after processing each frame.
     """
     vcap = cv.VideoCapture(str(video_path))
+
+    if speed < 1:
+        raise ValueError(f"Invalid speed argument {speed}")
 
     if start_frame != 0:
         vcap.set(cv.CAP_PROP_POS_FRAMES, start_frame)
@@ -672,8 +708,10 @@ def process_video(
     if frame_rate is None:
         frame_rate = vcap.get(cv.CAP_PROP_FPS)
 
-    for frame_counter in tqdm(range(start_frame, start_frame + num_frames)):
+    for frame_counter in tqdm(range(start_frame, start_frame + num_frames, speed)):
         ret, orig_frame = vcap.read()
+        if speed != 1:
+            vcap.set(cv.CAP_PROP_POS_FRAMES, frame_counter + speed)
 
         if not ret:
             print("error reading frame")
