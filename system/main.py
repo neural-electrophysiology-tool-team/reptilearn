@@ -27,10 +27,10 @@ import image_utils
 from state import state
 import state as state_mod
 import experiment
+import task
 import video_record
 from dynamic_loading import instantiate_class
 from json_convert import json_convert
-
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -102,6 +102,7 @@ image_observers = {
 mqtt.init(log, config)
 arena.init(log, config.arena_defaults)
 video_record.init(image_sources, log, config)
+task.init(log, config)
 experiment.init(image_observers, image_sources, log, config)
 
 # Start processes of image observers and sources
@@ -238,7 +239,8 @@ def route_experiment_list():
 @app.route("/session/create", methods=["POST"])
 def route_session_start():
     try:
-        exp_interface = experiment.create_session(flask.request.json)
+        session = flask.request.json
+        exp_interface = experiment.create_session(session["id"], session["experiment"])
         return flask.jsonify(exp_interface)
     except Exception as e:
         log.exception("Exception while starting new session:")
@@ -364,6 +366,46 @@ def route_session_list():
         flask.abort(500, e)
 
 
+@app.route("/task/list")
+def route_task_list():
+    return flask.jsonify(task.all_tasks())
+
+
+@app.route("/task/run/<module>/<fn>")
+def route_task_run(module, fn):
+    try:
+        task.run(module, fn)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while running task.")
+        flask.abort(500, e)
+
+
+@app.route("/task/schedule/<module>/<fn>", methods=["POST"])
+def route_task_schedule(module, fn):
+    try:
+        task.schedule_task(module, fn, **flask.request.json)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while running task.")
+        flask.abort(500, e)
+
+
+@app.route("/task/scheduled_tasks")
+def route_task_scheduled_tasks():
+    return flask.jsonify(task.scheduled_tasks())
+
+
+@app.route("/task/cancel/<int:task_idx>")
+def route_task_cancel(task_idx):
+    try:
+        task.cancel_task(task_idx)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while cancelling task.")
+        flask.abort(500, e)
+
+
 @app.route("/video_record/select_source/<src_id>")
 def route_select_source(src_id):
     video_record.select_source(src_id)
@@ -460,7 +502,7 @@ for img_src in image_sources.values():
     img_src.join()
 
 video_record.stop_trigger()
-schedule.cancel_all()
+schedule.cancel_all(pool=None)
 arena.release()
 mqtt.shutdown()
 rl_logging.shutdown()

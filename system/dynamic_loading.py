@@ -29,3 +29,18 @@ def find_subclass(module, parent):
         if issubclass(c, parent):
             return c
     return None
+
+
+def load_modules(modules_dir, logger=None):
+    modules = {}
+    module_pys = modules_dir.glob("*.py")
+
+    for py in module_pys:
+        try:
+            module, spec = load_module(py, package=modules_dir.stem)
+            modules[py.stem] = module, spec
+        except Exception:
+            if logger:
+                logger.exception("While loading modules:")
+
+    return modules
