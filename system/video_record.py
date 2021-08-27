@@ -146,13 +146,14 @@ def save_image(src_ids=None):
         src_ids = rec_state["selected_sources"]
 
     images = [_image_sources[src_id].get_image() for src_id in src_ids]
-    paths = [_get_new_write_path(src_id, "jpg") for src_id in src_ids]
+    timestamp = datetime.now()
+    paths = [_get_new_write_path(src_id, "jpg", timestamp) for src_id in src_ids]
     for p, im, src in zip(paths, images, src_ids):
         _log.info(f"Saved image from {src} to {p}")
         imageio.imwrite(str(p), im[0])
 
 
-def _get_new_write_path(src_id, file_ext):
+def _get_new_write_path(src_id, file_ext, timestamp=datetime.now()):
     filename_prefix = rec_state["filename_prefix"]
     write_dir = rec_state["write_dir"]
 
@@ -160,7 +161,7 @@ def _get_new_write_path(src_id, file_ext):
         filename_prefix += "_"
 
     base = (
-        filename_prefix + src_id + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "."
+        filename_prefix + src_id + "_" + timestamp.strftime("%Y%m%d-%H%M%S") + "."
     )
     return write_dir / (base + file_ext)
 
@@ -192,10 +193,11 @@ class VideoWriter(ImageObserver):
             self.log.error("Can't write video. Image source is not acquiring.")
             return
 
+        timestamp = datetime.now()
         vid_path = _get_new_write_path(
-            self.img_src.src_id, _config.video_record["file_ext"]
+            self.img_src.src_id, _config.video_record["file_ext"], timestamp
         )
-        ts_path = _get_new_write_path(self.img_src.src_id, "csv")
+        ts_path = _get_new_write_path(self.img_src.src_id, "csv", timestamp)
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(
