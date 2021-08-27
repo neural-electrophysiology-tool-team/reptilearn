@@ -9,6 +9,7 @@ export const ActionsView = ({actions}) => {
     
     const action_items = actions.map(a => (
         <Dropdown.Item text={a}
+                       key={a}
                        onClick={() => run_action(a)}
                        disabled={false}/>
     ));

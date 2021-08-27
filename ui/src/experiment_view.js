@@ -4,7 +4,7 @@ import ReactJson from 'react-json-view';
 import {api_url} from './config.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
-import { Dropdown, Modal, Button, Icon } from 'semantic-ui-react';
+import { Input, Dropdown, Modal, Button, Icon } from 'semantic-ui-react';
 import { ActionsView } from './actions_view.js';
 import { SessionListView } from './session_list_view.js';
 /*
@@ -266,7 +266,8 @@ export const ExperimentView = ({ctrl_state}) => {
           </Modal.Actions>
         </Modal>
     ) : null;
-    
+
+    const experiment_options = experimentList.map((e, i) => {return {text: e, key: e, value: i};});
     const new_session_modal = (
         <Modal
           onClose={() => setOpenNewSessionModal(false)}
@@ -281,16 +282,17 @@ export const ExperimentView = ({ctrl_state}) => {
                 <tr>
                   <th>Experiment:</th>
                   <td>
-                    <Selector options={experimentList}
-                              selected={selectedExperimentIdx}
-                              on_select={(exp, i) => setSelectedExperimentIdx(i)}
+                    <Dropdown options={experiment_options}
+                              selection
+                              defaultValue={experiment_options.length > 0 ? experiment_options[selectedExperimentIdx].value : null}
+                              onChange={(e, opt) => {console.log(opt); setSelectedExperimentIdx(opt.value);}}
                               className="full-width"/> 
                   </td>
                 </tr>
                 <tr>
                   <th>Session id:</th>
                   <td>
-                    <input type="text"
+                    <Input type="text"
                            ref={experiment_id_ref}
                            placeholder={experimentList[selectedExperimentIdx]}
                            className="full-width"

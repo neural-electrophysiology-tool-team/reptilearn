@@ -17,8 +17,6 @@ import argparse
 import importlib
 import traceback
 from dotenv import load_dotenv
-from dateutil import parser
-import datetime
 
 import rl_logging
 import mqtt
@@ -386,12 +384,25 @@ def route_task_run(module, fn):
 @app.route("/task/schedule/<module>/<fn>", methods=["POST"])
 def route_task_schedule(module, fn):
     try:
-        dt = parser.parse(flask.request.json).astimezone()
-        task.schedule(module, fn, dt)
-        log.info(f"Scheduled task {module}.{fn} at {dt}")
+        task.schedule_task(module, fn, **flask.request.json)
         return flask.Response("ok")
     except Exception as e:
         log.exception("Exception while running task.")
+        flask.abort(500, e)
+
+
+@app.route("/task/scheduled_tasks")
+def route_task_scheduled_tasks():
+    return flask.jsonify(task.scheduled_tasks())
+
+
+@app.route("/task/cancel/<int:task_idx>")
+def route_task_cancel(task_idx):
+    try:
+        task.cancel_task(task_idx)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while cancelling task.")
         flask.abort(500, e)
 
 
@@ -491,7 +502,7 @@ for img_src in image_sources.values():
     img_src.join()
 
 video_record.stop_trigger()
-schedule.cancel_all()
+schedule.cancel_all(pool=None)
 arena.release()
 mqtt.shutdown()
 rl_logging.shutdown()
