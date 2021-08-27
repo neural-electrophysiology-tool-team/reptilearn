@@ -326,7 +326,8 @@ def stop_experiment():
 
         event_logger.log("session/stop", session_state.get_self())
 
-        set_phase(0, 0)
+        set_phase(session_state.get("cur_block", 0),
+                  session_state.get("cur_trial", 0))
         _update_state_file()
 
     log.info(f"Experiment {session_state['experiment']} has ended.")
