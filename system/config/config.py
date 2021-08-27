@@ -8,6 +8,9 @@ log_level = logging.INFO
 # Where experiment python modules can be found.
 experiment_modules_dir: Path = Path("./experiments/")
 
+# Where python modules containing tasks can be found.
+tasks_modules_dir: Path = Path("./tasks/")
+
 # Session data (videos, images, csv files, etc.) will be stored here.
 session_data_root: Path = Path("/data/reptilearn/experiments/")
 

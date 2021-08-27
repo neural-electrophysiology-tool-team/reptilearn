@@ -42,7 +42,5 @@ class TimerExperiment(exp.Experiment):
         pass
 
     def end(self, params):
-        if self.cancel_timer is not None:
-            self.cancel_timer()
-
+        schedule.cancel_all()
         self.log.info("Stopped timer")
