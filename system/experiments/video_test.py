@@ -3,6 +3,7 @@ import experiment as exp
 import arena
 import monitor
 import pandas as pd
+import schedule
 
 
 class VideoPlayExperiment(exp.Experiment):
@@ -10,14 +11,18 @@ class VideoPlayExperiment(exp.Experiment):
         "vid_path": "/data/amit/videos/headbobbing1.mp4",
         "background_color": "black",
         "record_video": True,
+        "block_duration": None,
     }
 
     def setup(self):
         arena.turn_touchscreen(True)
         monitor.on_playback_end(self.playback_ended)
-
+        color = exp.session_state["params"]["background_color"]
+        self.actions["Set background"] = {"run": lambda: monitor.set_color(color)}
+        
     def run(self, params):
         monitor.set_color(params["background_color"])
+        arena.day_lights(True)
         if params["record_video"]:
             video_record.start_record()
 
@@ -25,6 +30,8 @@ class VideoPlayExperiment(exp.Experiment):
         self.log.info("Playing video...")
         if len(params["vid_path"]) > 0:
             monitor.play_video(params["vid_path"])
+        if params["block_duration"] is not None:
+            schedule.once(exp.next_block, params["block_duration"])
 
     def end_block(self, params):
         monitor.stop_video()
@@ -32,6 +39,7 @@ class VideoPlayExperiment(exp.Experiment):
     def end(self, params):
         if params["record_video"]:
             video_record.stop_record()
+        arena.day_lights(True)
 
     def release(self):
         arena.turn_touchscreen(False)
@@ -42,4 +50,5 @@ class VideoPlayExperiment(exp.Experiment):
         self.log.info(f"Video playback finished. Saving timestamps to: {csv_path}")
         df = pd.DataFrame(data=timestamps, columns=["frame", "time"])
         df.to_csv(csv_path, index=False)
-        exp.next_block()
+        if exp.get_phase_params()["block_duration"] is None:
+            exp.next_block()

@@ -6,6 +6,8 @@ from json_convert import json_convert
 from dynamic_loading import load_modules, find_subclass, reload_module
 import video_record
 import event_log
+import schedule
+
 import json
 import shutil
 import pandas as pd
@@ -78,10 +80,12 @@ def get_session_list():
     dt is a np.datetime64 object of the session creation datetime encoded in
     the directory name, and fn is the full session directory name.
     """
-    paths = list(filter(
-        lambda p: (p / "session_state.json").exists(),
-        config.session_data_root.glob("*"),
-    ))
+    paths = list(
+        filter(
+            lambda p: (p / "session_state.json").exists(),
+            config.session_data_root.glob("*"),
+        )
+    )
     nds = list(map(split_name_datetime, [p.stem for p in paths]))
     sl = [(nd[0], nd[1], p.name) for nd, p in zip(nds, paths)]
     sl.sort(key=lambda s: s[1])
@@ -251,6 +255,13 @@ def close_session():
         except Exception:
             log.exception("While releasing experiment:")
 
+        try:
+            schedule.cancel_all(pool="experiment")
+        except ValueError:
+            pass
+        except Exception:
+            log.exception("While cancelling experiment schedules:")
+
     cur_experiment = None
 
     if event_logger is not None:
@@ -326,8 +337,7 @@ def stop_experiment():
 
         event_logger.log("session/stop", session_state.get_self())
 
-        set_phase(session_state.get("cur_block", 0),
-                  session_state.get("cur_trial", 0))
+        set_phase(session_state.get("cur_block", 0), session_state.get("cur_trial", 0))
         _update_state_file()
 
     log.info(f"Experiment {session_state['experiment']} has ended.")
