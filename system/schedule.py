@@ -10,7 +10,7 @@ import functools
 from collections import Sequence
 
 _log = logging.getLogger("Main")
-_cancel_fns = []
+_cancel_fns = {}
 
 
 def schedule_func(thread_fn):
@@ -18,12 +18,13 @@ def schedule_func(thread_fn):
     Return a schedule function that will run thread_fn in a separate thread.
     - thread_fn: A function with signature
                     (callback, args, kwargs, cancel_event, *sch_args, **sch_kwargs)
-        The thread_fn needs to invoke the callback at some future time. When the cancel_event is
-        set the thread should finish.
+        The thread_fn needs to invoke the callback at some future time. When
+        the cancel_event (threading.Event) is set the thread should finish.
 
         - callback: The task function that will be scheduled.
         - args, kwargs: The task arguments list and named arguments dictionary.
         - cancel_event: threading.Event that will be set when the schedule should be cancelled.
+        - pool: The task pool name.
         - *sch_args, **sch_kwargs: arguments and named-arguments of the schedule function.
 
     The returned schedule function has this signature:
@@ -34,28 +35,33 @@ def schedule_func(thread_fn):
         The function returns a function that cancels the schedule, and also adds it to the list used
         by the cancel_all() function.
     """
+
     @functools.wraps(thread_fn)
-    def sched_fn(callback, *sch_args, args=(), kwargs={}, **sch_kwargs):
+    def sched_fn(
+        callback, *sch_args, args=(), kwargs={}, pool="experiment", **sch_kwargs
+    ):
         cancel_event = threading.Event()
 
         def cancel():
             cancel_event.set()
 
         def target():
-            _cancel_fns.append(cancel)
+            if pool not in _cancel_fns:
+                _cancel_fns[pool] = []
+            _cancel_fns[pool].append(cancel)
+
             try:
                 thread_fn(callback, args, kwargs, cancel_event, *sch_args, **sch_kwargs)
-            except Exception as e:
-                _cancel_fns.remove(cancel)
-                raise e
+                name = threading.current_thread().name
+                if cancel_event.is_set():
+                    _log.debug(f"{name}: Schedule cancelled")
+                else:
+                    _log.debug(f"{name}: Schedule finished")
 
-            name = threading.current_thread().name
-            if cancel_event.is_set():
-                _log.debug(f"{name}: Schedule cancelled")
-            else:
-                _log.debug(f"{name}: Schedule finished")
-
-            _cancel_fns.remove(cancel)
+            finally:
+                _cancel_fns[pool].remove(cancel)
+                if len(_cancel_fns[pool]) == 0:
+                    del _cancel_fns[pool]
 
         threading.Thread(target=target).start()
         return cancel
@@ -63,13 +69,29 @@ def schedule_func(thread_fn):
     return sched_fn
 
 
-def cancel_all():
-    """Cancel all scheduled tasks."""
-    if len(_cancel_fns) == 0:
+def cancel_all(pool="experiment"):
+    """
+    Cancel all scheduled tasks in the supplied task pool.
+
+    pool: string, the task pool name.
+    """
+
+    if pool is None:
+        for p in _cancel_fns.keys():
+            cancel_all(p)
         return
 
-    while len(_cancel_fns) != 0:
-        _cancel_fns[0]()
+    if pool not in _cancel_fns:
+        raise ValueError("Pool doesn't exist")
+
+    fns = list(_cancel_fns[pool])
+    for f in fns:
+        f()
+
+
+def is_scheduled(cancel_fn, pool="experiment"):
+    
+    return pool in _cancel_fns and cancel_fn in _cancel_fns[pool]
 
 
 def replace_timeofday(base: datetime, timeofday: time):
@@ -99,7 +121,7 @@ def once(callback, args, kwargs, cancel_event, interval):
     """
     Signature:
 
-    once(callback, interval, args=(), kwargs={})
+    once(callback, interval, pool='experiment', args=(), kwargs={})
 
     Schedule <callback> to run once after <interval> seconds passed.
 
@@ -120,7 +142,7 @@ def repeat(callback, args, kwargs, cancel_event, interval, repeats=True):
     """
     Signature:
 
-        repeat(callback, interval, repeats=True, args=(), kwargs={})
+        repeat(callback, interval, repeats=True, pool='experiment', args=(), kwargs={})
 
     Schedule <callback> to run repeatedly every <interval> seconds.
 
@@ -151,7 +173,7 @@ def timeofday(callback, args, kwargs, cancel_event, timeofday, repeats=1):
     """
     Signature:
 
-        timeofday(callback, timeofday, repeats=1, args=(), kwargs={})
+        timeofday(callback, timeofday, repeats=1, pool='experiment', args=(), kwargs={})
 
     Schedule <callback> to run at the next <timeofday>, possibly repeating every 24 hours.
 
@@ -168,7 +190,7 @@ def timeofday(callback, args, kwargs, cancel_event, timeofday, repeats=1):
         if isinstance(timeofday, Sequence):
             timeofday = time(*timeofday)
         else:
-            raise TypeError("Invalid timeofday type ({type(timeofday)})")
+            raise TypeError(f"Invalid timeofday type ({type(timeofday)})")
 
     repeat_count = 0
     start_time = datetime.now()
@@ -192,11 +214,39 @@ def timeofday(callback, args, kwargs, cancel_event, timeofday, repeats=1):
 
 
 @schedule_func
+def on_datetime(callback, args, kwargs, cancel_event, dt):
+    """
+    Signature:
+
+        on_datetime(callback, dt, pool='experiment', args=(), kwargs={})
+
+    Schedule <callback> to run at the date and time of dt.
+
+    dt - A datetime instance.
+    args, kwargs - Arguments that will be passed to the callback function as non-keyword,
+                   and keyword arguments respectively.
+
+    Return a cancel() function that cancels the schedule once called.
+    """
+    if not isinstance(dt, datetime):
+        raise TypeError(f"Invalid dt type. ({type(dt)})")
+
+    interval = (dt - datetime.now().astimezone()).total_seconds()
+
+    if interval < 0:
+        raise Exception(f"Datetime is in the past ({interval} seconds).")
+
+    cancel_event.wait(interval)
+    if not cancel_event.is_set():
+        callback(*args, **kwargs)
+
+
+@schedule_func
 def sequence(callback, args, kwargs, cancel_event, intervals: Sequence, repeats=1):
     """
     Signature:
 
-        sequence(callback, intervals: Sequence, repeats=1, args=(), kwargs={})
+        sequence(callback, intervals: Sequence, repeats=1, pool='experiment', args=(), kwargs={})
 
         Run the callback at a sequence of intervals, possibly repeating the sequence once
         it's finished.

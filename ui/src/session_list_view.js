@@ -9,15 +9,13 @@ export const SessionListView = ({onSelect, setOpen, open}) => {
         fetch(api_url + "/session/list")
 	    .then(res => res.json())
 	    .then((res) => {
-                console.log("setting session list");
                 setSessionList(res);
-            });        
+            });
     }, [open]);
 
-    console.log(sessionList);
     const items = sessionList ? sessionList.map(s => {
         return (
-            <List.Item>
+	    <List.Item key={s}>
               <List.Content>
                 <List.Header>
                       <a onClick={() => onSelect(s[2])} href="#">{s[0]}</a>
