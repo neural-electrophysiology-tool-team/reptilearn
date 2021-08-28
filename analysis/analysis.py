@@ -75,6 +75,9 @@ def sessions_stats_df(exps):
 
 def session_info(session_dir):
     session_dir = Path(session_dir)
+    if not session_dir.exists():
+        raise Exception(f"Session directory doesn't exist: {str(session_dir)}")
+
     info = {}
 
     ts_paths = []
