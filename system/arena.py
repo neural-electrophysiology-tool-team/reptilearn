@@ -136,3 +136,4 @@ def init(logger, arena_defaults):
 def release():
     mqtt.client.unsubscribe_callback("arena/sensors")
     _sensor_log.stop()
+    _sensor_log.join()

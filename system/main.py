@@ -502,8 +502,9 @@ for img_src in image_sources.values():
     img_src.join()
 
 video_record.stop_trigger()
-schedule.cancel_all(pool=None)
+schedule.cancel_all(pool=None, wait=True)
 arena.release()
 mqtt.shutdown()
+log.info("Shutting down logging and global state...")
 rl_logging.shutdown()
 state_mod.shutdown()

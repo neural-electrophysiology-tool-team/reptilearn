@@ -44,10 +44,11 @@ _state_lock = None
 
 # A state dispatcher running in a thread on the main process
 _dispatcher = None
+_dispatcher_thread = None
 
 
 def init():
-    global _mgr, _ns, _did_update_events, _state_lock, _dispatcher
+    global _mgr, _ns, _did_update_events, _state_lock, _dispatcher, _dispatcher_thread
     _mgr = mp.Manager()
     _ns = _mgr.Namespace()
     _ns.state = _mgr.dict()
@@ -57,13 +58,19 @@ def init():
     _state_lock = _mgr.Lock()
 
     _dispatcher = StateDispatcher()
-    threading.Thread(target=_dispatcher.listen).start()
+    _dispatcher_thread = threading.Thread(target=_dispatcher.listen)
+    _dispatcher_thread.start()
+    
     state.state_dispatcher = _dispatcher
 
 
 def shutdown():
+    global _ns, _did_update_events
+    
     _dispatcher.stop()
+    _dispatcher_thread.join()
     _mgr.shutdown()
+    _mgr.join()
 
 
 def get():
