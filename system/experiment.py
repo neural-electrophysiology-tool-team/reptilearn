@@ -62,7 +62,6 @@ def _update_state_file():
 
 def split_name_datetime(s):
     """
-    Duplicate from analysis.py!
     Split a string with format {name}_%Y%m%d_%H%M%S into name and a datetime64 objects.
 
     Return name (string), dt (np.datetime64)
@@ -86,7 +85,7 @@ def get_session_list():
             config.session_data_root.glob("*"),
         )
     )
-    nds = list(map(split_name_datetime, [p.stem for p in paths]))
+    nds = [split_name_datetime(p.stem) for p in paths]
     sl = [(nd[0], nd[1], p.name) for nd, p in zip(nds, paths)]
     sl.sort(key=lambda s: s[1])
     return sl
