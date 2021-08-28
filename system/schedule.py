@@ -69,7 +69,7 @@ def schedule_func(thread_fn):
     return sched_fn
 
 
-def cancel_all(pool="experiment"):
+def cancel_all(pool="experiment", wait=True):
     """
     Cancel all scheduled tasks in the supplied task pool.
 
@@ -77,7 +77,8 @@ def cancel_all(pool="experiment"):
     """
 
     if pool is None:
-        for p in _cancel_fns.keys():
+        pools = list(_cancel_fns.keys())
+        for p in pools:
             cancel_all(p)
         return
 
@@ -87,6 +88,10 @@ def cancel_all(pool="experiment"):
     fns = list(_cancel_fns[pool])
     for f in fns:
         f()
+
+    if wait is True:
+        while _cancel_fns != {}:
+            pass
 
 
 def is_scheduled(cancel_fn, pool="experiment"):
