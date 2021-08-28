@@ -32,8 +32,8 @@ def schedule_func(thread_fn):
 
         These are the same arguments as in thread_fn except for the cancel_event.
 
-        The function returns a function that cancels the schedule, and also adds it to the list used
-        by the cancel_all() function.
+        The schedule function returns a function that cancels the schedule, the
+        cancel function is added to the task pool named by the pool argument.
     """
 
     @functools.wraps(thread_fn)
@@ -90,7 +90,7 @@ def cancel_all(pool="experiment"):
 
 
 def is_scheduled(cancel_fn, pool="experiment"):
-    
+
     return pool in _cancel_fns and cancel_fn in _cancel_fns[pool]
 
 
