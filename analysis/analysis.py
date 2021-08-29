@@ -30,13 +30,13 @@ def load_config(config_name):
 
 
 def is_timestamp_contained(tdf, timestamp):
-    beginning = tdf.timestamp.iloc[0]
-    end = tdf.timestamp.iloc[-1]
+    beginning = tdf.time.iloc[0]
+    end = tdf.time.iloc[-1]
     return beginning < timestamp < end
 
 
-def timestamp_to_frame(tdf, timestamp):
-    return (tdf.timestamp - timestamp).abs().argmin()
+def idx_for_time(tdf: pd.DataFrame, timestamp: pd.Timestamp):
+    return (tdf.time - timestamp).abs().argmin()
 
 
 def extract_clip(vid_path, start_frame, end_frame, output_path):
@@ -146,10 +146,12 @@ class VideoInfo:
             self.duration = None
         else:
             self.timestamps = pd.read_csv(self.timestamp_path, parse_dates=True)
-            self.timestamps.timestamp = pd.to_datetime(
-                self.timestamps.timestamp, unit="s"
+            self.timestamps.rename(columns={"timestamp": "time"}, inplace=True)
+            self.timestamps.time = pd.to_datetime(
+                self.timestamps.time, unit="s"
             ).dt.tz_localize("utc")
-            self.duration = self.timestamps.iloc[-1, 0] - self.timestamps.iloc[0, 0]
+
+            self.duration = self.timestamps.time.iloc[-1] - self.timestamps.time.iloc[0]
 
         self.path = path
         self.frame_count = self.timestamps.shape[0]
@@ -175,13 +177,13 @@ class VideoPosition:
         self.video = video
         self.timestamp = timestamp
         if self.video.timestamps is not None:
-            self.frame = timestamp_to_frame(self.video.timestamps, timestamp)
+            self.frame = idx_for_time(self.video.timestamps, timestamp)
 
 
 @dataclass(init=False)
 class SessionInfo:
     dir: Path
-    videos: dict
+    videos: [VideoInfo]
     images: [Path]
     event_log_path: Path
     csvs: [Path]
@@ -217,19 +219,33 @@ class SessionInfo:
             if not self.session_state_path.exists():
                 self.session_state_path = None
 
+        self._session_state = None
+        self._event_log = None
+        self._head_bbox = None
+
     @property
     def session_state(self) -> dict:
-        if self.session_state_path is None:
-            return None
+        if self._session_state is not None:
+            return self._session_state
 
-        with open(self.session_state_path, "r") as f:
-            return json.load(f)
+        if self.session_state_path is None:
+            self._session_state = None
+        else:
+            with open(self.session_state_path, "r") as f:
+                self._session_state = json.load(f)
+
+        return self._session_state
 
     @property
     def event_log(self) -> pd.DataFrame:
+        if self._event_log is not None:
+            return self._event_log
+
         events = pd.read_csv(self.event_log_path)
         events.time = pd.to_datetime(events.time, unit="s").dt.tz_localize("utc")
-        return events
+        self._event_log = events
+
+        return self._event_log
 
     def filter_videos(
         self, videos=None, src_id: str = None, ts: pd.Timestamp = None
@@ -298,15 +314,20 @@ class SessionInfo:
 
     @property
     def head_bbox(self):
+        if self._head_bbox is not None:
+            return self._head_bbox
+
         bbox_csvs = [p for p in self.csvs if p.name == "head_bbox.csv"]
 
         if len(bbox_csvs) == 0:
             return None
 
-        bbox_df = pd.read_csv(bbox_csvs[0])
-        bbox_df.time = pd.to_datetime(bbox_df.time, unit="s").dt.tz_localize("utc")
+        self._head_bbox = pd.read_csv(bbox_csvs[0])
+        self._head_bbox.time = pd.to_datetime(
+            self._head_bbox.time, unit="s"
+        ).dt.tz_localize("utc")
 
-        return bbox_df
+        return self._head_bbox
 
     @property
     def head_centroids(self):
@@ -320,7 +341,7 @@ class SessionInfo:
 
 #### DEPRECATED ####
 
-#deprecated
+# deprecated
 def split_name_datetime(fn):
     """
     Split a string formatted as {name}_%Y%m%d_%H%M%S into name and a datetime64 object.
@@ -331,7 +352,7 @@ def split_name_datetime(fn):
     return name, dt
 
 
-#deprecated
+# deprecated
 def session_info(session_dir):
     session_dir = Path(session_dir)
     if not session_dir.exists():
@@ -441,7 +462,7 @@ def find_video_position(info, timestamp):
             res.append(
                 {
                     "vid_info": vid_info,
-                    "frame": timestamp_to_frame(tdf, timestamp),
+                    "frame": idx_for_time(tdf, timestamp),
                     "timestamp": timestamp,
                 }
             )
