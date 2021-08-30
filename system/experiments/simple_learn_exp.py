@@ -49,7 +49,7 @@ class SimpleLearnExp(exp.Experiment):
         self.log.info("run trial procedure finished")
 
     def stim(self):
-        params = exp.get_merged_params()
+        params = exp.get_phase_params()
         if params["stimulus"].lower() == "led":
             self.led_stimulus()
         else:
@@ -57,7 +57,7 @@ class SimpleLearnExp(exp.Experiment):
 
 
     def led_stimulus(self):
-        params = exp.get_merged_params()
+        params = exp.get_phase_params()
         self.stim_cancel = schedule.repeat(
             lambda: arena.signal_led(not exp.state["arena", "signal_led"]),
             params["led_duration"],
@@ -65,7 +65,7 @@ class SimpleLearnExp(exp.Experiment):
         )
 
     def monitor_stimulus(self):
-        params = exp.get_merged_params()
+        params = exp.get_phase_params()
         monitor.chnage_color(params.get("monitor_color", "random"))
         self.stim_cancel = schedule.once(
             mqtt.client.publish(
@@ -79,7 +79,7 @@ class SimpleLearnExp(exp.Experiment):
         self.log.info("trial ended")
 
     def dispatch_reward(self):
-        params = exp.get_merged_params()
+        params = exp.get_phase_params()
         if params["stimulus"].lower() == "led":
             self.reward_delay = params["led_duration"] * params["led_blinks"]
         else:
