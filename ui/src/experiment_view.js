@@ -33,9 +33,8 @@ export const ExperimentView = ({ctrl_state}) => {
     const [openSessionListModal, setOpenSessionListModal] = React.useState(false);
     
     const [selectedExperimentIdx, setSelectedExperimentIdx] = React.useState(0);
-
+    const [experimentIdInput, setExperimentIdInput] = React.useState('');
     
-    const experiment_id_ref = React.useRef();
     const path_input_ref = React.useRef();
     
     const update_defaults = (override_blocks) => {
@@ -109,7 +108,7 @@ export const ExperimentView = ({ctrl_state}) => {
 		"Content-Type": "application/json"
 	    },
 	    body: JSON.stringify({
-                "id": experiment_id_ref.current.value || exp_name,
+                "id": experimentIdInput || exp_name,
                 "experiment": exp_name
             })
 	});
@@ -285,7 +284,7 @@ export const ExperimentView = ({ctrl_state}) => {
                     <Dropdown options={experiment_options}
                               selection
                               defaultValue={experiment_options.length > 0 ? experiment_options[selectedExperimentIdx].value : null}
-                              onChange={(e, opt) => {console.log(opt); setSelectedExperimentIdx(opt.value);}}
+                              onChange={(e, opt) => setSelectedExperimentIdx(opt.value)}
                               className="full-width"/> 
                   </td>
                 </tr>
@@ -293,7 +292,8 @@ export const ExperimentView = ({ctrl_state}) => {
                   <th>Session id:</th>
                   <td>
                     <Input type="text"
-                           ref={experiment_id_ref}
+                           value={experimentIdInput}
+                           onChange={(e, data) => setExperimentIdInput(data.value)}
                            placeholder={experimentList[selectedExperimentIdx]}
                            className="full-width"
                            autoFocus/>
