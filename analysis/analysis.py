@@ -1,9 +1,7 @@
 from pathlib import Path
 from dataclasses import dataclass
-import dataclasses
 from dynamic_loading import load_module
 import pandas as pd
-from typing import Dict
 
 import re
 import os
@@ -17,7 +15,8 @@ import bbox
 import experiment as exp
 
 # TODO:
-# - don't load computed properties csvs more than once
+# - option to choose locale
+# - docstrings
 
 events_log_filename = "events.csv"
 session_state_filename = "session_state.json"
@@ -323,10 +322,10 @@ class SessionInfo:
             return None
 
         self._head_bbox = pd.read_csv(bbox_csvs[0])
-        self._head_bbox.time = pd.to_datetime(
+        self._head_bbox.index = pd.to_datetime(
             self._head_bbox.time, unit="s"
         ).dt.tz_localize("utc")
-
+        self._head_bbox.drop(columns=["time"], inplace=True)
         return self._head_bbox
 
     @property
@@ -334,8 +333,8 @@ class SessionInfo:
         head_bbox = self.head_bbox
         centroids = bbox.xyxy_to_centroid(head_bbox[["x1", "y1", "x2", "y2"]].values)
         df = pd.DataFrame(centroids, columns=["x", "y"])
-        df.time = head_bbox.time
-        df.confidence = head_bbox.confidence
+        df.index = head_bbox.index
+        df["confidence"] = head_bbox.confidence
         return df
 
 
