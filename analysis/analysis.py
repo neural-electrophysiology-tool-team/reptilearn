@@ -374,7 +374,7 @@ class SessionInfo:
         if ts is not None:
             videos = filter(lambda v: v.time == ts, videos)
 
-        return videos
+        return list(videos)
         
     def video_position_at_time(self, timestamp: pd.Timestamp, videos=None) -> [VideoPosition]:
         """
