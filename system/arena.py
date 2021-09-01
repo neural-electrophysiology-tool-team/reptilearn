@@ -82,6 +82,9 @@ def _on_sensors(_, reading):
         _sensors_once_callback = None
 
     # NOTE: This line depends on specific arena sensors reading format
+    if "temp" not in reading:
+        return
+
     _sensor_log.log(
         (
             reading["timestamp"],
