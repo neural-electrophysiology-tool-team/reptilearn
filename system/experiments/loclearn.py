@@ -10,6 +10,7 @@ import numpy as np
 import time
 import data_log
 import bbox
+import random
 
 # TODO:
 # - video recording (with overhead?)
@@ -95,6 +96,8 @@ class LocationExperiment(exp.Experiment):
         },
         "reward_radius": 200,
         "reward_delay": 5,  # seconds
+        "stochastic_delay": 15,  # seconds, use this delay on some trials
+        "stochastic_delay_prob": 0.0,  # probability of delaying reward by "stochastic delay"
         "dispense_reward": True,
         "area_stay_duration": 2,  # seconds
         "cooldown_duration": 10,  # seconds
@@ -138,6 +141,8 @@ class LocationExperiment(exp.Experiment):
         self.cancel_cooldown = None
         self.cancel_reward_delay = None
         self.cancel_blink = None
+        self.using_stochastic_delay = None
+
         if params["record_video"]:
             video_record.start_record()
 
@@ -148,6 +153,10 @@ class LocationExperiment(exp.Experiment):
         # Success
         if params["dispense_reward"]:
             self.log.info("Trial ended. Dispensing reward.")
+            exp.event_logger.log(
+                "loclearn/reward", {"stochastic_delay": self.using_stochastic_delay}
+            )
+            self.log.info(f"Dispensing reward (stochastic_delay={self.using_stochastic_delay})")
             arena.dispense_reward()
         else:
             self.log.info("Trial ended.")
@@ -220,9 +229,15 @@ class LocationExperiment(exp.Experiment):
             self.cancel_blink = led_blink(
                 params["cue"]["num_blinks"], params["cue"]["led_duration"]
             )
-            self.cancel_reward_delay = schedule.once(
-                exp.next_trial, params["reward_delay"]
-            )
+
+            if random.random() < params["stochastic_delay_prob"]:
+                delay = params["stochastic_delay"]
+                self.using_stochastic_delay = True
+            else:
+                delay = params["reward_delay"]
+                self.using_stochastic_delay = False
+
+            self.cancel_reward_delay = schedule.once(exp.next_trial, delay)
 
     def maybe_end_cooldown(self):
         if not session_state["is_in_area"] and session_state["cooldown"]:
