@@ -2,6 +2,8 @@ import React from 'react';
 import {Selector} from './components.js';
 import {api_url} from './config.js';
 import { Icon } from 'semantic-ui-react';
+import { Resizable } from 'react-resizable';
+import 'react-resizable/css/styles.css';
 
 const StreamView = (
     {idx, streams, set_streams, image_sources, sources_config, unused_src_ids, add_stream}
@@ -27,7 +29,6 @@ const StreamView = (
             ss[ident_id.idx].src_id = src_id;
         }
         ss[idx].src_id = new_src_id;
-        console.log(ss);
         set_streams(ss);
     };
 
@@ -66,6 +67,10 @@ const StreamView = (
         set_streams(ss);
     };
 
+    const on_resize = (e, d) => {
+        update_stream("width", Math.round(d.size.width));
+    };
+    
     const save_image = () => {
         return fetch(api_url + `/save_image/${src_id}`);
     };
@@ -83,13 +88,17 @@ const StreamView = (
     
     const stream_btn_icon = is_streaming ? "pause" : "play";
 
-    const width_options = Array(12).fill().map((_, i) => (i+1) * src_width / 12);
-
     const shift_right_disabled = idx === streams.length - 1;
     const shift_left_disabled = idx === 0;
 
     return (
-        <div className="stream_view">
+        <Resizable width={width} height={stream_height + 50}
+                   resizeHandles={['se']}
+                   lockAspectRatio={true}
+                   onResize={on_resize}
+                   >
+          <div className="stream_view"
+               style={{width: width + 'px', height: stream_height + 50 + 'px'}}>
           <div className="toolbar">
             <button onClick={(e) => remove_stream()} disabled={streams.length === 1}>
               <Icon name="x" size="small" fitted />
@@ -120,11 +129,6 @@ const StreamView = (
             {stream}
           </div>
           <div className="toolbar">
-            <label htmlFor="width_selector">Width: </label>
-            <Selector options={width_options}
-                      on_select={(w) => update_stream("width", w)}
-                      selected={width_options.indexOf(width)}
-                      disabled={false}/>
             <input type="checkbox"
                    name="undistort_checkbox"
                    checked={undistort}
@@ -132,7 +136,8 @@ const StreamView = (
                    disabled={false}/>
             <label htmlFor="undistort_checkbox">Undistort </label>
           </div>
-        </div>
+          </div>
+        </Resizable>
     );
 };
 

@@ -1,50 +1,97 @@
 from pathlib import Path
 from dataclasses import dataclass
-import dataclasses
-from dynamic_loading import load_module
 import pandas as pd
-from typing import Dict
 
-import re
 import os
-import copy
 import moviepy.editor as mpy
 import moviepy.tools
 import moviepy.config
 import json
-import undistort
 import bbox
 import experiment as exp
 
 # TODO:
-# - don't load computed properties csvs more than once
+# - option to choose locale
+# - docstrings
+# - support for undistort
 
 events_log_filename = "events.csv"
 session_state_filename = "session_state.json"
 name_locale = "Asia/Jerusalem"
 
 
-def load_config(config_name):
-    config, _ = load_module(Path(f"config/{config_name}.py"))
-    return config
+def read_timeseries_csv(path: Path, time_col="time", tz="utc") -> pd.DataFrame:
+    """
+    Read csv file into a pandas DataFrame. Creates a DatetimeIndex and sets
+    the timezone to the specified one.
+
+    path: csv file path
+    time_col: The name of the column to be used as a DatetimeIndex
+    tz: The timezone of the time column (see DatetimeIndex.tz_localize)
+    """
+    df = pd.read_csv(path)
+
+    if hasattr(time_col, "__getitem__"):
+        for col in time_col:
+            if col in df.columns:
+                time_col = col
+                break
+
+    df.index = pd.to_datetime(df[time_col], unit="s").dt.tz_localize(tz)
+    df.drop(columns=[time_col], inplace=True)
+    return df
 
 
-def is_timestamp_contained(tdf, timestamp):
-    beginning = tdf.time.iloc[0]
-    end = tdf.time.iloc[-1]
+def is_timestamp_contained(
+    tdf: pd.DataFrame, timestamp: pd.Timestamp, time_col=None
+) -> bool:
+    """
+    Return True if the timestamp is contained within the time range of the
+    supplied timeseries dataframe.
+
+    tdf: Timeseries dataframe (pd.DataFrame) with a time column.
+    timestamp: The timestamp to test
+    time_col: The name of the time column. When equals None the dataframe index
+              will be used.
+
+    """
+    if time_col is None:
+        beginning = tdf.index[0]
+        end = tdf.index[-1]
+    else:
+        beginning = tdf[time_col].iloc[0]
+        end = tdf[time_col].iloc[-1]
     return beginning < timestamp < end
 
 
-def idx_for_time(tdf: pd.DataFrame, timestamp: pd.Timestamp):
-    return (tdf.time - timestamp).abs().argmin()
+def idx_for_time(df: pd.DataFrame, timestamp: pd.Timestamp, time_col=None) -> int:
+    """
+    Return the closest row index to the supplied timestamp.
+
+    df: The dataframe to search
+    timestamp: The timestamp that will be used to find the index
+    time_col: The name of the time column. When equals None the dataframe index
+              will be used.
+    """
+    if time_col is None:
+        return df.index.get_loc(timestamp, method="nearest")
+    else:
+        return (df[time_col] - timestamp).abs().argmin()
 
 
-def extract_clip(vid_path, start_frame, end_frame, output_path):
+def extract_clip(vid_path, start_frame: int, end_frame: int, output_path):
+    """
+    Extract a subclip of a video file without re-encoding it.
+
+    vid_path: Path of the input video file (pathlib.Path or str).
+    start_frame, end_frame: start and end of the subclip in frame numbers.
+    output_path: Path for the output video file (pathlib.Path or str).
+    """
     fps = mpy.VideoFileClip(str(vid_path)).fps
     start_time = start_frame / fps
     end_time = end_frame / fps
 
-    ffmpeg_extract_subclip(vid_path, int(start_time), int(end_time), output_path)
+    ffmpeg_extract_subclip(vid_path, int(start_time), int(end_time), str(output_path))
 
 
 def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
@@ -80,7 +127,12 @@ def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
     moviepy.tools.subprocess_call(cmd, logger=None)
 
 
-def list_sessions(session_data_root: Path):
+def sessions_df(session_data_root: Path) -> pd.DataFrame:
+    """
+    Find all sessions under the supplied session_data_root argument.
+    Return a pandas dataframe with columns `name` and `dir` and a
+    DatetimeIndex containing the session start time.
+    """
     exp_dirs = list(filter(lambda p: p.is_dir(), session_data_root.glob("*")))
     dts = []
     names = []
@@ -95,11 +147,15 @@ def list_sessions(session_data_root: Path):
     return df.sort_index()
 
 
-def session_stats(exp_dir):
-    exp_path = Path(exp_dir)
-    video_files = list(exp_path.glob("*.mp4")) + list(exp_path.glob("*.avi"))
-    image_files = list(exp_path.glob("*.png")) + list(exp_path.glob("*.jpg"))
-    csv_files = list(exp_path.glob("*.csv"))
+def session_stats(session_dir) -> dict:
+    """
+    Return a dictionary with statistics of the session in the supplied
+    session_dir (Path or str) argument.
+    """
+    path = Path(session_dir)
+    video_files = list(path.glob("*.mp4")) + list(path.glob("*.avi"))
+    image_files = list(path.glob("*.png")) + list(path.glob("*.jpg"))
+    csv_files = list(path.glob("*.csv"))
 
     return {
         "video_count": len(list(video_files)),
@@ -108,7 +164,11 @@ def session_stats(exp_dir):
     }
 
 
-def sessions_stats_df(sessions):
+def sessions_stats_df(sessions: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return a dataframe containing statistics for each session in the supplied
+    sessions argument.
+    """
     df = pd.DataFrame(columns=["video_count", "image_count", "csv_count"])
     vids = []
     imgs = []
@@ -126,17 +186,36 @@ def sessions_stats_df(sessions):
     return df
 
 
+@dataclass(init=False, repr=False)
 class VideoInfo:
+    """
+    Represents a single timestamped video file.
+    Expects a timestamps csv file in the same directory with the same name
+    as the video file but with a `.csv` suffix
+
+    Attributes:
+        name: Video name (without the start datetime)
+        time: Video start time
+        path: Video path
+        timestamp_path: Timestamps csv path
+        timestamps: The timestamps csv loaded using read_timeseries_csv()
+        frame_count: Number of frames in the video (based on the timestamps file)
+        duration: The total duration of the video (based on the timestamps file)
+        src_id: The video image source id (based on the name attribute).
+    """
     name: str
     time: pd.Timestamp
     path: Path
     timestamp_path: Path
     timestamps: pd.DataFrame
     frame_count: int
-    duration: int
+    duration: pd.Timestamp
     src_id: str
 
     def __init__(self, path: Path):
+        """
+        Return a new VideoInfo instance for the video file at the supplied path.
+        """
         self.name, self.time = exp.split_name_datetime(path.stem)
         self.time = self.time.tz_localize(name_locale).tz_convert("utc")
 
@@ -145,13 +224,10 @@ class VideoInfo:
             self.timestamp_path = None
             self.duration = None
         else:
-            self.timestamps = pd.read_csv(self.timestamp_path, parse_dates=True)
-            self.timestamps.rename(columns={"timestamp": "time"}, inplace=True)
-            self.timestamps.time = pd.to_datetime(
-                self.timestamps.time, unit="s"
-            ).dt.tz_localize("utc")
-
-            self.duration = self.timestamps.time.iloc[-1] - self.timestamps.time.iloc[0]
+            self.timestamps = read_timeseries_csv(
+                self.timestamp_path, time_col=["time", "timestamp"]
+            )
+            self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
 
         self.path = path
         self.frame_count = self.timestamps.shape[0]
@@ -169,11 +245,21 @@ class VideoInfo:
 
 @dataclass(init=False)
 class VideoPosition:
+    """
+    Represents a time position in a specific video.
+
+    video: The VideoInfo representing the video matching this position
+    timestamp: The time of the video position
+    frame: The frame number of the video position (based on the timestamp)
+    """
     video: VideoInfo
     timestamp: pd.Timestamp
     frame: int = None
 
-    def __init__(self, video, timestamp):
+    def __init__(self, video: VideoInfo, timestamp: pd.Timestamp):
+        """
+        Return a new instance with the supplied video and timestamp.
+        """
         self.video = video
         self.timestamp = timestamp
         if self.video.timestamps is not None:
@@ -182,6 +268,26 @@ class VideoPosition:
 
 @dataclass(init=False)
 class SessionInfo:
+    """
+    Represents a single session.
+
+    Attributes:
+        dir: The session directory
+        session_state_path: The path of the session state json file
+        session_state: The last recorded session state.
+        videos: A list of all videos contained within the session
+        images: A list of all image paths found in the session
+        event_log_path: The path of the session event log
+        event_log: A timeseries dataframe of the session event log
+        head_bbox: A timeseries dataframe of the animal head bounding boxes
+        head_centroids: A timeseries dataframe of the animal head centroids
+        csvs: A list of paths to all other csvs found in the session.
+
+    All of the dataframes in this class, as well as the session_state, are
+    loaded on first access (lazily), except for VideoInfo.timestamps dataframe
+    which is loaded when the object is created. To reload the data create a
+    new object.
+    """
     dir: Path
     videos: [VideoInfo]
     images: [Path]
@@ -191,6 +297,10 @@ class SessionInfo:
     session_state: dict
 
     def __init__(self, session_dir):
+        """
+        Instantiate a SessionInfo for the session at the supplied session_dir
+        argument (Path or str).
+        """
         session_dir = Path(session_dir)
         if not session_dir.exists():
             raise ValueError(f"Session directory doesn't exist: {str(session_dir)}")
@@ -241,30 +351,40 @@ class SessionInfo:
         if self._event_log is not None:
             return self._event_log
 
-        events = pd.read_csv(self.event_log_path)
-        events.time = pd.to_datetime(events.time, unit="s").dt.tz_localize("utc")
-        self._event_log = events
-
+        self._event_log = read_timeseries_csv(self.event_log_path)
         return self._event_log
 
     def filter_videos(
-        self, videos=None, src_id: str = None, ts: pd.Timestamp = None
+            self, videos=None, src_id: str = None, ts: pd.Timestamp = None
     ) -> [VideoInfo]:
-
-        ret = []
+        """
+        Filter videos according to image source id or start time.
+        
+        videos: A list of VideoInfo objects to filter. When equals None, all
+                session videos are used.
+        src_id: When not None, return only videos recorded from this image
+                source id.
+        ts: When not None, return only videos with this start time.
+        """
         if videos is None:
             videos = self.videos
 
-        for vid in videos:
-            if src_id is not None and vid.src_id != src_id:
-                continue
-            if ts is not None and vid.time != ts:
-                continue
-            ret.append(vid)
+        if src_id is not None:
+            videos = filter(lambda v: v.src_id == src_id, videos)
+        if ts is not None:
+            videos = filter(lambda v: v.time == ts, videos)
 
-        return ret
+        return list(videos)
+        
+    def video_position_at_time(self, timestamp: pd.Timestamp, videos=None) -> [VideoPosition]:
+        """
+        Find all video files and frame numbers matching the supplied timestamp.
+        Return a list of VideoPosition objects, one for each video that was
+        recording during the time denoted by timestamp.
 
-    def video_position_at_time(self, timestamp, videos=None):
+        videos: A list of VideoInfos that will be searched. When this is None,
+                all of the videos in the session will be searched.                
+        """
         res = []
         if videos is None:
             videos = self.videos
@@ -287,6 +407,15 @@ class SessionInfo:
         output_dir: Path,
         file_prefix: str,
     ):
+        """
+        Extract a clip from the session in this session.
+
+        src_id: The image source id to use.
+        start_time: Clip start time.
+        end_time: Clip end time.
+        output_dir: The directory that will contain the clip video file.
+        file_prefix: An additional prefix for the output video filename.
+        """
         videos = self.filter_videos(src_id=src_id)
         start_pos = self.video_position_at_time(start_time, videos)
         end_pos = self.video_position_at_time(end_time, videos)
@@ -322,11 +451,7 @@ class SessionInfo:
         if len(bbox_csvs) == 0:
             return None
 
-        self._head_bbox = pd.read_csv(bbox_csvs[0])
-        self._head_bbox.time = pd.to_datetime(
-            self._head_bbox.time, unit="s"
-        ).dt.tz_localize("utc")
-
+        self._head_bbox = read_timeseries_csv(bbox_csvs[0])
         return self._head_bbox
 
     @property
@@ -334,213 +459,6 @@ class SessionInfo:
         head_bbox = self.head_bbox
         centroids = bbox.xyxy_to_centroid(head_bbox[["x1", "y1", "x2", "y2"]].values)
         df = pd.DataFrame(centroids, columns=["x", "y"])
-        df.time = head_bbox.time
-        df.confidence = head_bbox.confidence
+        df.index = head_bbox.index
+        df["confidence"] = head_bbox.confidence
         return df
-
-
-#### DEPRECATED ####
-
-# deprecated
-def split_name_datetime(fn):
-    """
-    Split a string formatted as {name}_%Y%m%d_%H%M%S into name and a datetime64 object.
-    """
-    match = re.search("(.*)_([0-9]*)[-_]([0-9]*)", fn.stem)
-    dt = pd.to_datetime(match.group(2) + " " + match.group(3), format="%Y%m%d %H%M%S")
-    name = match.group(1)
-    return name, dt
-
-
-# deprecated
-def session_info(session_dir):
-    session_dir = Path(session_dir)
-    if not session_dir.exists():
-        raise Exception(f"Session directory doesn't exist: {str(session_dir)}")
-
-    info = {}
-
-    ts_paths = []
-    videos = list(session_dir.glob("*.mp4")) + list(session_dir.glob("*.avi"))
-    info["videos"] = {}
-
-    for vid_path in videos:
-        name, dt = split_name_datetime(vid_path)
-        ts_path = session_dir / (vid_path.stem + ".csv")
-        if not ts_path.exists():
-            ts_path = None
-            duration = None
-        else:
-            ts_paths.append(ts_path)
-
-            tdf = pd.read_csv(ts_path, parse_dates=True)
-            duration = ((tdf.iloc[-1, 0] - tdf.iloc[0, 0]) * 1e09).astype(
-                "timedelta64[ns]"
-            )
-
-        if dt not in info["videos"]:
-            info["videos"][dt] = {}
-
-        info["videos"][dt][name] = {
-            "path": vid_path,
-            "timestamps": ts_path,
-            "frame_count": tdf.shape[0],
-            "duration": duration,
-        }
-
-    for csv_path in filter(lambda p: p not in ts_paths, session_dir.glob("*.csv")):
-        if "events.csv" in csv_path.name:
-            info["event_log"] = csv_path
-        elif "head_bbox.csv" in csv_path.name:
-            info["head_bbox"] = csv_path
-        else:
-            if "csvs" not in info:
-                info["csvs"] = []
-
-            info["csvs"].append(csv_path)
-
-    info["images"] = list(session_dir.glob("*.jpg")) + list(session_dir.glob("*.png"))
-
-    session_state_json = session_dir / "session_state.json"
-    if session_state_json.exists():
-        with open(session_state_json, "r") as f:
-            info["session_state"] = json.load(f)
-    else:
-        session_state_json = session_dir / "exp_state.json"
-        if session_state_json.exists():
-            with open(session_state_json, "r") as f:
-                info["session_state"] = json.load(f)
-        else:
-            info["session_state"] = None
-
-    return info
-
-
-# deprecated
-def find_src_videos(session_info, src_id):
-    vids = {}
-
-    for vid_ts in session_info["videos"]:
-        for vid_name in session_info["videos"][vid_ts].keys():
-            if vid_name.endswith(src_id):
-                vids[vid_ts] = copy.deepcopy(session_info["videos"][vid_ts][vid_name])
-
-    return vids
-
-
-# deprecated
-def load_timestamps(info):
-    info = copy.deepcopy(info)
-
-    if "timestamps" in info:
-        #  vid_info
-        tdf = pd.read_csv(info["timestamps"])
-        tdf.timestamp = pd.to_datetime(tdf.timestamp, unit="s")
-        info["timestamps"] = tdf
-    elif "videos" in info:
-        # session info
-        info["videos"] = load_timestamps(info["videos"])
-    else:
-        # session_info["videos"]
-        for ts in info:
-            info[ts] = load_timestamps(info[ts])
-
-    return info
-
-
-# deprecated
-def find_video_position(info, timestamp):
-    if "videos" in info:
-        info = info["videos"]
-
-    res = []
-
-    def maybe_append_position(vid_info):
-        tdf = vid_info["timestamps"]
-
-        if is_timestamp_contained(tdf, timestamp):
-            res.append(
-                {
-                    "vid_info": vid_info,
-                    "frame": idx_for_time(tdf, timestamp),
-                    "timestamp": timestamp,
-                }
-            )
-
-    for ts, vids in info.items():
-        if type(vids) is dict:
-            if "timestamps" in vids:
-                maybe_append_position(vids)
-            else:
-                for k, vid_info in vids.items():
-                    maybe_append_position(vid_info)
-    return res
-
-
-# deprecated
-def read_event_log(session_info):
-    events = pd.read_csv(session_info["event_log"])
-    events.time = pd.to_datetime(events.time, unit="s")
-    return events
-
-
-# deprecated
-def extract_event_clips(
-    events_df, output_dir, file_prefix="event", pre_secs=60, post_secs=60
-):
-    clip_paths = []
-    for i, r in events_df.iterrows():
-        fps = mpy.VideoFileClip(str(r.path)).fps
-        pre_frames = pre_secs * fps
-        post_frames = post_secs * fps
-
-        start_frame = max(int(r.frame - pre_frames), 0)
-        end_frame = int(r.frame + post_frames)
-
-        relative_ts = r.timestamp - r.video_start
-        total_secs = int(relative_ts.total_seconds())
-        hrs = total_secs // 3600
-        mins = (total_secs % 3600) // 60
-        secs = (total_secs % 3600) % 60
-        fts = f"{hrs:02}{mins:02}{secs:02}"
-
-        clip_path = output_dir / f"{file_prefix}{i}_{fts}_{start_frame}_{end_frame}.mp4"
-        clip_paths.append(clip_path)
-
-        print(f"\t{clip_path}")
-
-        extract_clip(r.path, start_frame, end_frame, clip_path)
-
-    return clip_paths
-
-
-# deprecated
-def create_video_event_df(info, events):
-    event_positions = [find_video_position(info, ts) for ts in events.time.values]
-
-    return pd.DataFrame(  # taking only the 1st image source for each event
-        {
-            "path": [r[0]["vid_info"]["path"] for r in event_positions if len(r) > 0],
-            "frame": [r[0]["frame"] for r in event_positions if len(r) > 0],
-            "timestamp": [r[0]["timestamp"] for r in event_positions if len(r) > 0],
-            "video_start": [
-                r[0]["vid_info"]["timestamps"].timestamp.values[0]
-                for r in event_positions
-                if len(r) > 0
-            ],
-        }
-    )
-
-
-# deprecated
-def get_head_centroids(info, cam_undist=None):
-    pos_df = pd.read_csv(info["head_bbox"])
-    bboxes = pos_df[["x1", "y1", "x2", "y2"]]
-
-    if cam_undist is not None:
-        bboxes = undistort.undistort_data(bboxes, 1440, 1080, cam_undist)
-    centroids = bbox.xyxy_to_centroid(bboxes.to_numpy())
-    return centroids
-
-
-########
