@@ -1,0 +1,26 @@
+{
+    "image_sources": {
+	"top": {
+            "class": "image_sources.flir_cameras.FLIRImageSource",
+            "cam_id": "19514978",
+            "exposure": 8000,
+            "trigger": "ttl",
+            "image_shape": [1080, 1440],
+            "undistort": "undistort_flir_firefly_4mm"
+	}
+    },
+    
+    "image_observers": {
+	"head_bbox": {
+            "src_id": "top",
+            "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
+            "args": {
+		"conf_thres": 0.8,
+		"return_neareast_detection": true,
+		"buffer_size": null,
+		"weights_path": "image_observers/YOLOv4/yolo4_reptilearn260421_best.weights",
+		"cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg"
+            }
+	}	
+    }
+}

@@ -20,7 +20,7 @@ class ImageSource(mp.Process):
         self.src_id = src_id
 
         self.state = state_cursor
-        self.state.set_self({"acquiring": False})
+        self.state["acquiring"] = False
 
         self.buf_shape = image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
@@ -88,7 +88,9 @@ class ImageSource(mp.Process):
                 except AcquireException as e:
                     self.log.error(e)
                     break
-
+                except KeyboardInterrupt:
+                    continue
+                
                 if img is None:
                     break
 
@@ -111,8 +113,8 @@ class ImageSource(mp.Process):
             if "acquiring" in self.state:
                 self.state["acquiring"] = False
 
-        except KeyboardInterrupt:
-            pass
+        except Exception:
+            self.log.exception("Exception while acquiring images:")
         finally:
             self.on_finish()
 
@@ -153,6 +155,9 @@ class ImageObserver(mp.Process):
     def stop_observing(self):
         self.parent_pipe.send("stop")
 
+    def shutdown(self):
+        self.parent_pipe.send("shutdown")
+    
     def run(self):
         self.log = rl_logging.logger_configurer(self.name)
 
@@ -163,6 +168,13 @@ class ImageObserver(mp.Process):
             try:
                 cmd = self.child_pipe.recv()
             except KeyboardInterrupt:
+                continue
+
+            if self.img_src.end_event.is_set():
+                break
+
+            if cmd == "shutdown":
+                self.log.info("Shutting down")
                 break
 
             if cmd == "start":
@@ -192,8 +204,6 @@ class ImageObserver(mp.Process):
                                 self.avg_proc_time = (
                                     self.avg_proc_time * (self.frame_count - 1) + dt
                                 ) / self.frame_count
-                except KeyboardInterrupt:
-                    pass
                 except Exception:
                     self.log.exception("Exception while observing:")
                 finally:

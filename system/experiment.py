@@ -20,7 +20,6 @@ class ExperimentException(Exception):
 
 config = None
 log = None
-image_observers = None
 
 experiment_specs = None
 cur_experiment = None
@@ -33,8 +32,8 @@ blocks = None
 actions = None
 
 
-def init(img_observers, img_sources, logger, config_module):
-    global log, image_observers, image_sources, config, session_state, params, blocks, actions
+def init(logger, config_module):
+    global log, config, session_state, params, blocks, actions
 
     session_state = state.get_cursor("session")
     params = session_state.get_cursor("params")
@@ -42,8 +41,6 @@ def init(img_observers, img_sources, logger, config_module):
     actions = session_state.get_cursor("actions")
 
     config = config_module
-    image_observers = img_observers
-    image_sources = img_sources
     log = logger
     load_experiment_specs()
 
@@ -206,7 +203,7 @@ def init_session(continue_session=False):
     calls the experiment class setup() hook, and creates session_state.json file.
     """
     data_dir = Path(session_state["data_dir"])
-    state["video_record", "write_dir"] = data_dir
+    state["video", "record", "write_dir"] = data_dir
 
     csv_path = data_dir / "events.csv" if config.event_log["log_to_csv"] else None
 

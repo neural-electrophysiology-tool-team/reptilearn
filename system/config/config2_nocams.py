@@ -12,10 +12,12 @@ experiment_modules_dir: Path = Path("./experiments/")
 tasks_modules_dir: Path = Path("./tasks/")
 
 # Session data (videos, images, csv files, etc.) will be stored here.
-session_data_root: Path = Path("/data/reptilearn/experiments/")
+session_data_root: Path = Path("/data/reptilearn/sessions/")
 
 # Videos and images that were collected when not running an experiment are stored here.
 media_dir: Path = Path("/data/reptilearn/media/")
+
+video_config_path: Path = Path("./config/video_config.json")
 
 # Lens correction values for various camera and lens combinations.
 undistort_flir_firefly_4mm = {
@@ -66,58 +68,23 @@ stream_frame_rate = 15
 # Cameras and other image sources are configured here.
 image_sources = dict(
     {
-        "top": {  # BFS-U3-16S2M
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "0138A051",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_blackfly_computar,
-        },
-        "left": {  # firefly-dl 1
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "20349302",
-            "exposure": 8000,
-            "trigger": "ttl",  # or "frame_rate"
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firefly_4mm,
-        },
-        "right": {  # firefly-dl 2
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "20349310",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firefly_4mm,
-        },
-        "back": {
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "19514975",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firefly_4mm,
-        },
     },
 )
 
 # Image observers are defined here. These process images from image sources in real-time.
-image_observers = {
-    "head_bbox": {
+image_observers = {}
+"""    "head_bbox": {
         "src_id": "top",
         "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
         "args": {
             "conf_thres": 0.8,
             "return_neareast_detection": True,
-            "buffer_size": None,
+            "buffer_size": 20,
             "weights_path": "image_observers/YOLOv4/yolo4_reptilearn260421_best.weights",
             "cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg",
         },
     }
-}
+}"""
 
 # Video encoding parameters:
 # These parameters are passed to imageio.get_writer function
@@ -140,16 +107,17 @@ gpu_encoding_params = {
 
 video_record = {
     "encoding_params": {
+        "test": gpu_encoding_params,
         "top": gpu_encoding_params,
         "right": gpu_encoding_params,
-        "left": gpu_encoding_params,
+        "left": cpu_encoding_params,
         "back": cpu_encoding_params,
     },
     "video_frame_rate": 60,
     "trigger_interval": 17,
     "file_ext": "mp4",
-    "start_trigger_on_startup": False,
     "max_write_queue_size": 0,  # 0 means infinite queue.
+    "start_trigger_on_startup": False,
 }
 
 # MQTT server address

@@ -9,7 +9,7 @@ import {api_url} from './config.js';
       
 const App = () => {
     const [ctrlState, setCtrlState] = React.useState(null);
-    const [sourcesConfig, setSourcesConfig] = React.useState(null);
+
     const socket = React.useContext(SocketContext);
     
     const handle_new_state = React.useCallback(new_state => {
@@ -24,13 +24,10 @@ const App = () => {
 	socket.on("state", handle_new_state);
 	socket.on("disconnect", handle_disconnect);
         socket.on("connect", () => {
-	    fetch(api_url + "/config/image_sources")
-	        .then(res => res.json())
-	        .then(json => setSourcesConfig(json));
         });
     }, [handle_disconnect, handle_new_state, socket]);
 
-    if (ctrlState == null || sourcesConfig == null)
+    if (ctrlState == null)
 	return (
 	    <div className="App">
 		<p>Loading...</p>
@@ -39,8 +36,7 @@ const App = () => {
     
     return (
         <div className="App">
-          <MainPanelView ctrl_state={ctrlState}                         
-			 sources_config={sourcesConfig} />
+          <MainPanelView ctrl_state={ctrlState}/>
         </div>
     );   
 };

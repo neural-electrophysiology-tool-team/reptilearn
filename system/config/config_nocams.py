@@ -197,7 +197,7 @@ event_log = {
         ("mqtt", "arena/day_lights"),
         ("state", ("session", "cur_block")),
         ("state", ("session", "cur_trial")),
-        ("state", ("video_record", "is_recording")),
+        ("state", ("video", "record", "is_recording")),
     ],
     # Whether to log events to the database.
     "log_to_db": True,

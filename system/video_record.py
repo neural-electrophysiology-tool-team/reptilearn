@@ -7,6 +7,7 @@ import time
 
 import mqtt
 from video_stream import ImageSource, ImageObserver
+from video_system import image_sources
 from state import state
 
 # TODO:
@@ -17,17 +18,19 @@ from state import state
 
 rec_state = None
 video_writers = {}
-_image_sources = None
 _log = None
 _do_restore_trigger = False
 
 
-def init(image_sources, logger, config):
-    global _image_sources, _log, _config, rec_state
+def init(logger, config):
+    global _log, _config, rec_state
     _config = config
     _log = logger
-    _image_sources = image_sources
-    rec_state = state.get_cursor("video_record")
+
+    if "video" not in state:
+        state["video"] = {}
+
+    rec_state = state.get_cursor(("video", "record"))
 
     for src_id in image_sources.keys():
         video_writers[src_id] = VideoWriter(
@@ -145,7 +148,7 @@ def save_image(src_ids=None):
     if src_ids is None:
         src_ids = rec_state["selected_sources"]
 
-    images = [_image_sources[src_id].get_image() for src_id in src_ids]
+    images = [image_sources[src_id].get_image() for src_id in src_ids]
     timestamp = datetime.now()
     paths = [_get_new_write_path(src_id, "jpg", timestamp) for src_id in src_ids]
     for p, im, src in zip(paths, images, src_ids):

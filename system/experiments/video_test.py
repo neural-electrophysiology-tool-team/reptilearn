@@ -4,6 +4,7 @@ import arena
 import monitor
 import pandas as pd
 import schedule
+from state import state
 
 
 class VideoPlayExperiment(exp.Experiment):

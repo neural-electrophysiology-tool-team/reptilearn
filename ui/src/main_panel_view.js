@@ -6,14 +6,11 @@ import {ArenaControlView} from './arena_control_view.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {LogView} from './log_view.js';
 import {TasksView} from './tasks_view.js';
+import { api_url } from './config.js';
 
-export const MainPanelView = ({ctrl_state, sources_config}) => {
-    if (!sources_config) {
-        return null;
-    }
-
-    const image_sources = Object.keys(ctrl_state.image_sources)
-        .filter(key => ctrl_state.image_sources[key].acquiring);
+export const MainPanelView = ({ctrl_state}) => {
+    //const acquiring_image_sources = Object.keys(ctrl_state.image_sources)
+    //    .filter(key => ctrl_state.image_sources[key].acquiring);
 
     return (
         <ReflexContainer orientation="horizontal" windowResizeAware={true}>
@@ -29,8 +26,7 @@ export const MainPanelView = ({ctrl_state, sources_config}) => {
               <ReflexElement>
                 <ReflexContainer orientation="vertical" windowResizeAware={true}>
                   <ReflexElement flex={0.65} className="stream_group_view_container">
-                    <StreamGroupView image_sources={image_sources}
-                                     sources_config={sources_config}/>
+                    <StreamGroupView ctrl_state={ctrl_state}/>
                   </ReflexElement>
                   <ReflexSplitter/>
                   <ReflexElement minSize={400}>
