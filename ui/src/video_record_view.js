@@ -17,7 +17,6 @@ export const VideoRecordView = ({ctrl_state}) => {
     if (ctrl_state == null)
 	return null;
 
-    console.log(ctrl_state);
     const image_sources = Object.keys(ctrl_state.video.image_sources);
     const is_recording = ctrl_state.video.record.is_recording;
     const ttl_trigger_state = ctrl_state.video.record.ttl_trigger;
@@ -61,6 +60,7 @@ export const VideoRecordView = ({ctrl_state}) => {
             return <Dropdown.Item text={src_id}
                                   icon={selected ? "check circle outline" : "circle outline"}
                                   onClick={() => src_changed(src_id)}
+                                  disabled={!ctrl_state.video.image_sources[src_id].acquiring}
                                   key={src_id}/>;
         });
         
@@ -74,9 +74,9 @@ export const VideoRecordView = ({ctrl_state}) => {
                   <Dropdown.Header>Record Sources</Dropdown.Header>
                   {src_items}
                   <Dropdown.Divider/>
-                  <Dropdown.Item text="Settings"
+                  <Dropdown.Item text="Video settings"
                                  onClick={open_settings_dropdown}
-                                 key="settings"/>
+                                 key="Video settings"/>
                 </Dropdown.Menu>
               </Dropdown>              
             </React.Fragment>

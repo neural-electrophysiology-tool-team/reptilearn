@@ -1,14 +1,11 @@
 import experiment as exp
 import mqtt
-import data_log
 import arena
 import schedule
-import video_record
-import numpy as np
-import cv2 as cv
+import video_system
 import monitor
-import math
 import datetime
+
 
 class SimpleLearnExp(exp.Experiment):
     default_params = {
@@ -24,17 +21,16 @@ class SimpleLearnExp(exp.Experiment):
 
     def setup(self):
         self.cur_trial = None
-        self.cancel_trials=None
-        self.reward_delay=0
-        self.stim_cancel=None
+        self.cancel_trials = None
+        self.reward_delay = 0
+        self.stim_cancel = None
         pass
 
     def run(self, params):
         self.cur_trial = params["num_trials"]
         arena.day_lights(True)
         if params["record_exp"]:  # record start at init
-            video_record.start_record()
-
+            video_system.start_record()
 
     def run_trial(self, params):
         self.log.info(
@@ -43,7 +39,10 @@ class SimpleLearnExp(exp.Experiment):
             + " started "
             + str(datetime.datetime.now())
         )
-        exp.event_logger.log("simple_exp/trial_start", {"Trial": str(params["num_trials"] - self.cur_trial)})
+        exp.event_logger.log(
+            "simple_exp/trial_start",
+            {"Trial": str(params["num_trials"] - self.cur_trial)},
+        )
         self.stim()
         self.dispatch_reward()
         self.log.info("run trial procedure finished")
@@ -54,7 +53,6 @@ class SimpleLearnExp(exp.Experiment):
             self.led_stimulus()
         else:
             self.monitor_stimulus()
-
 
     def led_stimulus(self):
         params = exp.get_phase_params()
@@ -68,9 +66,7 @@ class SimpleLearnExp(exp.Experiment):
         params = exp.get_phase_params()
         monitor.chnage_color(params.get("monitor_color", "random"))
         self.stim_cancel = schedule.once(
-            mqtt.client.publish(
-                topic="monitor/color", payload="black"
-            ),
+            mqtt.client.publish(topic="monitor/color", payload="black"),
             params.get("monitor_duration", 60),
         )
 
@@ -83,7 +79,7 @@ class SimpleLearnExp(exp.Experiment):
         if params["stimulus"].lower() == "led":
             self.reward_delay = params["led_duration"] * params["led_blinks"]
         else:
-            self.reward_delay= params.get("monitor_duration", 60)
+            self.reward_delay = params.get("monitor_duration", 60)
         schedule.once(self.dispatch_reward_actual, self.reward_delay)
 
     def dispatch_reward_actual(self):
@@ -92,7 +88,7 @@ class SimpleLearnExp(exp.Experiment):
 
     def end(self, params):
         if params.get("record_exp", True):
-            video_record.stop_record()
+            video_system.stop_record()
         if self.cancel_trials != None:
             self.cancel_trials()
 
@@ -103,4 +99,3 @@ class SimpleLearnExp(exp.Experiment):
 
     def period_call(self):
         exp.next_trial()
-

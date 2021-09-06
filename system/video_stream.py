@@ -13,16 +13,20 @@ class AcquireException(Exception):
 
 
 class ImageSource(mp.Process):
-    def __init__(self, src_id, image_shape, state_cursor, buf_len=1):
+    def __init__(self, src_id, config, state_cursor):
         super().__init__()
-        self.image_shape = image_shape
-        self.buf_len = buf_len
+        self.image_shape = config["image_shape"]
+        self.buf_len = config.get("buf_len", 1)
         self.src_id = src_id
 
         self.state = state_cursor
-        self.state["acquiring"] = False
+        self.state.set_self({
+            "acquiring": False,
+            "config": config
+        })
+        self.config = self.state.get_cursor("config")
 
-        self.buf_shape = image_shape  # currently supports only a single image buffer
+        self.buf_shape = self.image_shape  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
         self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
             self.buf_shape
@@ -138,9 +142,13 @@ class ImageSource(mp.Process):
 
 
 class ImageObserver(mp.Process):
-    def __init__(self, img_src: ImageSource):
+    def __init__(self, img_src: ImageSource, config: dict = None, state_cursor=None):
         super().__init__()
         self.img_src = img_src
+        self.state = state_cursor
+        if self.state is not None and config is not None:
+            self.state.set_self({"config": config})
+            self.config = self.state.get_cursor("config")
 
         self.update_event = mp.Event()
         img_src.add_observer_event(self.update_event)

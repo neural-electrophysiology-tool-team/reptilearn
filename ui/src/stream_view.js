@@ -9,8 +9,8 @@ const StreamView = (
     {idx, streams, set_streams, image_sources, src_ids, unused_src_ids, add_stream}
 ) => {
     const {src_id, width, undistort, is_streaming} = streams[idx];
-    const src_width = image_sources[src_id].image_shape[1];
-    const src_height = image_sources[src_id].image_shape[0];
+    const src_width = image_sources[src_id].config.image_shape[1];
+    const src_height = image_sources[src_id].config.image_shape[0];
     
     const stream_height = src_height * (width / src_width);
     const stream_url = api_url

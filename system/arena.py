@@ -54,6 +54,21 @@ def line(idx, on):
     mqtt.client.publish_json(f"arena/line/{idx}", on)
 
 
+def start_trigger(pulse_len=None, update_state=True):
+    if pulse_len is None:
+        pulse_len = _config.video_record["trigger_interval"]
+
+    if update_state:
+        state["video", "record", "ttl_trigger"] = True
+    mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": str(pulse_len)})
+
+
+def stop_trigger(update_state=True):
+    if update_state:
+        state["video", "record", "ttl_trigger"] = False
+    mqtt.client.publish("arena/ttl_trigger/stop")
+
+
 def sensors_poll(callback_once=None):
     """
     Polls the sensors for new readings.
@@ -96,7 +111,7 @@ def _on_sensors(_, reading):
     )
 
 
-def init(logger, arena_defaults):
+def init(logger, config):
     """
     Initialize the arena module.
     Connects to MQTT, inits sensor data logger, sends arena defaults, and subscribes for
@@ -104,8 +119,9 @@ def init(logger, arena_defaults):
 
     - arena_defaults: A dict with signal_led and day_lights keys with default values.
     """
-    global _log, _sensor_log
+    global _log, _sensor_log, _config
     _log = logger
+    _config = config
 
     # NOTE: This data logger is specific to arena sensor reading format.
     _sensor_log = data_log.QueuedDataLogger(
@@ -127,9 +143,10 @@ def init(logger, arena_defaults):
         time.sleep(0.01)
 
     _log.info("Sending arena defaults.")
-    signal_led(arena_defaults["signal_led"])
-    day_lights(arena_defaults["day_lights"])
-    turn_touchscreen(arena_defaults["touchscreen"])
+    
+    signal_led(config.arena_defaults["signal_led"])
+    day_lights(config.arena_defaults["day_lights"])
+    turn_touchscreen(config.arena_defaults["touchscreen"])
 
     mqtt.client.subscribe_callback(
         "arena/sensors", mqtt.mqtt_json_callback(_on_sensors)

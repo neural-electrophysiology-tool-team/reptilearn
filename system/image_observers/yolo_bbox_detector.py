@@ -12,19 +12,24 @@ class YOLOv4ImageObserver(ImageObserver):
     def __init__(
         self,
         img_src: ImageSource,
-        buffer_size=None,
-        *yolo_args,
-        **yolo_kwargs,
+            config,
+            state_cursor
     ):
-        super().__init__(img_src)
-        self.detector = YOLOv4Detector(*yolo_args, **yolo_kwargs)
-
-        if buffer_size is not None:
+        super().__init__(img_src, config, state_cursor)
+        if "buffer_size" in config:
+            self.buffer_size = config["buffer_size"]
             self.detection_buffer = []
+            yolo_config = dict(config)
+            del yolo_config["buffer_size"]
         else:
+            self.buffer_size = None
             self.detection_buffer = None
+            yolo_config = config
 
-        self.buffer_size = buffer_size
+        del yolo_config["src_id"]
+        del yolo_config["class"]
+        self.detector = YOLOv4Detector(**yolo_config)
+
         self.det_pipe_parent, self.det_pipe_child = mp.Pipe()
         self.on_detection = None
         self.pipe_thread = threading.Thread(target=self._recv_dets)

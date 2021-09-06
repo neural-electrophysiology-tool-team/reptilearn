@@ -67,8 +67,7 @@ stream_frame_rate = 15
 
 # Cameras and other image sources are configured here.
 image_sources = dict(
-    {
-    },
+    {},
 )
 
 # Image observers are defined here. These process images from image sources in real-time.
@@ -90,35 +89,35 @@ image_observers = {}
 # These parameters are passed to imageio.get_writer function
 # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
 
-cpu_encoding_params = {
-    "codec": "libx264",
-    "quality": 5,
-    "macro_block_size": 8,  # to work with 1440x1080 image size
-}
-
-gpu_encoding_params = {
-    "codec": "h264_nvenc",
-    "quality": None,
-    "macro_block_size": 1,
-    "pixelformat": "bgr0",
-    "ffmpeg_log_level": "warning",
-    "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
-}
 
 video_record = {
-    "encoding_params": {
-        "test": gpu_encoding_params,
-        "top": gpu_encoding_params,
-        "right": gpu_encoding_params,
-        "left": cpu_encoding_params,
-        "back": cpu_encoding_params,
-    },
     "video_frame_rate": 60,
     "trigger_interval": 17,
     "file_ext": "mp4",
     "max_write_queue_size": 0,  # 0 means infinite queue.
     "start_trigger_on_startup": False,
+    "encoding_configs": {
+        "cpu": {
+            "codec": "libx264",
+            "quality": 5,
+            "macro_block_size": 8,  # to work with 1440x1080 image size
+        },
+        "gpu": {
+            "codec": "h264_nvenc",
+            "quality": None,
+            "macro_block_size": 1,
+            "pixelformat": "bgr0",
+            "ffmpeg_log_level": "warning",
+            "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
+        },
+        "color": {
+            "codec": "libx264",
+            "quality": 5,
+            "macro_block_size": 8,  # to work with 1440x1080 image size
+        },
+    },
 }
+
 
 # MQTT server address
 mqtt = {
