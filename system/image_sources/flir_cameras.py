@@ -61,7 +61,10 @@ class FLIRImageSource(ImageSource):
 
     def acquire_image(self):
         if self.image_result is not None:
-            self.image_result.Release()
+            try:
+                self.image_result.Release()
+            except PySpin.SpinnakerException:
+                pass
 
         if self.prev_writing is False and self.state.get("writing", False) is True:
             self.update_time_delta()

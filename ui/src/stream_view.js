@@ -185,25 +185,25 @@ export class StreamGroupView extends React.Component {
         this.setState({streams: new_streams});
     }
         
-    // shouldComponentUpdate(next_props, next_state) {
-    //     if (JSON.stringify(next_state) !== JSON.stringify(this.state))
-    //         return true;
+    shouldComponentUpdate(next_props, next_state) {
+         if (JSON.stringify(next_state) !== JSON.stringify(this.state))
+             return true;
 
-    //     if (next_props.ctrl_state && this.props.ctrl_state) {
-    //         const next_srcs = next_props.ctrl_state.video.image_sources;
-    //         const prev_srcs = this.props.ctrl_state.video.image_sources;
+         if (next_props.ctrl_state && this.props.ctrl_state) {
+             const next_srcs = next_props.ctrl_state.video.image_sources;
+             const prev_srcs = this.props.ctrl_state.video.image_sources;
             
-    //         if (next_srcs.length !== prev_srcs.length)
-    //             return true;
+             if (next_srcs.length !== prev_srcs.length)
+                 return true;
         
-    //         for (let i=0; i<next_srcs.length; i++)
-    //             if (next_srcs[i] !== prev_srcs[i])
-    //                 return true;
+             for (let i=0; i<next_srcs.length; i++)
+                 if (next_srcs[i] !== prev_srcs[i])
+                     return true;
 
-    //         return false;
-    //     }
-    //     return true;
-    // }
+             return false;
+         }
+         return true;
+     }
     
     render() {
         if (!this.image_sources) {

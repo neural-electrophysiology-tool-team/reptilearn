@@ -69,16 +69,10 @@ def load_video_writers():
             queue_max_size=_config.video_record["max_write_queue_size"],
         )
 
-    ttl_trigger = _config.video_record["start_trigger_on_startup"]
-    if ttl_trigger:
-        start_trigger(update_state=False)
-    else:
-        stop_trigger(update_state=False)
-
 
 def update_video_config(video_config: dict):
     global image_sources, image_observers
-    shutdown()
+    shutdown_video()
 
     image_sources = {}
     image_observers = {}
@@ -207,6 +201,12 @@ def init(log, config):
     load_video_config(video_config)
     load_video_writers()
 
+    ttl_trigger = _config.video_record["start_trigger_on_startup"]
+    if ttl_trigger:
+        start_trigger(update_state=False)
+    else:
+        stop_trigger(update_state=False)
+
 
 def update_acquire_callback(src_id):
     def select_when_acquiring(old_val, new_val):
@@ -230,17 +230,17 @@ def start():
     for w in video_writers.values():
         w.start()
 
-    _log.info(f"Starting image observers: {list(image_observers.keys())}")
+    _log.info(f"Starting image observers: {', '.join(list(image_observers.keys()))}")
     for img_obs in image_observers.values():
         img_obs.start()
 
-    _log.info(f"Starting image sources: {list(image_sources.keys())}")
+    _log.info(f"Starting image sources: {', '.join(list(image_sources.keys()))}")
     for src_id, img_src in image_sources.items():
         img_src.start()
         update_acquire_callback(src_id)
 
 
-def shutdown():
+def shutdown_video():
     for w in video_writers.values():
         w.stop_observing()
         w.shutdown()
@@ -259,4 +259,7 @@ def shutdown():
     for src_id in image_sources.keys():
         state.remove_callback(("video", "image_sources", src_id, "acquiring"))
 
+
+def shutdown():
+    shutdown_video()
     stop_trigger()

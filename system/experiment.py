@@ -107,7 +107,8 @@ def create_session(session_id, experiment):
     if session_state.exists(()):
         close_session()
 
-    log.info(f"\nStarting session {session_id}")
+    log.info("")
+    log.info(f"Starting session {session_id}")
     log.info("=================================================")
 
     if experiment not in experiment_specs.keys():

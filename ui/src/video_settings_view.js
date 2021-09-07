@@ -115,6 +115,18 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
     };
     
     const reset_object = () => {
+        const cfg = (activeTabIdx === 0) ? {...sourcesConfig} : {...observersConfig};
+
+	const obj_id = (activeTabIdx === 0) ? selectedSource : selectedObserver;
+
+        if (activeTabIdx === 0) {
+            cfg[obj_id] = ctrl_state.video.image_sources[obj_id].config;
+            setSourcesConfig(cfg);
+        }
+        else if (activeTabIdx === 1) {
+            cfg[obj_id] = ctrl_state.video.image_observers[obj_id].config;
+            setObserversConfig(cfg);
+        }
     };
 
     const add_object_exists = () => {

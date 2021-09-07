@@ -121,7 +121,7 @@ def parse_image_request(src_id):
     height = None if sheight is None else int(sheight)
 
     if src_id in state["video", "image_sources"]:
-        src_config = state["video", "image_sources", src_id]
+        src_config = state["video", "image_sources", src_id, "config"]
     else:
         src_config = None
 
@@ -131,7 +131,7 @@ def parse_image_request(src_id):
         and "undistort" in src_config
     ):
         oheight, owidth = src_config["image_shape"]
-        undistort_config = getattr(config, src_config["undistort"])
+        undistort_config = config.undistort[src_config["undistort"]]
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
             owidth, oheight, undistort_config
         )

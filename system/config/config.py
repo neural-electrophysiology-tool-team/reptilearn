@@ -17,139 +17,80 @@ session_data_root: Path = Path("/data/reptilearn/experiments/")
 # Videos and images that were collected when not running an experiment are stored here.
 media_dir: Path = Path("/data/reptilearn/media/")
 
-# Lens correction values for various camera and lens combinations.
-undistort_flir_firefly_4mm = {
-    "mtx": np.array(
-        [
-            [1.14515564e03, 0.00000000e00, 7.09060713e02],
-            [0.00000000e00, 1.14481967e03, 5.28220061e02],
-            [0.00000000e00, 0.00000000e00, 1.00000000e00],
-        ]
-    ),
-    "dist": np.array(
-        [
-            [
-                -4.25580120e-01,
-                3.02361751e-01,
-                -1.56952670e-03,
-                -4.04385846e-04,
-                -2.27525587e-01,
-            ]
-        ]
-    ),
-}
+# Path to the video configuration file
+video_config_path: Path = Path("./config/video_config.json")
 
-undistort_flir_blackfly_computar = {
-    "dist": np.array(
-        [
+# Lens correction values for various camera and lens combinations.
+undistort = {
+    "flir_firefly_4mm": {
+        "mtx": np.array(
             [
-                -3.73487649e-01,
-                1.70639650e-01,
-                2.12535002e-04,
-                9.02337277e-05,
-                -4.25039396e-02,
+                [1.14515564e03, 0.00000000e00, 7.09060713e02],
+                [0.00000000e00, 1.14481967e03, 5.28220061e02],
+                [0.00000000e00, 0.00000000e00, 1.00000000e00],
             ]
-        ]
-    ),
-    "mtx": np.array(
-        [
-            [1.04345883e03, 0.00000000e00, 7.94892178e02],
-            [0.00000000e00, 1.04346538e03, 6.09748241e02],
-            [0.00000000e00, 0.00000000e00, 1.00000000e00],
-        ]
-    ),
+        ),
+        "dist": np.array(
+            [
+                [
+                    -4.25580120e-01,
+                    3.02361751e-01,
+                    -1.56952670e-03,
+                    -4.04385846e-04,
+                    -2.27525587e-01,
+                ]
+            ]
+        ),
+    },
+    "flir_blackfly_computar": {
+        "dist": np.array(
+            [
+                [
+                    -3.73487649e-01,
+                    1.70639650e-01,
+                    2.12535002e-04,
+                    9.02337277e-05,
+                    -4.25039396e-02,
+                ]
+            ]
+        ),
+        "mtx": np.array(
+            [
+                [1.04345883e03, 0.00000000e00, 7.94892178e02],
+                [0.00000000e00, 1.04346538e03, 6.09748241e02],
+                [0.00000000e00, 0.00000000e00, 1.00000000e00],
+            ]
+        ),
+    },
 }
 
 # The frame rate of HTTP image source streaming. Lower this to reduce network usage.
 stream_frame_rate = 15
 
-# Cameras and other image sources are configured here.
-image_sources = dict(
-    {
-        "top": {  # BFS-U3-16S2M
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "0138A051",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_blackfly_computar,
-        },
-        "left": {  # firefly-dl 1
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "20349302",
-            "exposure": 8000,
-            "trigger": "ttl",  # or "frame_rate"
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firefly_4mm,
-        },
-        "right": {  # firefly-dl 2
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "20349310",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firefly_4mm,
-        },
-        "back": {
-            "class": "image_sources.flir_cameras.FLIRImageSource",
-            "cam_id": "19514975",
-            "exposure": 8000,
-            "trigger": "ttl",
-            # "frame_rate": 60,
-            "image_shape": (1080, 1440),
-            "undistort": undistort_flir_firefly_4mm,
-        },
-    },
-)
-
-# Image observers are defined here. These process images from image sources in real-time.
-image_observers = {
-    "head_bbox": {
-        "src_id": "top",
-        "class": "image_observers.yolo_bbox_detector.YOLOv4ImageObserver",
-        "args": {
-            "conf_thres": 0.8,
-            "return_neareast_detection": True,
-            "buffer_size": None,
-            "weights_path": "image_observers/YOLOv4/yolo4_reptilearn260421_best.weights",
-            "cfg_path": "image_observers/YOLOv4/yolo4_2306.cfg",
-        },
-    }
-}
-
-# Video encoding parameters:
-# These parameters are passed to imageio.get_writer function
-# See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
-
-cpu_encoding_params = {
-    "codec": "libx264",
-    "quality": 5,
-    "macro_block_size": 8,  # to work with 1440x1080 image size
-}
-
-gpu_encoding_params = {
-    "codec": "h264_nvenc",
-    "quality": None,
-    "macro_block_size": 1,
-    "pixelformat": "bgr0",
-    "ffmpeg_log_level": "warning",
-    "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
-}
-
 video_record = {
-    "encoding_params": {
-        "top": gpu_encoding_params,
-        "right": gpu_encoding_params,
-        "left": gpu_encoding_params,
-        "back": cpu_encoding_params,
-    },
     "video_frame_rate": 60,
     "trigger_interval": 17,
     "file_ext": "mp4",
     "start_trigger_on_startup": False,
     "max_write_queue_size": 0,  # 0 means infinite queue.
+    "encoding_configs": {
+        # Video encoding parameters:
+        # These parameters are passed to imageio.get_writer function
+        # See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
+        "cpu": {
+            "codec": "libx264",
+            "quality": 5,
+            "macro_block_size": 8,  # to work with 1440x1080 image size
+        },
+        "gpu": {
+            "codec": "h264_nvenc",
+            "quality": None,
+            "macro_block_size": 1,
+            "pixelformat": "bgr0",
+            "ffmpeg_log_level": "warning",
+            "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
+        },
+    },
 }
 
 # MQTT server address

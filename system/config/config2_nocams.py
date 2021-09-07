@@ -17,6 +17,7 @@ session_data_root: Path = Path("/data/reptilearn/sessions/")
 # Videos and images that were collected when not running an experiment are stored here.
 media_dir: Path = Path("/data/reptilearn/media/")
 
+# Path to the video configuration file
 video_config_path: Path = Path("./config/video_config.json")
 
 # Lens correction values for various camera and lens combinations.
