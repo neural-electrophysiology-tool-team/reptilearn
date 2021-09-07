@@ -1,4 +1,4 @@
-import video_record
+import video_system
 import experiment as exp
 import arena
 import monitor
@@ -24,7 +24,7 @@ class VideoPlayExperiment(exp.Experiment):
     def run(self, params):
         monitor.set_color(params["background_color"])
         if params["record_video"]:
-            video_record.start_record()
+            video_system.start_record()
 
     def run_block(self, params):
         self.log.info("Playing video...")
@@ -38,7 +38,7 @@ class VideoPlayExperiment(exp.Experiment):
 
     def end(self, params):
         if params["record_video"]:
-            video_record.stop_record()
+            video_system.stop_record()
 
     def release(self):
         arena.turn_touchscreen(False)

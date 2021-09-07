@@ -5,11 +5,6 @@ import time
 
 
 class FLIRImageSource(ImageSource):
-    def __init__(self, src_id, config, state_cursor):
-        super().__init__(src_id, config["image_shape"], state_cursor)
-        self.cam_id = config["cam_id"]
-        self.config = config
-
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
         try:
@@ -46,9 +41,9 @@ class FLIRImageSource(ImageSource):
     def on_begin(self):
         self.system = PySpin.System_GetInstance()
         self.cam_list = self.system.GetCameras()
-        filtered = filter_cameras(self.cam_list, self.cam_id)
+        filtered = filter_cameras(self.cam_list, self.config["cam_id"])
         if len(filtered) < 1:
-            self.log.error(f"Camera {self.cam_id} was not found.")
+            self.log.error(f"Camera {self.config['cam_id']} was not found.")
             return False
 
         self.cam = filtered[0]
@@ -66,9 +61,12 @@ class FLIRImageSource(ImageSource):
 
     def acquire_image(self):
         if self.image_result is not None:
-            self.image_result.Release()
+            try:
+                self.image_result.Release()
+            except PySpin.SpinnakerException:
+                pass
 
-        if self.prev_writing is False and self.state["writing"] is True:
+        if self.prev_writing is False and self.state.get("writing", False) is True:
             self.update_time_delta()
         self.prev_writing = self.state.get("writing", False)
         

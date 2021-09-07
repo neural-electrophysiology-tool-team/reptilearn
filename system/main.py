@@ -29,8 +29,6 @@ import state as state_mod
 import experiment
 import task
 import video_system
-import video_record
-from dynamic_loading import instantiate_class
 from json_convert import json_convert
 
 # Load environment variables from .env file.
@@ -80,12 +78,12 @@ log = rl_logging.init(
 )
 
 # Initialize all other modules
-video_system.init(log, config)
 mqtt.init(log, config)
-arena.init(log, config.arena_defaults)
-video_record.init(log, config)
 task.init(log, config)
+arena.init(log, config)
+video_system.init(log, config)
 experiment.init(log, config)
+
 video_system.start()
 
 
@@ -123,7 +121,7 @@ def parse_image_request(src_id):
     height = None if sheight is None else int(sheight)
 
     if src_id in state["video", "image_sources"]:
-        src_config = state["video", "image_sources", src_id]
+        src_config = state["video", "image_sources", src_id, "config"]
     else:
         src_config = None
 
@@ -133,7 +131,7 @@ def parse_image_request(src_id):
         and "undistort" in src_config
     ):
         oheight, owidth = src_config["image_shape"]
-        undistort_config = getattr(config, src_config["undistort"])
+        undistort_config = config.undistort[src_config["undistort"]]
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
             owidth, oheight, undistort_config
         )
@@ -383,44 +381,55 @@ def route_task_cancel(task_idx):
         flask.abort(500, e)
 
 
+@app.route("/video/update_config", methods=["POST"])
+def route_update_config():
+    try:
+        video_system.update_video_config(flask.request.json)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while updating video config:")
+        flask.abort(500, e)
+
+
+    
 @app.route("/video_record/select_source/<src_id>")
 def route_select_source(src_id):
-    video_record.select_source(src_id)
+    video_system.select_source(src_id)
     return flask.Response("ok")
 
 
 @app.route("/video_record/unselect_source/<src_id>")
 def route_unselect_source(src_id):
-    video_record.unselect_source(src_id)
+    video_system.unselect_source(src_id)
     return flask.Response("ok")
 
 
 @app.route("/video_record/<cmd>")
 def route_video_record(cmd):
     if cmd == "start":
-        video_record.start_record()
+        video_system.start_record()
     elif cmd == "stop":
-        video_record.stop_record()
+        video_system.stop_record()
 
     return flask.Response("ok")
 
 
 @app.route("/video_record/start_trigger")
 def route_start_trigger():
-    video_record.start_trigger()
+    arena.start_trigger()
     return flask.Response("ok")
 
 
 @app.route("/video_record/stop_trigger")
 def route_stop_trigger():
-    video_record.stop_trigger()
+    arena.stop_trigger()
     return flask.Response("ok")
 
 
 @app.route("/video_record/set_prefix/")
 @app.route("/video_record/set_prefix/<prefix>")
 def route_set_prefix(prefix=""):
-    state[("video_record", "filename_prefix")] = prefix
+    state[("video", "record", "filename_prefix")] = prefix
     return flask.Response("ok")
 
 
@@ -445,7 +454,7 @@ def route_arena(cmd, value="unused"):
 
 @app.route("/save_image/<src_id>")
 def route_save_image(src_id):
-    video_record.save_image([src_id])
+    video_system.save_image([src_id])
     return flask.Response("ok")
 
 

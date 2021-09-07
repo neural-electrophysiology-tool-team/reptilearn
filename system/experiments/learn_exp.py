@@ -11,7 +11,7 @@ import arena
 import time
 import datetime
 import schedule
-import video_record
+import video_system
 import numpy as np
 import cv2 as cv
 import monitor
@@ -100,7 +100,7 @@ class LearnExp(exp.Experiment):
         self.detectAruco()
 
         if params["record_all"]:  # record start at init
-            video_record.start_record()
+            video_system.start_record()
 
         if not self.consecutive:  # no need to schedule next trials if consecutive
             self.cancel_trials = schedule.repeat(
@@ -124,7 +124,7 @@ class LearnExp(exp.Experiment):
         if (
             params.get("record_exp", True) and not params["record_all"]
         ):  # recording trials only
-            video_record.start_record()
+            video_system.start_record()
 
         self.log.info(
             "Trial "
@@ -286,7 +286,7 @@ class LearnExp(exp.Experiment):
         self.got_detection = False
         if params.get("continuous", False):
             if params["record_exp"] and not params["record_all"]:
-                video_record.stop_record()
+                video_system.stop_record()
             self.cancel_trials()
             self.cancel_trials = schedule.repeat(
                 self.period_call, interval, self.cur_trial - 1
@@ -294,14 +294,14 @@ class LearnExp(exp.Experiment):
         elif self.consecutive:
             if params["record_exp"] and not params["record_all"]:
                 schedule.once(
-                    lambda: video_record.stop_record(), params.get("record_overhead", 0)
+                    lambda: video_system.stop_record(), params.get("record_overhead", 0)
                 )
             if self.cur_trial > 0:
                 exp.next_trial()
         else:
             if params["record_exp"] and not params["record_all"]:
                 schedule.once(
-                    lambda: video_record.stop_record(), params.get("record_overhead", 0)
+                    lambda: video_system.stop_record(), params.get("record_overhead", 0)
                 )
 
     def end_trial(self, params):
@@ -309,7 +309,7 @@ class LearnExp(exp.Experiment):
             self.log.info("Logic trial wasnt finished!")
             if params.get("record_exp", True) and not params["record_all"]:
                 schedule.once(
-                    lambda: video_record.stop_record(), params.get("record_overhead", 0)
+                    lambda: video_system.stop_record(), params.get("record_overhead", 0)
                 )
             if params["stimulus"] == "monitor":
                 monitor.chnage_color("black")
@@ -333,7 +333,7 @@ class LearnExp(exp.Experiment):
     def end(self, params):
         # on end cancel all records and schedules
         if params.get("record_exp", True) or params["record_all"]:
-            video_record.stop_record()
+            video_system.stop_record()
         if self.cancel_trials != None:
             self.cancel_trials()
         if self.cancel_logic_trial != None:

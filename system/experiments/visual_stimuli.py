@@ -5,7 +5,7 @@ import monitor
 import arena
 import schedule
 import random
-import video_record
+import video_system
 
 
 class VisualStimuli(exp.Experiment):
@@ -49,7 +49,7 @@ class VisualStimuli(exp.Experiment):
         self.clear(params["interstimuli_color"])
 
         self.cancel_sequence = schedule.sequence(self.display_stimuli, intervals)
-        video_record.start_record()
+        video_system.start_record()
 
     def display_stimuli(self):
 
@@ -69,7 +69,7 @@ class VisualStimuli(exp.Experiment):
     def end(self, params):
         monitor.clear()
         self.cancel_sequence()
-        video_record.stop_record()
+        video_system.stop_record()
 
     def release(self):
         arena.turn_touchscreen(False)

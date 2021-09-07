@@ -4,7 +4,7 @@ from video_system import image_sources, image_observers
 from state import state
 import arena
 import schedule
-import video_record
+import video_system
 import cv2 as cv
 import datetime
 import numpy as np
@@ -145,7 +145,7 @@ class LocationExperiment(exp.Experiment):
         self.using_stochastic_delay = None
 
         if params["record_video"]:
-            video_record.start_record()
+            video_system.start_record()
 
     def run_trial(self, params):
         if session_state["cur_trial"] == 0:
@@ -168,7 +168,7 @@ class LocationExperiment(exp.Experiment):
         self.bbox_collector.end()
         session_state.remove_callback("is_in_area")
         if params["record_video"]:
-            video_record.stop_record()
+            video_system.stop_record()
 
     def find_reinforced_location(self, params):
         if params["reinforced_area"]["use_aruco"] and self.aruco_img is not None:

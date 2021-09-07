@@ -9,8 +9,8 @@ const StreamView = (
     {idx, streams, set_streams, image_sources, src_ids, unused_src_ids, add_stream}
 ) => {
     const {src_id, width, undistort, is_streaming} = streams[idx];
-    const src_width = image_sources[src_id].image_shape[1];
-    const src_height = image_sources[src_id].image_shape[0];
+    const src_width = image_sources[src_id].config.image_shape[1];
+    const src_height = image_sources[src_id].config.image_shape[0];
     
     const stream_height = src_height * (width / src_width);
     const stream_url = api_url
@@ -185,25 +185,25 @@ export class StreamGroupView extends React.Component {
         this.setState({streams: new_streams});
     }
         
-    // shouldComponentUpdate(next_props, next_state) {
-    //     if (JSON.stringify(next_state) !== JSON.stringify(this.state))
-    //         return true;
+    shouldComponentUpdate(next_props, next_state) {
+         if (JSON.stringify(next_state) !== JSON.stringify(this.state))
+             return true;
 
-    //     if (next_props.ctrl_state && this.props.ctrl_state) {
-    //         const next_srcs = next_props.ctrl_state.video.image_sources;
-    //         const prev_srcs = this.props.ctrl_state.video.image_sources;
+         if (next_props.ctrl_state && this.props.ctrl_state) {
+             const next_srcs = next_props.ctrl_state.video.image_sources;
+             const prev_srcs = this.props.ctrl_state.video.image_sources;
             
-    //         if (next_srcs.length !== prev_srcs.length)
-    //             return true;
+             if (next_srcs.length !== prev_srcs.length)
+                 return true;
         
-    //         for (let i=0; i<next_srcs.length; i++)
-    //             if (next_srcs[i] !== prev_srcs[i])
-    //                 return true;
+             for (let i=0; i<next_srcs.length; i++)
+                 if (next_srcs[i] !== prev_srcs[i])
+                     return true;
 
-    //         return false;
-    //     }
-    //     return true;
-    // }
+             return false;
+         }
+         return true;
+     }
     
     render() {
         if (!this.image_sources) {

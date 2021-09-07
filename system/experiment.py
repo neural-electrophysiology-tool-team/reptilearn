@@ -4,7 +4,7 @@ import re
 from state import state
 from json_convert import json_convert
 from dynamic_loading import load_modules, find_subclass, reload_module
-import video_record
+import video_system
 import event_log
 import schedule
 
@@ -107,7 +107,8 @@ def create_session(session_id, experiment):
     if session_state.exists(()):
         close_session()
 
-    log.info(f"\nStarting session {session_id}")
+    log.info("")
+    log.info(f"Starting session {session_id}")
     log.info("=================================================")
 
     if experiment not in experiment_specs.keys():
@@ -163,7 +164,8 @@ def continue_session(session_name):
     if session_state.exists(()):
         close_session()
 
-    log.info(f"\nContinuing session {session_name}")
+    log.info("")
+    log.info(f"Continuing session {session_name}")
     log.info("=================================================")
 
     data_path = config.session_data_root / session_name
@@ -264,7 +266,7 @@ def close_session():
         event_logger.log("session/close", session_state.get_self())
         event_logger.stop()
 
-    video_record.restore_after_experiment_session()
+    video_system.restore_after_experiment_session()
     session_state.delete(())
     log.info("Closed session.")
 
