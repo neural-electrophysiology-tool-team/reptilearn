@@ -23,7 +23,6 @@ class VideoPlayExperiment(exp.Experiment):
         
     def run(self, params):
         monitor.set_color(params["background_color"])
-        arena.day_lights(True)
         if params["record_video"]:
             video_system.start_record()
 
@@ -40,7 +39,6 @@ class VideoPlayExperiment(exp.Experiment):
     def end(self, params):
         if params["record_video"]:
             video_system.stop_record()
-        arena.day_lights(True)
 
     def release(self):
         arena.turn_touchscreen(False)
