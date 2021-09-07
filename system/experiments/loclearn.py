@@ -1,5 +1,6 @@
 import experiment as exp
 from experiment import session_state
+from video_system import image_sources, image_observers
 from state import state
 import arena
 import schedule
@@ -19,7 +20,7 @@ import random
 
 
 def detect_aruco(src_id):
-    test_image, _ = exp.image_sources[src_id].get_image()
+    test_image, _ = image_sources[src_id].get_image()
     # currently using 4x4 arucos
     arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
     arucoParams = cv.aruco.DetectorParameters_create()
@@ -69,7 +70,7 @@ class BBoxDataCollector:
             table_name="bbox_position",
         )
         self.bbox_log.start()
-        self.obs = exp.image_observers["head_bbox"]
+        self.obs = image_observers["head_bbox"]
         self.obs.on_detection = self.on_detection
         self.obs.start_observing()
 
@@ -183,7 +184,7 @@ class LocationExperiment(exp.Experiment):
         if self.aruco_img is not None:
             img = np.copy(self.aruco_img)
         else:
-            img, _ = exp.image_sources[params["image_source_id"]].get_image()
+            img, _ = image_sources[params["image_source_id"]].get_image()
 
         img = cv.circle(
             img,

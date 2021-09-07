@@ -28,6 +28,7 @@ from state import state
 import state as state_mod
 import experiment
 import task
+import video_system
 import video_record
 from dynamic_loading import instantiate_class
 from json_convert import json_convert
@@ -78,39 +79,14 @@ log = rl_logging.init(
     default_level=config.log_level,
 )
 
-# Initialize image sources and observers
-state["image_sources"] = {}
-
-image_sources = {
-    src_id: instantiate_class(
-        src_config["class"],
-        src_id,
-        src_config,
-        state_cursor=state.get_cursor(("image_sources", src_id)),
-    )
-    for (src_id, src_config) in config.image_sources.items()
-}
-
-image_observers = {
-    obs_id: instantiate_class(
-        obs_config["class"], image_sources[obs_config["src_id"]], **obs_config["args"]
-    )
-    for obs_id, obs_config in config.image_observers.items()
-}
-
 # Initialize all other modules
+video_system.init(log, config)
 mqtt.init(log, config)
 arena.init(log, config.arena_defaults)
-video_record.init(image_sources, log, config)
+video_record.init(log, config)
 task.init(log, config)
-experiment.init(image_observers, image_sources, log, config)
-
-# Start processes of image observers and sources
-for img_obs in image_observers.values():
-    img_obs.start()
-
-for img_src in image_sources.values():
-    img_src.start()
+experiment.init(log, config)
+video_system.start()
 
 
 # Broadcast state updates over SocketIO
@@ -146,8 +122,8 @@ def parse_image_request(src_id):
     sheight = flask.request.args.get("height")
     height = None if sheight is None else int(sheight)
 
-    if src_id in config.image_sources:
-        src_config = config.image_sources[src_id]
+    if src_id in state["video", "image_sources"]:
+        src_config = state["video", "image_sources", src_id]
     else:
         src_config = None
 
@@ -156,9 +132,10 @@ def parse_image_request(src_id):
         and src_config is not None
         and "undistort" in src_config
     ):
-        oheight, owidth = img_src.image_shape
+        oheight, owidth = src_config["image_shape"]
+        undistort_config = getattr(config, src_config["undistort"])
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
-            owidth, oheight, src_config["undistort"]
+            owidth, oheight, undistort_config
         )
     else:
         undistort_mapping = None
@@ -180,14 +157,14 @@ def encode_image_for_response(img, width, height, undistort_mapping):
 
 @app.route("/image_sources/<src_id>/get_image")
 def route_image_sources_get_image(src_id, width=None, height=None):
-    img, timestamp = image_sources[src_id].get_image()
+    img, timestamp = video_system.image_sources[src_id].get_image()
     enc_img = encode_image_for_response(img, *parse_image_request(src_id))
     return flask.Response(enc_img, mimetype="image/jpeg")
 
 
 @app.route("/image_sources/<src_id>/stream")
 def route_image_sources_stream(src_id, width=None, height=None):
-    img_src = image_sources[src_id]
+    img_src = video_system.image_sources[src_id]
 
     frame_rate = int(
         flask.request.args.get("frame_rate", default=config.stream_frame_rate)
@@ -220,7 +197,7 @@ def route_image_sources_stream(src_id, width=None, height=None):
 
 @app.route("/stop_stream/<src_id>")
 def route_stop_stream(src_id):
-    img_src = image_sources[src_id]
+    img_src = video_system.image_sources[src_id]
     img_src.stop_streaming()
     return flask.Response("ok")
 
@@ -488,20 +465,17 @@ def root():
 
 
 # Run Flask server
-socketio.run(app, use_reloader=False, host="0.0.0.0")
+try:
+    socketio.run(app, use_reloader=False, host="0.0.0.0")
+except KeyboardInterrupt:
+    log.info("KeyboardInterrupt")
 
 
 # Shutdown (flask server was terminated)
 log.info("System is shutting down...")
 stop_state_emitter()
 experiment.shutdown()
-
-video_record.start_trigger()
-
-for img_src in image_sources.values():
-    img_src.join()
-
-video_record.stop_trigger()
+video_system.shutdown()
 schedule.cancel_all(pool=None, wait=True)
 arena.release()
 mqtt.shutdown()

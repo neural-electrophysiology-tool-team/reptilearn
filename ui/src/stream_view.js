@@ -6,11 +6,11 @@ import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 
 const StreamView = (
-    {idx, streams, set_streams, image_sources, sources_config, unused_src_ids, add_stream}
+    {idx, streams, set_streams, image_sources, src_ids, unused_src_ids, add_stream}
 ) => {
     const {src_id, width, undistort, is_streaming} = streams[idx];
-    const src_width = sources_config[src_id].image_shape[1];
-    const src_height = sources_config[src_id].image_shape[0];
+    const src_width = image_sources[src_id].image_shape[1];
+    const src_height = image_sources[src_id].image_shape[0];
     
     const stream_height = src_height * (width / src_width);
     const stream_url = api_url
@@ -96,6 +96,7 @@ const StreamView = (
                    resizeHandles={['se']}
                    lockAspectRatio={true}
                    onResize={on_resize}
+                   minConstraints={[240, 240]}
                    >
           <div className="stream_view"
                style={{width: width + 'px', height: stream_height + 50 + 'px'}}>
@@ -103,9 +104,9 @@ const StreamView = (
             <button onClick={(e) => remove_stream()} disabled={streams.length === 1}>
               <Icon name="x" size="small" fitted />
             </button>
-            <Selector options={image_sources}
+            <Selector options={src_ids}
                       on_select={(src_id, i) => update_sources(src_id) }
-                      selected={image_sources.indexOf(src_id)}
+                      selected={src_ids.indexOf(src_id)}
                       disabled={false} />
             <button onClick={() => shift_left()} disabled={shift_left_disabled}>
               <Icon name="angle left" fitted/>
@@ -120,7 +121,7 @@ const StreamView = (
               <Icon  fitted name="file image outline"/>
             </button>
             <button onClick={() => add_stream(idx)}
-                    disabled={streams.length === image_sources.length}
+                    disabled={streams.length === src_ids.length}
                     title="Add stream">
               <Icon size="small" fitted name="add"/>
             </button>
@@ -148,19 +149,23 @@ export class StreamGroupView extends React.Component {
 
     constructor(props) {
         super(props);
-        const {image_sources, sources_config} = props;
-        this.image_sources = image_sources;
-        this.sources_config = sources_config;
+        const { ctrl_state } = props;
+        console.log(ctrl_state);
+        if (ctrl_state && ctrl_state.video && ctrl_state.video.image_sources) {
+            this.image_sources = ctrl_state.video.image_sources;
+            this.src_ids = Object.keys(this.image_sources);   
+        }
     }
 
     componentDidMount() {
-        if (this.image_sources.length !== 0)
+        console.log(this.image_sources, this.src_ids);
+        if (this.src_ids && this.src_ids.length !== 0)
             this.add_stream(0);
     }
     
     unused_src_ids = () => {
         const used_ids = this.state.streams.map(s => s.src_id);
-        return this.image_sources.filter(src_id => !used_ids.includes(src_id));
+        return this.src_ids.filter(src_id => !used_ids.includes(src_id));
     }
     
     add_stream = (idx) => {
@@ -180,30 +185,38 @@ export class StreamGroupView extends React.Component {
         this.setState({streams: new_streams});
     }
         
-    shouldComponentUpdate(next_props, next_state) {
-        if (JSON.stringify(next_state) !== JSON.stringify(this.state))
-            return true;
-            
-        const next_srcs = next_props.image_sources;
-        const prev_srcs = this.props.image_sources;
-        if (next_srcs.length !== prev_srcs.length)
-            return true;
-        
-        for (let i=0; i<next_srcs.length; i++)
-            if (next_srcs[i] !== prev_srcs[i])
-                return true;
+    // shouldComponentUpdate(next_props, next_state) {
+    //     if (JSON.stringify(next_state) !== JSON.stringify(this.state))
+    //         return true;
 
-        return false;
-    }
+    //     if (next_props.ctrl_state && this.props.ctrl_state) {
+    //         const next_srcs = next_props.ctrl_state.video.image_sources;
+    //         const prev_srcs = this.props.ctrl_state.video.image_sources;
+            
+    //         if (next_srcs.length !== prev_srcs.length)
+    //             return true;
+        
+    //         for (let i=0; i<next_srcs.length; i++)
+    //             if (next_srcs[i] !== prev_srcs[i])
+    //                 return true;
+
+    //         return false;
+    //     }
+    //     return true;
+    // }
     
     render() {
+        if (!this.image_sources) {
+            return null;
+        }
+        
         const stream_views = this.state.streams.map(
             (stream, idx) => <StreamView
                                idx={idx}
                                streams={this.state.streams}
                                set_streams={s => this.setState({streams: s})}
                                image_sources={this.image_sources}
-                               sources_config={this.sources_config}
+                               src_ids={this.src_ids}
                                unused_src_ids={this.unused_src_ids()}
                                add_stream={this.add_stream}
                                key={idx}
