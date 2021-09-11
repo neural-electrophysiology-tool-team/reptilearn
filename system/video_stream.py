@@ -20,13 +20,12 @@ class ImageSource(mp.Process):
         self.src_id = src_id
 
         self.state = state_cursor
-        self.state.set_self({
-            "acquiring": False,
-            "config": config
-        })
+        self.state.set_self({"acquiring": False, "config": config})
         self.config = self.state.get_cursor("config")
 
-        self.buf_shape = self.image_shape  # currently supports only a single image buffer
+        self.buf_shape = (
+            self.image_shape
+        )  # currently supports only a single image buffer
         self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
         self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
             self.buf_shape
@@ -94,7 +93,7 @@ class ImageSource(mp.Process):
                     break
                 except KeyboardInterrupt:
                     continue
-                
+
                 if img is None:
                     break
 
@@ -165,7 +164,7 @@ class ImageObserver(mp.Process):
 
     def shutdown(self):
         self.parent_pipe.send("shutdown")
-    
+
     def run(self):
         self.log = rl_logging.logger_configurer(self.name)
 

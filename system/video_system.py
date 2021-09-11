@@ -50,8 +50,6 @@ def load_video_config(video_config: dict):
         for obs_id, conf in video_config["image_observers"].items():
             load_observer(obs_id, conf)
 
-    # video_record.reset_writers()?
-
 
 def load_video_writers():
     global video_writers
@@ -102,7 +100,8 @@ def select_source(src_id):
 
 
 def unselect_source(src_id):
-    _rec_state.remove("selected_sources", src_id)
+    if src_id in _rec_state["selected_sources"]:
+        _rec_state.remove("selected_sources", src_id)
 
 
 def start_record(src_ids=None):
@@ -203,9 +202,9 @@ def init(log, config):
 
     ttl_trigger = _config.video_record["start_trigger_on_startup"]
     if ttl_trigger:
-        start_trigger(update_state=False)
+        start_trigger()
     else:
-        stop_trigger(update_state=False)
+        stop_trigger()
 
 
 def update_acquire_callback(src_id):
