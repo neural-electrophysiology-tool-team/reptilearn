@@ -302,6 +302,8 @@ class SessionInfo:
     new object.
     """
 
+    name: str
+    time: pd.Timestamp
     dir: Path
     videos: [VideoInfo]
     images: [Path]
@@ -319,6 +321,8 @@ class SessionInfo:
         if not session_dir.exists():
             raise ValueError(f"Session directory doesn't exist: {str(session_dir)}")
 
+        self.name, self.time = exp.split_name_datetime(session_dir.stem)
+        self.time = self.time.tz_localize(name_locale).tz_convert("utc")        
         self.dir = session_dir
 
         self.videos = [
