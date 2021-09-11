@@ -263,11 +263,11 @@ class LocationExperiment(exp.Experiment):
         elif old and not new:
             exp.event_logger.log("loclearn/left_area", None)
             self.log.info("Animal left the reinforced area.")
-            if self.cancel_blink is not None:
-                self.cancel_blink()
-                arena.signal_led(False)
-            if self.cancel_reward_delay is not None:
-                self.cancel_reward_delay()
+            # if self.cancel_blink is not None:
+            #     self.cancel_blink()
+            #     arena.signal_led(False)
+            # if self.cancel_reward_delay is not None:
+            #     self.cancel_reward_delay()
 
             if session_state["reward_scheduled"]:
                 session_state["cooldown"] = True
