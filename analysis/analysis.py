@@ -79,6 +79,17 @@ def idx_for_time(df: pd.DataFrame, timestamp: pd.Timestamp, time_col=None) -> in
         return (df[time_col] - timestamp).abs().argmin()
 
 
+def format_timedelta(td: pd.Timedelta, use_colons=True):
+    total_secs = int(td.total_seconds())
+    hrs = total_secs // 3600
+    mins = (total_secs % 3600) // 60
+    secs = (total_secs % 3600) % 60
+    if use_colons:
+        return f"{hrs:02}:{mins:02}:{secs:02}"
+    else:
+        return f"{hrs:02}{mins:02}{secs:02}"
+
+
 def extract_clip(vid_path, start_frame: int, end_frame: int, output_path):
     """
     Extract a subclip of a video file without re-encoding it.
@@ -203,6 +214,7 @@ class VideoInfo:
         duration: The total duration of the video (based on the timestamps file)
         src_id: The video image source id (based on the name attribute).
     """
+
     name: str
     time: pd.Timestamp
     path: Path
@@ -252,6 +264,7 @@ class VideoPosition:
     timestamp: The time of the video position
     frame: The frame number of the video position (based on the timestamp)
     """
+
     video: VideoInfo
     timestamp: pd.Timestamp
     frame: int = None
@@ -288,6 +301,7 @@ class SessionInfo:
     which is loaded when the object is created. To reload the data create a
     new object.
     """
+
     dir: Path
     videos: [VideoInfo]
     images: [Path]
@@ -355,11 +369,11 @@ class SessionInfo:
         return self._event_log
 
     def filter_videos(
-            self, videos=None, src_id: str = None, ts: pd.Timestamp = None
+        self, videos=None, src_id: str = None, ts: pd.Timestamp = None
     ) -> [VideoInfo]:
         """
         Filter videos according to image source id or start time.
-        
+
         videos: A list of VideoInfo objects to filter. When equals None, all
                 session videos are used.
         src_id: When not None, return only videos recorded from this image
@@ -375,15 +389,17 @@ class SessionInfo:
             videos = filter(lambda v: v.time == ts, videos)
 
         return list(videos)
-        
-    def video_position_at_time(self, timestamp: pd.Timestamp, videos=None) -> [VideoPosition]:
+
+    def video_position_at_time(
+        self, timestamp: pd.Timestamp, videos=None
+    ) -> [VideoPosition]:
         """
         Find all video files and frame numbers matching the supplied timestamp.
         Return a list of VideoPosition objects, one for each video that was
         recording during the time denoted by timestamp.
 
         videos: A list of VideoInfos that will be searched. When this is None,
-                all of the videos in the session will be searched.                
+                all of the videos in the session will be searched.
         """
         res = []
         if videos is None:
@@ -430,11 +446,7 @@ class SessionInfo:
         start_pos, end_pos = start_pos[0], end_pos[0]
 
         relative_ts = start_pos.timestamp - start_pos.video.time
-        total_secs = int(relative_ts.total_seconds())
-        hrs = total_secs // 3600
-        mins = (total_secs % 3600) // 60
-        secs = (total_secs % 3600) % 60
-        fts = f"{hrs:02}{mins:02}{secs:02}"
+        fts = format_timedelta(relative_ts, use_colons=False)
 
         clip_path = (
             output_dir / f"{file_prefix}_{fts}_{start_pos.frame}_{end_pos.frame}.mp4"
