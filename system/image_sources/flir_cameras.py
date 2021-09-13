@@ -16,11 +16,7 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
-                # self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
-                # self.cam.LineMode.SetValue(PySpin.LineMode_Input)
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
-                # self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
-                # self.cam.DeviceLinkThroughputLimit.SetValue(self.get_max_throughput())
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
             elif self.config["trigger"] == "frame_rate":
@@ -28,6 +24,11 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
                 self.cam.AcquisitionFrameRate.SetValue(self.config["frame_rate"])
                 self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
+
+            if "pixel_format" in self.config:
+                fmt = self.config["pixel_format"]
+                self.cam.PixelFormat.SetValue(getattr(PySpin, f"PixelFormat_{fmt}"))
+
         except PySpin.SpinnakerException as exc:
             self.log.error(f"(configure_images); {exc}")
 
@@ -46,7 +47,7 @@ class FLIRImageSource(ImageSource):
             self.log.error(f"Camera {self.config['cam_id']} was not found.")
             return False
 
-        self.cam = filtered[0]
+        self.cam: PySpin.CameraPtr = filtered[0]
         self.cam.Init()
         self.configure_camera()
 
@@ -69,9 +70,10 @@ class FLIRImageSource(ImageSource):
         if self.prev_writing is False and self.state.get("writing", False) is True:
             self.update_time_delta()
         self.prev_writing = self.state.get("writing", False)
-        
+
         self.image_result = self.cam.GetNextImage()
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
+        
         try:
             img = self.image_result.GetNDArray()
             return (img, timestamp)
