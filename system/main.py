@@ -391,7 +391,6 @@ def route_update_config():
         flask.abort(500, e)
 
 
-    
 @app.route("/video_record/select_source/<src_id>")
 def route_select_source(src_id):
     video_system.select_source(src_id)
@@ -433,22 +432,35 @@ def route_set_prefix(prefix=""):
     return flask.Response("ok")
 
 
-@app.route("/arena/<cmd>/<value>")
-@app.route("/arena/<cmd>/")
-def route_arena(cmd, value="unused"):
-    f = getattr(arena, cmd)
-    if f is arena.run_command:
-        raise ValueError("Invalid arena command: run_command")
+@app.route("/arena/run_command", methods=["POST"])
+def route_arena():
+    try:
+        command = flask.request.json[0]
+        interface = flask.request.json[1]
+        arena.run_command(command, interface, flask.request.json[2:])
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while running arena command:")
+        flask.abort(500, e)
 
-    if value == "false":
-        f(False)
-    elif value == "true":
-        f(True)
-    elif value == "unused":
-        f()
-    elif value == "None":
-        f(None)
 
+@app.route("/arena/request_values")
+@app.route("/arena/request_values/<interface>")
+def route_arena_request_values(interface=None):
+    arena.request_values(interface)
+    return flask.Response("ok")
+
+
+@app.route("/arena/turn_touchscreen/<on>")
+@app.route("/arena/turn_touchscreen/<on>/<display>")
+def route_arena_turn_touchscreen(on, display=":0"):
+    arena.turn_touchscreen(on, display)
+    return flask.Response("ok")
+
+
+@app.route("/arena/poll")
+def route_arena_poll():
+    arena.request_values()
     return flask.Response("ok")
 
 

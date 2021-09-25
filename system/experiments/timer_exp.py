@@ -32,15 +32,14 @@ class TimerExperiment(exp.Experiment):
 
     def run_trial(self, params):
         self.log.info(f"{exp.session_state['cur_trial']}: {time.time()}")
-        arena.signal_led(True)
-        schedule.once(lambda: arena.signal_led(False), params["interval"] / 2)
+        arena.run_command("toggle", "Signal LED", update_value=True)
 
     def timer_fn(self):
         exp.next_trial()
 
     def end_block(self, params):
+        self.cancel_timer()
         pass
 
     def end(self, params):
-        schedule.cancel_all()
         self.log.info("Stopped timer")

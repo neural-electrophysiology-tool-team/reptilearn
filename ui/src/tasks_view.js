@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Checkbox, Modal, Tab, Icon, Dropdown, Button, Input } from 'semantic-ui-react';
+import { Table, Grid, Checkbox, Modal, Tab, Dropdown, Button, Input } from 'semantic-ui-react';
 import {api_url} from './config.js';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -30,9 +30,9 @@ export const TasksView = () => {
             });
     };
 
-    const run_task = (mod, task) => {
-        fetch(api_url + `/task/run/${mod}/${task}`);
-    };
+    // const run_task = (mod, task) => {
+    //     fetch(api_url + `/task/run/${mod}/${task}`);
+    // };
 
     const schedule_task = (mod, task) => {
         let args;
@@ -73,10 +73,9 @@ export const TasksView = () => {
         });
     };
 
-    const open_schedule_modal = (mod, task) => {
+    const open_schedule_modal = () => {
         setScheduleDate(new Date());
         setShowScheduleModal(true);
-        setSelectedTask([mod, task]);
     };
 
     const open_task_list_modal = () => {
@@ -227,25 +226,60 @@ export const TasksView = () => {
         )},
 
     ];    
-        
-    const schedule_modal = selectedTask ? (
+
+    const schedule_modal = (
         <Modal size="small"
                onClose={() => setShowScheduleModal(false)}
                onOpen={() => setShowScheduleModal(true)}
                open={showScheduleModal}>
-          <Modal.Header>Schedule task <em>{selectedTask[1]}</em></Modal.Header>
+          <Modal.Header>Schedule task</Modal.Header>
           <Modal.Content>
-            <Tab menu={{ fluid: true, vertical: true }} panes={panes} activeIndex={activeTabIdx}
-                 onTabChange={(e, data) => setActiveTabIdx(data.activeIndex)}/>
+            <Grid columns={2} verticalAlign='middle'>
+              <Grid.Row>
+                <Grid.Column>
+                  <Dropdown className="selection"
+                            placeholder={selectedTask ? selectedTask[0] + "." + selectedTask[1] : "Select task"}
+                            value={'' + selectedTask}>
+                    <Dropdown.Menu>
+                      <React.Fragment>
+                        {Object.keys(taskList).map(mod => {
+                            const tasks = taskList[mod];
+
+                            return (
+                                <React.Fragment key={mod}>
+                                  <Dropdown.Header>{mod}</Dropdown.Header>
+                                  {tasks.map(task => (
+                                      <Dropdown.Item text={task}
+                                                     key={'' + [mod, task]}
+                                                     value={'' + [mod, task]}
+                                                     onClick={() => setSelectedTask([mod, task])}/>
+                                  ))}
+                                </React.Fragment>
+                            );
+                        })}
+                      </React.Fragment>
+                    </Dropdown.Menu>
+                  </Dropdown>
+                </Grid.Column>
+              </Grid.Row>
+              <Grid.Row>
+                <Grid.Column width={16}>
+                  <Tab menu={{ fluid: true, vertical: true }} panes={panes} activeIndex={activeTabIdx}
+                       onTabChange={(e, data) => setActiveTabIdx(data.activeIndex)}/>
+                </Grid.Column>
+              </Grid.Row>
+            </Grid>
           </Modal.Content>
           <Modal.Actions>
-            <Button primary onClick={() => schedule_task(selectedTask[0], selectedTask[1])}>
-              Schedule
-            </Button>
+            {selectedTask ? (
+                <Button primary onClick={() => schedule_task(selectedTask[0], selectedTask[1])}>
+                  Schedule
+                </Button>
+            ) : null}
             <Button onClick={() => setShowScheduleModal(false)}>Cancel</Button>
           </Modal.Actions>
         </Modal>
-    ) : null;
+    );
 
     const task_list_modal = (
         <Modal size="small"
@@ -286,48 +320,24 @@ export const TasksView = () => {
         </Modal>        
     );
     
-    const task_items = (mod, task) => (
-        <Dropdown.Item className="tight-dropdown-item" key={`${mod}_${task}`}>
-          <Button.Group>
-            <Button attached='left' compact size="mini" icon labelPosition='right' onClick={() => run_task(mod, task)}>
-              {task}
-              <Icon name='play circle outline'/>
-            </Button>
-            <Button attached='right' compact size="mini" icon
-                    onClick={() => open_schedule_modal(mod, task)}>
-              <Icon name='clock'/>
-            </Button>
-          </Button.Group>
-        </Dropdown.Item>   
-    );
-
-    const items = Object.keys(taskList).map((mod, i) => (        
-        <React.Fragment key={mod}>
-          <Dropdown.Header className="tight-dropdown-header">{mod}</Dropdown.Header>
-          {taskList[mod].map(task => task_items(mod, task))}
-          {i < taskList.length - 1 && <Dropdown.Divider/> }
-        </React.Fragment>
-    ));
-    
     return (
         <React.Fragment>
           {schedule_modal}
           {task_list_modal}
           <button>       
-            <Dropdown text='Tasks'
+            <Dropdown text='Schedule'
                       onOpen={load_task_list}
                       loading={isLoading}
                       scrolling> 
               <Dropdown.Menu>
-                <Dropdown.Item key='scheduled'>
-                  <Button size="tiny"
-                          onClick={open_task_list_modal}
-                          loading={isLoadingScheduledTasks}>
-                    Show scheduled tasks
-                  </Button>
-                </Dropdown.Item>
+                <Dropdown.Item key='schedule'
+                               text='Schedule task'
+                               onClick={open_schedule_modal}/>
                 <Dropdown.Divider/>
-                {items}
+                <Dropdown.Item key='scheduled'
+                               text='Show schedules'
+                               onClick={open_task_list_modal}>
+                </Dropdown.Item>
               </Dropdown.Menu>
             </Dropdown>
           </button>          

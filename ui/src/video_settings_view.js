@@ -45,7 +45,7 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
         return null;
     }
 
-    const cur_object = activeTabIdx == 0 ? "source" : "observer";
+    const cur_object = activeTabIdx === 0 ? "source" : "observer";
     
     const apply = () => {
         setApplying(true);
@@ -130,9 +130,7 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
     };
 
     const add_object_exists = () => {
-        console.log("inside");
         if (activeTabIdx === 0) {
-            console.log(Object.keys(sourcesConfig));
             return Object.keys(sourcesConfig).includes(addIdInput);
         }
         else {
@@ -219,7 +217,7 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
             const v1 = o1[k];
             const v2 = o2[k];
             const are_objs = is_obj(v1) && is_obj(v2);
-            if (are_objs && !deep_equals(v1, v2) || !are_objs && v1 !== v2)
+            if ((are_objs && !deep_equals(v1, v2)) || (!are_objs && v1 !== v2))
                 return false;
         }
 

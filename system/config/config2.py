@@ -20,6 +20,9 @@ media_dir: Path = Path("/data/reptilearn/media/")
 # Path to the video configuration file
 video_config_path: Path = Path("./config/video_config.json")
 
+# Path to the arena hardware controller configuration file
+arena_config_path: Path = Path("./config/arena_config.json")
+
 # Lens correction values for various camera and lens combinations.
 undistort = {
     "flir_firefly_4mm": {
@@ -89,9 +92,12 @@ video_record = {
             "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
         },
         "color": {
-            "codec": "libx264",
-            "quality": 5,
-            "macro_block_size": 8,  # to work with 1440x1080 image size
+            "codec": "h264_nvenc",
+            "quality": None,
+            "macro_block_size": 1,
+            "pixelformat": "bgr0",
+            "ffmpeg_log_level": "warning",
+            "output_params": ["-preset", "slow", "-qp", "30", "-rc", "constqp"],
         },
     },
 }
@@ -102,21 +108,22 @@ mqtt = {
     "port": 1883,
 }
 
-# Configure the startup values of the arena hardware.
-arena_defaults = {
-    "signal_led": False,
-    "day_lights": False,
-    "touchscreen": False,
+# Arena hardware controller
+arena = {
+    "poll_interval": 60,
+    "displays": {
+        "touchscreen": ":0"
+    }
 }
 
-# Database connection configuration
+# Database connection
 database = {
     "host": "127.0.0.1",
     "port": 5432,
     "db": "reptilearn",
 }
 
-# Event data logger configuration.
+# Event data logger
 event_log = {
     # This is a list of default events that will be logged. Additional events
     # can be defined in custom experiment modules. Either MQTT or state update

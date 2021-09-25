@@ -43,9 +43,9 @@ def led_blink(num_blinks, led_duration):
     interval = led_duration / num_blinks / 2
 
     def toggle_led():
-        arena.signal_led(not state["arena", "signal_led"])
+        arena.run_command("toggle", "Signal LED")
 
-    arena.signal_led(False)
+    arena.run_command("set", "Signal LED", [0])
 
     return schedule.repeat(toggle_led, interval, repeats=num_blinks * 2)
 
@@ -158,7 +158,7 @@ class LocationExperiment(exp.Experiment):
                 "loclearn/reward", {"stochastic_delay": self.using_stochastic_delay}
             )
             self.log.info(f"Dispensing reward (stochastic_delay={self.using_stochastic_delay})")
-            arena.dispense_reward()
+            arena.run_command("dispense", "Left feeder")
         else:
             self.log.info("Trial ended.")
 
@@ -263,11 +263,6 @@ class LocationExperiment(exp.Experiment):
         elif old and not new:
             exp.event_logger.log("loclearn/left_area", None)
             self.log.info("Animal left the reinforced area.")
-            # if self.cancel_blink is not None:
-            #     self.cancel_blink()
-            #     arena.signal_led(False)
-            # if self.cancel_reward_delay is not None:
-            #     self.cancel_reward_delay()
 
             if session_state["reward_scheduled"]:
                 session_state["cooldown"] = True

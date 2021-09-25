@@ -1,0 +1,40 @@
+{
+    "interfaces": [
+	{
+	    "pins": [9, 10, 11, 12],
+	    "name": "Left feeder",
+	    "type": "feeder",
+	    "ui": "action",
+	    "command": "dispense",
+	    "icon": "gift"
+	},
+	{
+	    "name": "Right feeder",	   
+	    "type": "feeder",
+	    "pins": [5, 6, 7, 8],
+	    "ui": "action",
+	    "command": "dispense",
+	    "icon": "gift"
+	},
+	{
+	    "name": "Signal LED",
+	    "type": "line",
+	    "pin": 4,
+	    "ui": "toggle"
+	},
+	{
+	    "name": "Day lights",
+	    "type": "line",
+	    "pin": 2,
+	    "ui": "toggle"
+	},
+	{
+	    "name": "Temp",
+	    "type": "dallas_temperature",
+	    "pin": 2,
+	    "ui": "sensor",
+	    "unit": "\u00b0",
+	    "icon": "thermometer half"
+	}
+    ]
+}

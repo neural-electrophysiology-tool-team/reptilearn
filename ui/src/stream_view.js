@@ -150,7 +150,7 @@ export class StreamGroupView extends React.Component {
     constructor(props) {
         super(props);
         const { ctrl_state } = props;
-        console.log(ctrl_state);
+
         if (ctrl_state && ctrl_state.video && ctrl_state.video.image_sources) {
             this.image_sources = ctrl_state.video.image_sources;
             this.src_ids = Object.keys(this.image_sources);   

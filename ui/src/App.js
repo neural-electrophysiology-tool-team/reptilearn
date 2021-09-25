@@ -3,9 +3,8 @@ import 'semantic-ui-css/semantic.min.css';
 import 'react-reflex/styles.css';
 
 import React from 'react';
-import {MainPanelView} from './main_panel_view.js';
-import {SocketContext} from './socket.js';
-import {api_url} from './config.js';
+import { MainPanelView } from './main_panel_view.js';
+import { SocketContext } from './socket.js';
       
 const App = () => {
     const [ctrlState, setCtrlState] = React.useState(null);

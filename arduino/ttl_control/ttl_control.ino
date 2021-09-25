@@ -40,9 +40,6 @@ long cur_ttl = 0;
 
 SerialCommands serial_commands(&Serial, serial_buffer, sizeof(serial_buffer), "\n", " ");
 
-void start(int pulse_len, float pulse_width) {
-}
-
 void stop() {
   if (!running) return;
   
@@ -55,7 +52,6 @@ void stop() {
 
 SerialCommand cmd_stop("STOP", stop);
 SerialCommand cmd_start("START", start);
-
 
 void start(SerialCommands* sender) {
   if (running) return;
@@ -120,7 +116,7 @@ void setup() {
   Serial.begin(115200);
   serial_commands.AddCommand(&cmd_stop);
   serial_commands.AddCommand(&cmd_start);
-  serial_commands.SetDefaultHandler(cmd_unrecognized);
+  serial_commands.SetDefaultHandler(&cmd_unrecognized);
 }
 
 int ser_time = 0; // time it takes to send trigger through serial in microsecs.

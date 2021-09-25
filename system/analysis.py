@@ -25,9 +25,9 @@ def read_timeseries_csv(path: Path, time_col="time", tz="utc") -> pd.DataFrame:
     Read csv file into a pandas DataFrame. Creates a DatetimeIndex and sets
     the timezone to the specified one.
 
-    path: csv file path
-    time_col: The name of the column to be used as a DatetimeIndex
-    tz: The timezone of the time column (see DatetimeIndex.tz_localize)
+    - path: csv file path
+    - time_col: The name of the column to be used as a DatetimeIndex
+    - tz: The timezone of the time column (see DatetimeIndex.tz_localize)
     """
     df = pd.read_csv(path)
 
@@ -197,6 +197,22 @@ def sessions_stats_df(sessions: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def read_database_table(conn, table: str, t0: pd.Timestamp, t1: pd.Timestamp):
+    """
+    Read data from a database table within the supplied time range.
+
+    - conn: Database connection object (see database.make_connection)
+    - table: Database table name
+    - t0, t1: the time range of the returned dataframe
+    """
+    st0 = t0.isoformat()
+    st1 = t1.isoformat()
+    df = pd.read_sql(
+        f"SELECT * FROM {table} WHERE \"time\" BETWEEN '{st0}' AND '{st1}'", conn
+    )
+    return df
+
+
 @dataclass(init=False, repr=False)
 class VideoInfo:
     """
@@ -322,7 +338,7 @@ class SessionInfo:
             raise ValueError(f"Session directory doesn't exist: {str(session_dir)}")
 
         self.name, self.time = exp.split_name_datetime(session_dir.stem)
-        self.time = self.time.tz_localize(name_locale).tz_convert("utc")        
+        self.time = self.time.tz_localize(name_locale).tz_convert("utc")
         self.dir = session_dir
 
         self.videos = [
