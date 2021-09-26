@@ -1,9 +1,9 @@
 {
-    "interfaces": [
+    "arena": [
 	{
-	    "pins": [9, 10, 11, 12],
 	    "name": "Left feeder",
 	    "type": "feeder",
+	    "pins": [9, 10, 11, 12],	    
 	    "ui": "action",
 	    "command": "dispense",
 	    "icon": "gift"
@@ -25,7 +25,7 @@
 	{
 	    "name": "Day lights",
 	    "type": "line",
-	    "pin": 2,
+	    "pin": 3,
 	    "ui": "toggle"
 	},
 	{
@@ -35,6 +35,17 @@
 	    "ui": "sensor",
 	    "unit": "\u00b0",
 	    "icon": "thermometer half"
+	}
+    ],
+    "camera_trigger": [
+	{
+	    "name": "Camera Trigger",
+	    "type": "trigger",
+	    "pin": 12,
+	    "pulse_len": 17,
+	    "pulse_width": 0.7,
+	    "serial_trigger": false,
+	    "ui": "camera_trigger"
 	}
     ]
 }

@@ -11,7 +11,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("Arena")
 
-bridge = SerialMQTTBridge(config.serial, config.mqtt, logger)
+try:
+    bridge = SerialMQTTBridge(config.serial, config.mqtt, logger)
+except Exception:
+    logger.exception("Exception while initializing serial mqtt bridge:")
+    exit(1)
 
 try:
     while True:
