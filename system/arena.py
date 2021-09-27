@@ -10,14 +10,20 @@ import mqtt
 from state import state
 import time
 from subprocess import Popen, PIPE
+import collections
 import data_log
 import json
 import schedule
+import logging
 
 
 _values_once_callback = None
-_log = None
+_log: logging.Logger = None
+_arena_log: data_log.DataLogger = None
 _arena_state = None
+_config = None
+_interfaces_config: list = None
+_trigger_interface: dict = None
 
 
 def _run_shell_command(cmd):
@@ -62,19 +68,30 @@ def get_value(interface):
     return _arena_state["values", interface]
 
 
-def start_trigger(pulse_len=None, update_state=True):
-    if pulse_len is None:
-        pulse_len = _config.video_record["trigger_interval"]
+def start_trigger(update_state=True):
+    if _trigger_interface is None:
+        _log.info("No trigger interface was found.")
+        return
 
     if update_state:
         state["video", "record", "ttl_trigger"] = True
-    mqtt.client.publish_json("arena/ttl_trigger/start", {"pulse_len": str(pulse_len)})
+
+    run_command("set", _trigger_interface, [1])
 
 
 def stop_trigger(update_state=True):
+    if _trigger_interface is None:
+        _log.info("No trigger interface was found.")
+        return
+
     if update_state:
         state["video", "record", "ttl_trigger"] = False
-    mqtt.client.publish("arena/ttl_trigger/stop")
+
+    run_command("set", _trigger_interface, [0])
+
+
+def get_interfaces_config():
+    return _interfaces_config
 
 
 def poll(callback_once=None):
@@ -89,26 +106,50 @@ def poll(callback_once=None):
     request_values()
 
 
+def flatten(d, parent_key="", sep="_"):
+    if isinstance(d, collections.MutableMapping):
+        items = []
+        for k, v in d.items():
+            new_key = str(parent_key) + sep + str(k) if parent_key else str(k)
+            if isinstance(v, collections.MutableMapping) or isinstance(v, collections.MutableSequence):
+                items.extend(flatten(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+
+        return dict(items)
+
+    elif isinstance(d, collections.MutableSequence):
+        items = []
+        for i, v in enumerate(d):
+            new_key = parent_key + sep + str(i)
+            if isinstance(v, collections.MutableMapping) or isinstance(v, collections.MutableSequence):
+                items.extend(flatten(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
+    else:
+        return d
+
+
 def _on_all_values(_, values):
     global _values_once_callback
 
-    values["timestamp"] = time.time()
-
-    _arena_state["values"] = values
+    timestamp = time.time()
+    _arena_state["timestamp"] = timestamp
+    _arena_state.update("values", values)
 
     if _values_once_callback is not None:
         _values_once_callback(values)
         _values_once_callback = None
 
-    # _sensor_log.log(
-    #    (
-    #        reading["timestamp"],
-    #         reading["temp"][0],
-    #         reading["temp"][1],
-    #         reading["temp"][2],
-    #         reading["humidity"],
-    #     )
-    # )
+    if "data_log" in _config.arena:
+        flat_values = flatten(values)
+        log_values = [timestamp]
+        log_conf = _config.arena["data_log"]
+        for col in log_conf["columns"]:
+            log_values.append(flat_values[col[0]])
+
+        _arena_log.log(log_values)
 
 
 def _on_value(_, msg):
@@ -132,33 +173,44 @@ def init(logger, config):
 
     - arena_defaults: A dict with signal_led and day_lights keys with default values.
     """
-    global _log, _arena_log, _config, _arena_state
+    global _log, _arena_log, _config, _arena_state, _interfaces_config, _trigger_interface
     _log = logger
     _config = config
     _arena_state = state.get_cursor("arena")
-    _arena_state.set_self({"values": {}})
+    _arena_state.set_self(
+        {
+            "values": {},
+            "timestamp": None,
+        }
+    )
 
     try:
         with open(config.arena_config_path, "r") as f:
             arena_config = json.load(f)
-            _arena_state["config"] = arena_config
+            interfaces_config = []
+            for interfaces in arena_config.values():
+                interfaces_config += interfaces
+
     except json.JSONDecodeError:
-        _log.exception("Exception while parsing arena config")
+        _log.exception("Exception while parsing arena config:")
         return
 
-    # NOTE: This data logger is specific to arena sensor reading format.
-    # _arena_log = data_log.QueuedDataLogger(
-    #     table_name="arena",
-    #     log_to_db=True,
-    #     columns=(
-    #         ("time", "timestamptz not null"),
-    #         ("temp0", "double precision"),
-    #         ("temp1", "double precision"),
-    #         ("temp2", "double precision"),
-    #         ("humidity", "double precision"),
-    #     ),
-    # )
-    # _arena_log.start()
+    _interfaces_config = interfaces_config
+
+    for ifs in interfaces_config:
+        if ifs["type"] == "trigger":
+            _trigger_interface = ifs["name"]
+            break
+
+    if "data_log" in config.arena:
+        log_conf = config.arena["data_log"]
+        columns = [("time", "timestamptz not null")] + log_conf["columns"]
+        _arena_log = data_log.QueuedDataLogger(
+            table_name=log_conf["table_name"],
+            log_to_db=True,
+            columns=columns,
+        )
+        _arena_log.start()
 
     while not mqtt.client.is_connected:
         time.sleep(0.01)

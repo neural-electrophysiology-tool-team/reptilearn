@@ -10,6 +10,13 @@ void ToggleInterface::get_value(JsonDocument* container) {
   container->set(value);
 }
 
+void ToggleInterface::set_value(int v) {
+  if (value == v) return;
+  
+  value = v;
+  value_changed();
+}
+
 void ToggleInterface::toggle() {
   set_value(!value);
 }
@@ -23,12 +30,12 @@ void ToggleInterface::run(JsonArray cmd) {
   }
   else if (cmd[0] == "set") {
     if (cmd.size() < 3) {
-      send_message("error/toggle", "Missing set value");
+      send_error("Missing set value");
       return;
     }
     
     if (!cmd[2].is<int>()) {
-      send_message("error/toggle", "Invalid set value");
+      send_error("Invalid set value");
       return;
     }
     
@@ -36,7 +43,7 @@ void ToggleInterface::run(JsonArray cmd) {
     set_value(v);
   }
   else {
-    send_message("error/toggle", "Unknown command");
+    send_error("Unknown command");
   }
 }
 

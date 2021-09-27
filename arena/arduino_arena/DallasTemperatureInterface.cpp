@@ -5,12 +5,12 @@ DallasTemperatureInterface::DallasTemperatureInterface(JsonVariant conf)
   : Interface("dallas_temperature", strdup(conf["name"])) {
   
   if (!conf.containsKey("pin")) {
-    send_message("error/dallas_temperature", "Missing 'pin' key in config");
+    send_error("Missing 'pin' key in config");
     return;
   }
   
   if (!conf["pin"].is<int>()) {
-    send_message("error/dallas_temperature", "'pin' value should be an integer");
+    send_error("'pin' value should be an integer");
     return;
   }
   
@@ -24,7 +24,7 @@ DallasTemperatureInterface::DallasTemperatureInterface(JsonVariant conf)
   
   char msg[40];
   sprintf(msg, "Found %u sensors", sensor_count);
-  send_message("info/dallas_temperature", msg);
+  send_info(msg);
 }  
 
 void DallasTemperatureInterface::run(JsonArray cmd) {
@@ -32,7 +32,7 @@ void DallasTemperatureInterface::run(JsonArray cmd) {
     serializeValue();
   }
   else {
-    send_message("error/dallas_temperature", "Unknown command");
+    send_error("Unknown command");
   }
 }
 
@@ -50,7 +50,7 @@ void DallasTemperatureInterface::get_value(JsonDocument* container) {
       temps.add(temp);
     }
     else {
-      send_message("error/dallas_temperature", "Device disconnected");
+      send_error("Device disconnected");
       temps.add(nullptr);
     }
   }

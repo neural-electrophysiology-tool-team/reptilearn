@@ -1,15 +1,14 @@
 #include "FeederInterface.h"
-#include "send.h"
 
 FeederInterface::FeederInterface(JsonObject conf)
   : Interface("feeder", strdup(conf["name"].as<const char*>())) {
   if (!conf.containsKey("pins")) {
-    send_message("error/feeder", "Missing 'pins' key in config");
+    send_error("Missing 'pins' key in config");
     feeder = nullptr;
     return;
   }
   if (!conf["pins"].is<JsonArray>()) {
-    send_message("error/feeder", "Invalid 'pins' value");
+    send_error("Invalid 'pins' value");
     feeder = nullptr;
     return;
   }
@@ -17,13 +16,13 @@ FeederInterface::FeederInterface(JsonObject conf)
   JsonArray pins = conf["pins"].as<JsonArray>();
   
   if (pins.size() != 4) {
-    send_message("error/feeder", "pins: Expecting exactly 4 pin indices");
+    send_error("pins: Expecting exactly 4 pin indices");
     feeder = nullptr;
     return;
   }
   for (int i = 0; i < pins.size(); i++) {
     if (!pins[i].is<int>()) {
-      send_message("error/feeder", "pins: Each element should be an integer");
+      send_error("pins: Each element should be an integer");
       feeder = nullptr;
       return;
     }
@@ -40,13 +39,13 @@ void FeederInterface::run(JsonArray cmd) {
   if (cmd[0] == "dispense") {
     // possibly add a check for time between consecutive rewards
     if (feeder != nullptr) {
-      send_message("info/feeder", "Dispensing reward");
+      send_info("Dispensing reward");
       feeder->feed();
     }
     last_reward = millis();
   }
   else {
-    send_message("error/feeder", "Unknown command");
+    send_error("Unknown command");
   }
 }
 

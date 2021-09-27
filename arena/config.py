@@ -2,10 +2,9 @@ import logging
 
 log_level = logging.DEBUG
 
-# Serial ports for a camera trigger device and any number of devices
-# communicating using json messages.
+arena_config_path = "../system/config/arena_config.json"
+
 serial = {
-    "config_path": "../system/config/arena_config.json",
     "ports": {
         "arena": {
             "id": "1107E314515146544E4B2020FF0C3E57",

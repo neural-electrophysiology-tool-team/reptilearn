@@ -3,7 +3,12 @@ import { Dropdown } from 'semantic-ui-react';
 import { api_url } from './config.js';
 
 export const ArenaControlView = ({ctrl_state}) => {
-    
+    const [arenaConfig, setArenaConfig] = React.useState(null);
+    React.useEffect(() => {
+        fetch(api_url + "/arena/config")
+            .then((res) => res.json())
+            .then((arena_config) => setArenaConfig(arena_config));
+    }, []);
     const toggle_touchscreen = () => {
 	fetch(api_url + `/arena/turn_touchscreen/${!ctrl_state.arena.touchscreen}`);
     };
@@ -13,17 +18,18 @@ export const ArenaControlView = ({ctrl_state}) => {
     };
 
     const run_command = (command, iface, args, request_values) => {
-        let cmd = JSON.stringify([command, iface]);
-        if (args) {
-            cmd = cmd.concat(args);
+        const cmd_array = [command, iface];
+        if (args && args.length > 0) {
+            cmd_array = cmd_array.concat(args);
         }
+
         fetch(api_url + "/arena/run_command", {
             method: "POST",
             headers: {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify([command, iface].concat(args))
+            body: JSON.stringify(cmd_array)
         }).then(() => {
             if (request_values) {
                 fetch(api_url + "/arena/request_values/" + iface);
@@ -35,69 +41,37 @@ export const ArenaControlView = ({ctrl_state}) => {
         return ctrl_state.arena.values[dev["name"]] == 1 ? "toggle on" : "toggle off";
     };
 
-    const value_items = (() => {
-        const st = ctrl_state.arena.sensors;
-        if (st == null)
-            return null;
-        else {
-            const items = [];
-            if (st.temp != null) {
-                st.temp.forEach((temp, i) => items.push(
-                    <Dropdown.Item text={`Temp ${i}: ${temp}C`}
-                                   icon="thermometer half"
-                                   key={i}/>
-                ));
-            }
-            if (st.humidity != null)
-                items.push(
-                    <Dropdown.Item text={`Humidity: ${st.humidity}%`}
-                                   icon="tint"
-                                   key="humidity"/>
-                );
-
-            if (st.timestamp != null) {
-                const timestamp = new Date(0);
-                timestamp.setUTCSeconds(st.timestamp);
-                items.push(                    
-                    <Dropdown.Item text={`Updated: ${timestamp.toLocaleTimeString()}`}
-                                   key={timestamp}/>
-                );
-            }
-            if (items.length > 0)
-                items.push(<Dropdown.Divider key="div"/>);
-            return items;       
-        }
-    })();
-
-    const get_device_ui = (dev) => {
-        if (dev.ui === "toggle") {
+    const get_interface_ui = (ifs) => {
+        if (ifs.ui === "toggle") {
             return (
-                <Dropdown.Item text={dev.name}
-                               icon={get_toggle_icon(dev)}
-                               onClick={() => run_command("toggle", dev.name, undefined, true)}/>
+                <Dropdown.Item text={ifs.name}
+                               icon={get_toggle_icon(ifs)}
+                               onClick={() => run_command("toggle", ifs.name, undefined, true)}
+                               key={ifs.name}/>
             );                        
         }
-        else if (dev.ui === "action") {
+        else if (ifs.ui === "action") {
             return (
-                <Dropdown.Item text={dev.name}
-                               icon={dev.icon || null}
-                               onClick={() => run_command(dev["command"], dev.name, undefined, false)}/>
+                <Dropdown.Item text={ifs.name}
+                               icon={ifs.icon || null}
+                               onClick={() => run_command(ifs["command"], ifs.name, undefined, false)}
+                               key={ifs.name}/>
             );
         }
-        else if (dev.ui === "sensor") {
+        else if (ifs.ui === "sensor") {
             const make_item = (val, idx) => {
                 const format_val = Math.round(val*100) / 100;
                 const text = idx !== undefined ?
-                      `${dev.name} ${idx}: ${format_val}${dev.unit || ''}`
-                      : `${dev.name}: ${format_val}${dev.unit || ''}`;
+                      `${ifs.name} ${idx}: ${format_val}${ifs.unit || ''}`
+                      : `${ifs.name}: ${format_val}${ifs.unit || ''}`;
                 
                 return (
-                    <Dropdown.Item text={text} icon={dev.icon || null}/>   
+                    <Dropdown.Item text={text} icon={ifs.icon || null} key={ifs.name+idx}/>
                 );                
             };
             
-            if (ctrl_state.arena.values && Object.keys(ctrl_state.arena.values).includes(dev.name)) {
-                const val = ctrl_state.arena.values[dev.name];
+            if (ctrl_state.arena.values && Object.keys(ctrl_state.arena.values).includes(ifs.name)) {
+                const val = ctrl_state.arena.values[ifs.name];
                 if (Array.isArray(val)) {
                     return (
                         <React.Fragment>
@@ -109,28 +83,34 @@ export const ArenaControlView = ({ctrl_state}) => {
                     return make_item(val);
                 }
             }
+            else return null;
+        }
+        else return null;
+    };
+
+    const items = !arenaConfig ? null : arenaConfig.map((ifs) => get_interface_ui(ifs));
+
+    const update_time = ((t) => {
+        if (t) {
+            const timestamp = new Date(0);
+            timestamp.setUTCSeconds(t);
+            return timestamp;
         }
         else {
             return null;
         }
-    };
+    })(ctrl_state.arena.timestamp);
     
-    const items = Object.entries(ctrl_state.arena.config)
-          .map(([ifs, devices]) => {
-              return (
-                  <React.Fragment>
-                    <Dropdown.Header>{ifs}</Dropdown.Header>
-                    {devices.map(dev => get_device_ui(dev))}
-                  </React.Fragment>
-              );
-          });
-
     return (
         <button>
           <Dropdown text='Arena' scrolling>
             <Dropdown.Menu>
               {items}
               <Dropdown.Divider/>
+              {!update_time ? null : (
+                  <Dropdown.Item text={`Updated: ${update_time.toLocaleTimeString()}`}
+                                 key={update_time}/>
+              )}
               <Dropdown.Item text="Poll arena"
                              icon="stethoscope"
                              onClick={poll_arena}/>

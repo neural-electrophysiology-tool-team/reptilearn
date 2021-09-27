@@ -21,3 +21,21 @@ void Interface::serializeValue() {
     doc[get_name()] = val_doc;
     send_json("value", &doc);
 }
+
+void Interface::send_info(const char* msg) {
+  char topic[64];
+  sprintf(topic, "info/%s", get_name());
+  send_message(topic, msg);
+}
+
+void Interface::send_error(const char* msg) {
+  char topic[64];
+  sprintf(topic, "error/%s", get_name());
+  send_message(topic, msg);
+}
+
+void Interface::send_debug(const char* msg) {
+  char topic[64];
+  sprintf(topic, "debug/%s", get_name());
+  send_message(topic, msg);
+}

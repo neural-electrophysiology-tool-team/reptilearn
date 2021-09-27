@@ -11,14 +11,17 @@ class TriggerInterface: public ToggleInterface {
   TriggerInterface(JsonVariant conf);
 
   void loop();
-  void set_value(int v);
+  void value_changed();
 
  private:
   int pin;
-  unsigned long high_delay;
-  unsigned long low_delay;
-  unsigned long cur_ttl;
+  unsigned long high_dur;
+  unsigned long low_dur;
   bool serial_trigger;
+  
+  int pin_state;
+  unsigned long prev_trans_time;
+  unsigned long count;  
 };
 
 #endif

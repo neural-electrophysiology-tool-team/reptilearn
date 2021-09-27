@@ -9,7 +9,10 @@ class ToggleInterface: public Interface {
  public:
   ToggleInterface(const char* type, const char* name);  
 
-  virtual void set_value(int v);
+  
+  virtual void value_changed();
+  
+  void set_value(int v);
   void get_value(JsonDocument* container);
   void toggle();
   void run(JsonArray cmd);

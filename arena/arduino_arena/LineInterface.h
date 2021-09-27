@@ -9,7 +9,7 @@
 class LineInterface: public ToggleInterface {
  public:
   LineInterface(JsonVariant conf);
-  void set_value(int v);
+  void value_changed();
   void loop();
   
  private:

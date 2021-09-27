@@ -6,43 +6,53 @@ import threading
 import json
 
 
+def serial_port_by_id(id):
+    port_list = list_ports.comports()
+    candidates = [port for port in port_list if id in port.hwid]
+    if len(candidates) == 1:
+        return candidates[0]
+
+    raise ValueError(f"Found zero or multiple candidates for port id '{id}'")
+
+
 class SerialMQTTBridge:
-    def __init__(self, serial_config, mqtt_config, logger):
+    def __init__(self, config, logger):
         self.log = logger
 
         # init serial ports
-        self.serial_config = serial_config
+        self.serial_config = config.serial
+        self.mqtt_config = config.mqtt
+        
         self.serials = {}
         self.serial_write_locks = {}
 
-        port_list = list_ports.comports()
-        for port_name, port_conf in serial_config["ports"].items():
+        for port_name, port_conf in self.serial_config["ports"].items():
             if "id" not in port_conf:
                 raise ValueError(f"Invalid serial port config in port {port_name}")
 
-            pid = port_conf["id"]
-            candidates = [port for port in port_list if pid in port.hwid]
-            if len(candidates) == 1:
-                port = candidates[0]
-                self.log.info(
-                    f"(SERIAL) Connecting to port {port_name} ({port.name}, hwid:{port.hwid})"
-                )
-                ser = Serial(port.device, serial_config["baud_rate"])
-                self.serials[port_name] = ser
-                self.serial_write_locks[ser.name] = threading.Lock()
-            else:
-                raise ValueError(
-                    f"Found zero or multiple candidates for port id '{pid}'"
-                )
+            try:
+                port = serial_port_by_id(port_conf["id"])
+            except Exception:
+                self.log.exception("Exception while getting port info:")
+
+            self.log.info(
+                f"(SERIAL) Connecting to port {port_name} ({port.name}, hwid:{port.hwid})"
+            )
+            ser = Serial(port.device, self.serial_config["baud_rate"])
+            self.serials[port_name] = ser
+            self.serial_write_locks[ser.name] = threading.Lock()
+
+        if len(self.serials) == 0:
+            raise ValueError("No serial ports found")
 
         # init mqtt
-        self.mqtt_config = mqtt_config
+        self.mqtt_config = config.mqtt
         self.mqtt = mqtt.Client()
         self.mqtt.on_connect = self.on_mqtt_connect
         self.mqtt.on_disconnect = self.on_mqtt_disconnect
-        self.mqtt.connect(mqtt_config["host"], mqtt_config["port"])
+        self.mqtt.connect(self.mqtt_config["host"], self.mqtt_config["port"])
         self.mqtt.on_message = self.on_mqtt_message
-        self.mqtt.subscribe(mqtt_config["subscription"])
+        self.mqtt.subscribe(self.mqtt_config["subscription"])
         self.mqtt_q = queue.Queue()
 
         # start threads
@@ -50,9 +60,8 @@ class SerialMQTTBridge:
         self.mqtt_listen_thread = threading.Thread(target=self.mqtt_listen)
         self.serial_listen_threads = {}
 
-        config_path = self.serial_config["config_path"]
         try:
-            with open(config_path, "r") as f:
+            with open(config.arena_config_path, "r") as f:
                 self.arena_conf = json.load(f)
         except json.JSONDecodeError as e:
             self.log.exception("While decoding {config_path}:")
@@ -73,7 +82,9 @@ class SerialMQTTBridge:
                 self.interface_dispatcher[interface_name] = port_name
 
         for s, (port_name, port_conf), device_conf in zip(
-            self.serials.values(), self.serial_config["ports"].items(), self.arena_conf.values()
+            self.serials.values(),
+            self.serial_config["ports"].items(),
+            self.arena_conf.values(),
         ):
             self.serial_listen_threads[s.name] = threading.Thread(
                 target=self.serial_listen, args=[s, port_name, port_conf, device_conf]
@@ -97,8 +108,6 @@ class SerialMQTTBridge:
             s.close()
 
     def serial_listen(self, s: Serial, port_name, port_config, device_conf):
-        s.timeout = 1  # TODO
-
         self.log.info(
             f"(SERIAL) Starting listening thread for port {port_name} ({s.name})"
         )
@@ -106,6 +115,9 @@ class SerialMQTTBridge:
         while True:
             try:
                 if self.shutdown_event.is_set():
+                    break
+
+                if s.fd is None:
                     break
 
                 line = s.readline()
@@ -195,7 +207,9 @@ class SerialMQTTBridge:
 
                     port_conf = self.serial_config["ports"][port_name]
                     if not self.is_command_allowed(cmd_name, port_conf):
-                        self.log.debug(f"(SERIAL) Ignoring. Port {port_name} does not allow {cmd_name} commands")
+                        self.log.debug(
+                            f"(SERIAL) Ignoring. Port {port_name} does not allow {cmd_name} commands"
+                        )
                         continue
 
                     self.log.debug(f"(SERIAL) Dispatching command to port {port_name}")
@@ -225,7 +239,5 @@ class SerialMQTTBridge:
         self.log.info(f"(MQTT  ) Disconnected from broker with result code {rc}")
 
     def on_mqtt_message(self, client, userdata, message):
-        self.log.debug(
-            f"(MQTT  ) {message.topic}: {message.payload.decode('utf-8')}"
-        )
+        self.log.debug(f"(MQTT  ) {message.topic}: {message.payload.decode('utf-8')}")
         self.mqtt_q.put_nowait(message)

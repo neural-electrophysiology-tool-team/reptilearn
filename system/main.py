@@ -432,6 +432,11 @@ def route_set_prefix(prefix=""):
     return flask.Response("ok")
 
 
+@app.route("/arena/config")
+def route_arena_config():
+    return flask.jsonify(arena.get_interfaces_config())
+
+
 @app.route("/arena/run_command", methods=["POST"])
 def route_arena():
     try:

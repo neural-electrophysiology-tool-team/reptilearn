@@ -73,7 +73,6 @@ stream_frame_rate = 15
 
 video_record = {
     "video_frame_rate": 60,
-    "trigger_interval": 17,
     "file_ext": "mp4",
     "max_write_queue_size": 0,  # 0 means infinite queue.
     "start_trigger_on_startup": False,
@@ -111,9 +110,13 @@ mqtt = {
 # Arena hardware controller
 arena = {
     "poll_interval": 60,
-    "displays": {
-        "touchscreen": ":0"
-    }
+    "displays": {"touchscreen": ":0"},
+    "data_log": {  # requires a database connection
+        "table_name": "arena",
+        "columns": [
+            ("Temp_0", "double precision"),
+        ],
+    },
 }
 
 # Database connection

@@ -13,6 +13,10 @@ class Interface {
 
   void serializeValue();  
 
+  void send_info(const char* msg);
+  void send_error(const char* msg);
+  void send_debug(const char* msg);
+  
   virtual void get_value(JsonDocument* container);
   virtual void run(JsonArray cmd);
   virtual void loop();
