@@ -44,17 +44,21 @@ if __name__ == "__main__":
         ports = list_ports.comports()
         print("Available serial ports:\n")
         for port in ports:
-            print(f"\t{port.device}: {port.description}, hwid=\"{port.hwid}\"")
+            print(f'\t{port.device}: {port.description}, hwid="{port.hwid}"')
         print("\nPort id can be any unique string contained in the port's hwid string.")
         sys.exit(0)
 
     if args.upload:
-        # currently works only with Arduino Nano Every
         for port_name, port_conf in config.serial["ports"].items():
             pid = port_conf["id"]
+
+            if "fqbn" not in port_conf:
+                logger.error(f"Missing 'fqbn' key in port '{port_name}' config.")
+                sys.exit(1)
+
             try:
                 port = serial_port_by_id(pid)
-                logger.info(f"Uploading arena program to port '{port_name}' ({port})")
+                logger.info(f"Uploading arena program to port '{port_name}' ({port}).")
                 run_shell_command(logger, ["stty", "-F", port.device, "1200"])
                 run_shell_command(
                     logger,
@@ -62,7 +66,7 @@ if __name__ == "__main__":
                         "arduino-cli",
                         "compile",
                         "--fqbn",
-                        "arduino:megaavr:nona4809",
+                        port_conf["fqbn"],
                         "arduino_arena",
                     ],
                 )
@@ -74,7 +78,7 @@ if __name__ == "__main__":
                         "-p",
                         port.device,
                         "--fqbn",
-                        "arduino:megaavr:nona4809",
+                        port_conf["fqbn"],
                         "arduino_arena",
                     ],
                 )

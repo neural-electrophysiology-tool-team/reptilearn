@@ -8,10 +8,12 @@ serial = {
     "ports": {
         "arena": {
             "id": "1107E314515146544E4B2020FF0C3E57",
+            "fqbn": "arduino:megaavr:nona4809",
         },
         "camera_trigger": {
             "id": "715B0511515146544E4B2020FF0C265A",
             "allow_get": False,
+            "fqbn": "arduino:megaavr:nona4809",
         },
     },
     "baud_rate": 115200,
