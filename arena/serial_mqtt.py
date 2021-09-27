@@ -22,7 +22,7 @@ class SerialMQTTBridge:
         # init serial ports
         self.serial_config = config.serial
         self.mqtt_config = config.mqtt
-        
+
         self.serials = {}
         self.serial_write_locks = {}
 
@@ -149,8 +149,20 @@ class SerialMQTTBridge:
                     finally:
                         continue
 
+                if (
+                    topic.startswith("error/")
+                    or topic.startswith("info/")
+                    or topic.startswith("debug/")
+                ):
+                    ts = topic.split("/")
+                    if ts[1] == "load_config" or ts[1] == "run_command":
+                        topic = f"{ts[0]}/load_config/{port_name}"
+
                 if len(topic) > 0:
                     topic = f"{self.mqtt_config['publish_topic']}/{topic}"
+                else:
+                    self.log.error("Encountered a zero length topic: {line}")
+                    continue
 
                 self.log.debug(f"(MQTT  ) Publishing {topic}: {payload}")
                 self.mqtt.publish(topic, payload)

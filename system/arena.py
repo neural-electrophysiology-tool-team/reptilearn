@@ -52,16 +52,16 @@ def run_command(command, interface, args=None, update_value=False):
     else:
         js = json.dumps([command, interface] + args)
 
-    mqtt.client.publish("arena/command", js)
+    mqtt.client.publish(_config.arena["command_topic"], js)
     if update_value:
         request_values(interface)
 
 
 def request_values(interface=None):
     if interface is None:
-        mqtt.client.publish("arena/command", json.dumps(["get", "all"]))
+        mqtt.client.publish(_config.arena["command_topic"], json.dumps(["get", "all"]))
     else:
-        mqtt.client.publish("arena/command", json.dumps(["get", interface]))
+        mqtt.client.publish(_config.arena["command_topic"], json.dumps(["get", interface]))
 
 
 def get_value(interface):

@@ -147,7 +147,7 @@ void parse_interface_config(JsonObject conf) {
 
 void add_interface(Interface* i) {
   if (num_interfaces >= MAX_INTERFACES) {
-    send_message("error/add_interface", "Too many interfaces are defined");
+    send_message("error/load_config", "Too many interfaces are defined");
     return;
   }
   interfaces[num_interfaces] = i;

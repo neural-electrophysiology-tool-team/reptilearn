@@ -117,6 +117,7 @@ arena = {
             ("Temp_0", "double precision"),
         ],
     },
+    "command_topic": "arena_command",
 }
 
 # Database connection

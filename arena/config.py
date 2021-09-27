@@ -1,6 +1,6 @@
 import logging
 
-log_level = logging.DEBUG
+log_level = logging.INFO
 
 arena_config_path = "../system/config/arena_config.json"
 
@@ -21,6 +21,6 @@ serial = {
 mqtt = {
     "host": "localhost",
     "port": 1883,
-    "subscription": "arena/command",
+    "subscription": "arena_command",
     "publish_topic": "arena",
 }
