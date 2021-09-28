@@ -442,7 +442,12 @@ def route_arena():
     try:
         command = flask.request.json[0]
         interface = flask.request.json[1]
-        arena.run_command(command, interface, flask.request.json[2:])
+        if len(flask.request.json) > 2:
+            args = flask.request.json[2:]
+        else:
+            args = None
+
+        arena.run_command(command, interface, args, False)
         return flask.Response("ok")
     except Exception as e:
         log.exception("Exception while running arena command:")
@@ -503,7 +508,7 @@ stop_state_emitter()
 experiment.shutdown()
 video_system.shutdown()
 schedule.cancel_all(pool=None, wait=True)
-arena.release()
+arena.shutdown()
 mqtt.shutdown()
 log.info("Shutting down logging and global state...")
 rl_logging.shutdown()

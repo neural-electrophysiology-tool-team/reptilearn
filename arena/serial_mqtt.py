@@ -1,4 +1,5 @@
 import paho.mqtt.client as mqtt
+import logging
 import queue
 from serial.tools import list_ports
 from serial import Serial
@@ -15,9 +16,49 @@ def serial_port_by_id(id):
     raise ValueError(f"Found zero or multiple candidates for port id '{id}'")
 
 
+class MQTTLogHandler(logging.Handler):
+    def __init__(self, mqtt_client, base_topic):
+        super().__init__()
+        self.setFormatter(
+            logging.Formatter(
+                "%(message)s",
+                datefmt="%Y-%d-%m %H:%M:%S",
+            )
+        )
+        self.base_topic = base_topic
+        self.mqtt_client = mqtt_client
+
+    def emit(self, record):
+        topic_level = record.levelname.lower()
+        topic = f"{self.base_topic}/{topic_level}/serial_mqtt"
+        self.mqtt_client.publish(topic, self.format(record))
+
+
 class SerialMQTTBridge:
     def __init__(self, config, logger):
         self.log = logger
+
+        # load arena config
+        try:
+            with open(config.arena_config_path, "r") as f:
+                self.arena_conf = json.load(f)
+        except json.JSONDecodeError as e:
+            self.log.exception("While decoding {config_path}:")
+            raise e
+
+        if type(self.arena_conf) is not dict:
+            raise ValueError("The arena config json root is expected to be an object.")
+
+        self.interface_dispatcher = {}
+
+        for port_name, port_conf in self.arena_conf.items():
+            for interface_name in [ifs["name"] for ifs in port_conf]:
+                if interface_name in self.interface_dispatcher:
+                    raise ValueError(
+                        f"Found duplicate interface name in arena config file: {interface_name}"
+                    )
+
+                self.interface_dispatcher[interface_name] = port_name
 
         # init serial ports
         self.serial_config = config.serial
@@ -52,34 +93,17 @@ class SerialMQTTBridge:
         self.mqtt.on_disconnect = self.on_mqtt_disconnect
         self.mqtt.connect(self.mqtt_config["host"], self.mqtt_config["port"])
         self.mqtt.on_message = self.on_mqtt_message
-        self.mqtt.subscribe(self.mqtt_config["subscription"])
+        self.mqtt.subscribe(self.mqtt_config["command_topic"])
         self.mqtt_q = queue.Queue()
 
-        # start threads
+        # Send log over mqtt
+        self.log.addHandler(
+            MQTTLogHandler(self.mqtt, self.mqtt_config["publish_topic"])
+        )
 
+        # start listening threads
         self.mqtt_listen_thread = threading.Thread(target=self.mqtt_listen)
         self.serial_listen_threads = {}
-
-        try:
-            with open(config.arena_config_path, "r") as f:
-                self.arena_conf = json.load(f)
-        except json.JSONDecodeError as e:
-            self.log.exception("While decoding {config_path}:")
-            raise e
-
-        if type(self.arena_conf) is not dict:
-            raise ValueError("The arena config json root is expected to be an object.")
-
-        self.interface_dispatcher = {}
-
-        for port_name, port_conf in self.arena_conf.items():
-            for interface_name in [ifs["name"] for ifs in port_conf]:
-                if interface_name in self.interface_dispatcher:
-                    raise ValueError(
-                        "Found duplicate interface names in arena config file."
-                    )
-
-                self.interface_dispatcher[interface_name] = port_name
 
         for s, (port_name, port_conf), device_conf in zip(
             self.serials.values(),
@@ -155,8 +179,12 @@ class SerialMQTTBridge:
                     or topic.startswith("debug/")
                 ):
                     ts = topic.split("/")
-                    if ts[1] == "load_config" or ts[1] == "run_command":
-                        topic = f"{ts[0]}/load_config/{port_name}"
+                    if (
+                        ts[1] == "load_config"
+                        or ts[1] == "run_command"
+                        or ts[1] == "parse_json"
+                    ):
+                        topic = f"{ts[0]}/{port_name}/{ts[1]}"
 
                 if len(topic) > 0:
                     topic = f"{self.mqtt_config['publish_topic']}/{topic}"
@@ -189,12 +217,12 @@ class SerialMQTTBridge:
                 try:
                     command = json.loads(msg.payload)
                 except json.JSONDecodeError:
-                    self.log.exception("Error while decoding mqtt command:")
+                    self.log.exception("Error while decoding mqtt arena command:")
                     continue
 
                 if type(command) is not list:
                     self.log.error(
-                        "Expecting incoming mqtt command to be a json array."
+                        "Expecting incoming mqtt arena command to be a json array."
                     )
                     continue
 
@@ -211,10 +239,14 @@ class SerialMQTTBridge:
                             s.write(msg.payload + b"\n")
 
                 else:
+                    if cmd_interface not in self.interface_dispatcher:
+                        self.log.error(f"Unknown interface: {cmd_interface}")
+                        continue
+
                     port_name = self.interface_dispatcher[cmd_interface]
 
                     if port_name not in self.serials.keys():
-                        self.log.error("Unknown interface: {cmd_interface}")
+                        self.log.error(f"Unknown interface: {cmd_interface}")
                         continue
 
                     port_conf = self.serial_config["ports"][port_name]
@@ -242,7 +274,8 @@ class SerialMQTTBridge:
             and port_conf["allow_get"] is False
         ):
             return False
-        return True
+        else:
+            return True
 
     def on_mqtt_connect(self, client, userdata, flags, rc):
         self.log.info(f"(MQTT  ) Connected to broker with result code {rc}")

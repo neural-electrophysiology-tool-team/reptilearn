@@ -2,6 +2,8 @@
 #include "send.h"
 #include "Feeder.h"
 #include "Interface.h"
+
+// To remove any unused interface type simply comment its include line below:
 #include "LineInterface.h"
 #include "TriggerInterface.h"
 #include "FeederInterface.h"
@@ -44,9 +46,7 @@ void loop() {
       run_command(json.as<JsonArray>());
     }
     else {
-      char msg[40];
-      sprintf(msg, "Invalid json root type: %s", strdup(json.as<char const*>()));
-      send_message("error/parse_json", msg);
+      send_message("error/parse_json", "Expecting json root to be an array or an object.");
     }
   }
 
@@ -73,7 +73,7 @@ void run_all(JsonArray cmd) {
 
 void load_config(JsonObject conf) {
   if (num_interfaces > 0) {
-    send_message("error/load_config", "Already configured, reset device to reconfigure.");
+    send_message("error/load_config", "Port is already configured, reset the device and try again.");
     return;
   }
 
@@ -117,32 +117,47 @@ void parse_interface_config(JsonObject conf) {
 
   char* name = strdup(conf["name"].as<const char*>());
   char* type =  strdup(conf["type"].as<const char*>());
-  char msg[40];
+  char msg[64];
   sprintf(msg, "Initializing '%s' (%s)", name, type);
   send_message("info/load_config", msg);
-
-  Interface* ifs;
+  free(name);
+  free(type);
   
+  #ifdef FeederInterface_h
   if (conf["type"] == "feeder") {
-    ifs = new FeederInterface(conf);
-  }
-  else if (conf["type"] == "line") {
-    ifs = new LineInterface(conf);
-  }
-  else if (conf["type"] == "dallas_temperature") {
-    ifs = new DallasTemperatureInterface(conf);
-  }
-  else if (conf["type"] == "trigger") {
-    ifs = new TriggerInterface(conf);
-  }
-  else {
-    send_message("error/load_config", "Invalid interface type");
-    free(name);
-    free(type);
+    add_interface(new FeederInterface(conf));
     return;
   }
+  #endif
 
-  add_interface(ifs);
+  #ifdef LineInterface_h
+  if (conf["type"] == "line") {
+    add_interface(new LineInterface(conf));
+    return;
+  }
+  #endif
+
+  #ifdef DallasTemperatureInterface_h
+  if (conf["type"] == "dallas_temperature") {
+    add_interface(new DallasTemperatureInterface(conf));
+    return;
+  }
+  #endif
+
+  #ifdef TriggerInterface_h
+  if (conf["type"] == "trigger") {
+    add_interface(new TriggerInterface(conf));
+    return;
+  }
+  #endif
+
+  name = strdup(conf["name"].as<const char*>());
+  type =  strdup(conf["type"].as<const char*>());
+  char umsg[128];
+  sprintf(umsg, "Unknown interface type '%s' in interface '%s'", type, name); 
+  send_message("error/load_config", umsg);
+  free(name);
+  free(type);
 }
 
 void add_interface(Interface* i) {
@@ -156,7 +171,7 @@ void add_interface(Interface* i) {
 
 void run_command(JsonArray c) {
   if (num_interfaces == 0) {
-    send_message("error/run_command", "Can't run command before loading configuration");
+    send_message("error/run_command", "Can't run command. There are no configured interfaces.");
     return;
   }
   if (c.size() < 2) {

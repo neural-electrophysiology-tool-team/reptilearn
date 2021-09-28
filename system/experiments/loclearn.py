@@ -158,7 +158,7 @@ class LocationExperiment(exp.Experiment):
                 "loclearn/reward", {"stochastic_delay": self.using_stochastic_delay}
             )
             self.log.info(f"Dispensing reward (stochastic_delay={self.using_stochastic_delay})")
-            arena.run_command("dispense", "Left feeder")
+            arena.run_command("dispense", "Left feeder", None, False)
         else:
             self.log.info("Trial ended.")
 

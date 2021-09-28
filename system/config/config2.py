@@ -118,6 +118,7 @@ arena = {
         ],
     },
     "command_topic": "arena_command",
+    "receive_topic": "arena"
 }
 
 # Database connection

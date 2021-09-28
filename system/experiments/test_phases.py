@@ -23,6 +23,7 @@ class TestPhasesExperiment(exp.Experiment):
 
     def run_trial(self, params):
         self.log.info("new trial")
+        arena.run_command("toggle", "Signal LED")
 
     def run_block(self, params):
         self.log.info(params["run_msg"])

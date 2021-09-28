@@ -23,6 +23,6 @@ serial = {
 mqtt = {
     "host": "localhost",
     "port": 1883,
-    "subscription": "arena_command",
+    "command_topic": "arena_command",
     "publish_topic": "arena",
 }

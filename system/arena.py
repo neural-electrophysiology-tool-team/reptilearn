@@ -46,7 +46,7 @@ def turn_touchscreen(on, display):
         _run_shell_command(DISPLAY_CMD.format("off"))
 
 
-def run_command(command, interface, args=None, update_value=False):
+def run_command(command, interface, args=None, update_value=True):
     if args is None:
         js = json.dumps([command, interface])
     else:
@@ -61,7 +61,9 @@ def request_values(interface=None):
     if interface is None:
         mqtt.client.publish(_config.arena["command_topic"], json.dumps(["get", "all"]))
     else:
-        mqtt.client.publish(_config.arena["command_topic"], json.dumps(["get", interface]))
+        mqtt.client.publish(
+            _config.arena["command_topic"], json.dumps(["get", interface])
+        )
 
 
 def get_value(interface):
@@ -111,7 +113,9 @@ def flatten(d, parent_key="", sep="_"):
         items = []
         for k, v in d.items():
             new_key = str(parent_key) + sep + str(k) if parent_key else str(k)
-            if isinstance(v, collections.MutableMapping) or isinstance(v, collections.MutableSequence):
+            if isinstance(v, collections.MutableMapping) or isinstance(
+                v, collections.MutableSequence
+            ):
                 items.extend(flatten(v, new_key, sep=sep).items())
             else:
                 items.append((new_key, v))
@@ -122,7 +126,9 @@ def flatten(d, parent_key="", sep="_"):
         items = []
         for i, v in enumerate(d):
             new_key = parent_key + sep + str(i)
-            if isinstance(v, collections.MutableMapping) or isinstance(v, collections.MutableSequence):
+            if isinstance(v, collections.MutableMapping) or isinstance(
+                v, collections.MutableSequence
+            ):
                 items.extend(flatten(v, new_key, sep=sep).items())
             else:
                 items.append((new_key, v))
@@ -147,7 +153,10 @@ def _on_all_values(_, values):
         log_values = [timestamp]
         log_conf = _config.arena["data_log"]
         for col in log_conf["columns"]:
-            log_values.append(flat_values[col[0]])
+            if col[0] in flat_values:
+                log_values.append(flat_values[col[0]])
+            else:
+                log_values.append(None)
 
         _arena_log.log(log_values)
 
@@ -215,20 +224,24 @@ def init(logger, config):
     while not mqtt.client.is_connected:
         time.sleep(0.01)
 
+    topic = config.arena["receive_topic"]
     mqtt.client.subscribe_callback(
-        "arena/all_values", mqtt.mqtt_json_callback(_on_all_values)
+        f"{topic}/all_values", mqtt.mqtt_json_callback(_on_all_values)
     )
-    mqtt.client.subscribe_callback("arena/value", mqtt.mqtt_json_callback(_on_value))
-    mqtt.client.subscribe_callback("arena/info/#", mqtt.mqtt_json_callback(_on_info))
-    mqtt.client.subscribe_callback("arena/error/#", mqtt.mqtt_json_callback(_on_error))
+    mqtt.client.subscribe_callback(f"{topic}/value", mqtt.mqtt_json_callback(_on_value))
+    mqtt.client.subscribe_callback(f"{topic}/info/#", mqtt.mqtt_json_callback(_on_info))
+    mqtt.client.subscribe_callback(
+        f"{topic}/error/#", mqtt.mqtt_json_callback(_on_error)
+    )
 
     poll()
     schedule.repeat(poll, config.arena["poll_interval"], pool="arena")
 
 
-def release():
-    mqtt.client.unsubscribe_callback("arena/values")
-    mqtt.client.unsubscribe_callback("arena/info/#")
-    mqtt.client.unsubscribe_callback("arena/error/#")
-    # _arena_log.stop()
-    # _arena_log.join()
+def shutdown():
+    topic = _config.arena["receive_topic"]
+    mqtt.client.unsubscribe_callback(f"{topic}/all_values")
+    mqtt.client.unsubscribe_callback(f"{topic}/info/#")
+    mqtt.client.unsubscribe_callback(f"{topic}/error/#")
+    _arena_log.stop()
+    _arena_log.join()
