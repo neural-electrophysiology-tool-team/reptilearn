@@ -68,7 +68,7 @@ class YOLOv4ImageObserver(ImageObserver):
         if det is not None:
             det = det.tolist()
 
-        if self.detection_buffer is not None:
+        if self.detection_buffer is not None and self.buffer_size:
             if len(self.detection_buffer) >= self.buffer_size:
                 self.detection_buffer.pop(0)  # slow, but probably ok for small buffers
             self.detection_buffer.append(det)
