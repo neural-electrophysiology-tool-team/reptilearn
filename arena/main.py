@@ -6,6 +6,13 @@ from serial.tools import list_ports
 from serial_mqtt import SerialMQTTBridge, serial_port_by_id
 import config
 
+"""
+Serial-MQTT Bridge.
+author: Tal Eisenberg (2021)
+
+Run `python main.py --help` for more information.
+"""
+
 
 def run_shell_command(logger, cmd):
     ret = subprocess.call(
@@ -75,7 +82,10 @@ if __name__ == "__main__":
         format="[%(levelname)s] - %(asctime)s: %(message)s",
     )
 
-    arg_parser = argparse.ArgumentParser(description="Serial MQTT Bridge")
+    arg_parser = argparse.ArgumentParser(
+        description="Serial-MQTT Bridge",
+        epilog="Routes messages between mqtt clients and arduino devices over serial ports.",
+    )
     arg_parser.add_argument(
         "--list-ports", help="List available serial ports", action="store_true"
     )
