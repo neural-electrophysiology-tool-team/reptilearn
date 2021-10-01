@@ -21,7 +21,7 @@ media_dir: Path = Path("/data/reptilearn/media/")
 video_config_path: Path = Path("./config/video_config.json")
 
 # Path to the arena hardware controller configuration file
-arena_config_path: Path = Path("./config/arena_config.json")
+arena_config_path: Path = Path("./config/arena_config1.json")
 
 # Lens correction values for various camera and lens combinations.
 undistort = {
@@ -108,13 +108,14 @@ arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
     "data_log": {  # requires a database connection
-        "table_name": "arena2",
+        "table_name": "arena",
         "columns": [
             ("Temp_0", "double precision"),
             ("Temp_1", "double precision"),
         ],
     },
     "command_topic": "arena_command",
+    "receive_topic": "arena",
 }
 
 

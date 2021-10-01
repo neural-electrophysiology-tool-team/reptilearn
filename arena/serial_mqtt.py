@@ -43,7 +43,7 @@ class SerialMQTTBridge:
             with open(config.arena_config_path, "r") as f:
                 self.arena_conf = json.load(f)
         except json.JSONDecodeError as e:
-            self.log.exception("While decoding {config_path}:")
+            self.log.exception(f"While decoding {config_path}:")
             raise e
 
         if type(self.arena_conf) is not dict:
