@@ -1,4 +1,5 @@
 videos/
+video_config.json
 media/
 *.avi
 *.mp4

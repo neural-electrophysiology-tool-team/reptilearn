@@ -1,0 +1,51 @@
+{
+    "arena": [
+	{
+	    "name": "Bottom feeder",
+	    "type": "feeder",
+	    "pins": [10, 9, 8, 7],	    
+	    "ui": "action",
+	    "command": "dispense",
+	    "icon": "gift"
+	},
+	{
+	    "name": "Top feeder",	   
+	    "type": "feeder",
+	    "pins": [3, 6, 11, 12],
+	    "ui": "action",
+	    "command": "dispense",
+	    "icon": "gift"
+	},
+	{
+	    "name": "Signal LED",
+	    "type": "line",
+	    "pin": 4,
+	    "ui": "toggle"
+	},
+	{
+	    "name": "Day lights",
+	    "type": "line",
+	    "pin": 2,
+	    "ui": "toggle"
+	},
+	{
+	    "name": "Temp",
+	    "type": "dallas_temperature",
+	    "pin": 5,
+	    "ui": "sensor",
+	    "unit": "\u00b0",
+	    "icon": "thermometer half"
+	}
+    ],
+    "camera_trigger": [
+	{
+	    "name": "Camera Trigger",
+	    "type": "trigger",
+	    "pin": 12,
+	    "pulse_len": 17,
+	    "pulse_width": 0.7,
+	    "serial_trigger": false,
+	    "ui": "camera_trigger"
+	}
+    ]
+}

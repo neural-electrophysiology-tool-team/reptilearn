@@ -1,5 +1,4 @@
 import React from 'react';
-import {Selector} from './components.js';
 import ReactJson from 'react-json-view';
 import {api_url} from './config.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';

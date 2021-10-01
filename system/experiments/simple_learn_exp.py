@@ -28,7 +28,7 @@ class SimpleLearnExp(exp.Experiment):
 
     def run(self, params):
         self.cur_trial = params["num_trials"]
-        arena.day_lights(True)
+
         if params["record_exp"]:  # record start at init
             video_system.start_record()
 
@@ -57,7 +57,7 @@ class SimpleLearnExp(exp.Experiment):
     def led_stimulus(self):
         params = exp.get_phase_params()
         self.stim_cancel = schedule.repeat(
-            lambda: arena.signal_led(not exp.state["arena", "signal_led"]),
+            lambda: arena.run_command("toggle", "Signal LED"),
             params["led_duration"],
             2 * params.get("led_blinks", 1),
         )
@@ -84,7 +84,7 @@ class SimpleLearnExp(exp.Experiment):
 
     def dispatch_reward_actual(self):
         self.log.info("REWARD SENT")
-        arena.dispense_reward()
+        arena.run_command("dispense", "Left feeder")
 
     def end(self, params):
         if params.get("record_exp", True):

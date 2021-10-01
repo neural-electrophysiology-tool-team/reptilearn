@@ -6,7 +6,6 @@ import {ArenaControlView} from './arena_control_view.js';
 import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {LogView} from './log_view.js';
 import {TasksView} from './tasks_view.js';
-import { api_url } from './config.js';
 
 export const MainPanelView = ({ctrl_state}) => {
     //const acquiring_image_sources = Object.keys(ctrl_state.image_sources)
@@ -18,8 +17,8 @@ export const MainPanelView = ({ctrl_state}) => {
                          style={{marginBottom: 0, overflow: "visible"}}>
             <span className="title">ReptiLearn</span>
             <VideoRecordView ctrl_state={ctrl_state}/>
-            <ArenaControlView ctrl_state={ctrl_state}/>
 	    <TasksView />
+            <ArenaControlView ctrl_state={ctrl_state}/>
           </ReflexElement>
           <ReflexElement>
             <ReflexContainer orientation="horizontal" windowResizeAware={true}>

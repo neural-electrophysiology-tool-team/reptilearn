@@ -1,6 +1,6 @@
 import React from 'react';
 import {api_url} from './config.js';
-import { Dropdown, Modal } from 'semantic-ui-react';
+import { Dropdown } from 'semantic-ui-react';
 import { Icon } from 'semantic-ui-react';
 import { VideoSettingsView } from './video_settings_view.js';
 
