@@ -21,7 +21,7 @@ media_dir: Path = Path("/data/reptilearn/media/")
 video_config_path: Path = Path("./config/video_config.json")
 
 # Path to the arena hardware controller configuration file
-arena_config_path: Path = Path("./config/arena_config.json")
+arena_config_path: Path = Path("./config/arena_config2.json")
 
 # Lens correction values for various camera and lens combinations.
 undistort = {
