@@ -264,12 +264,12 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
             size='small'>
             <Modal.Header>Video settings</Modal.Header>
             <Modal.Content scrolling>
-              <Tab panes={panes} activeInde={activeTabIdx}
+              <Tab panes={panes} activeIndex={activeTabIdx}
                    onTabChange={(e, { activeIndex }) => setActiveTabIdx(activeIndex)}/>
             </Modal.Content>
-            <Modal.Actions>
-              <Button onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</Button>
-              {dirty ? <Button loading={isApplying} onClick={apply}>Apply</Button> : null}
+              <Modal.Actions>
+		<Button negative loading={isApplying} onClick={apply}>{dirty ? "Apply" : "Restart"}</Button>
+		<Button onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</Button>
             </Modal.Actions>
           </Modal>
         </React.Fragment>

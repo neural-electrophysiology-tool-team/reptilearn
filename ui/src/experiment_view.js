@@ -96,6 +96,8 @@ export const ExperimentView = ({ctrl_state}) => {
         fetch(api_url + "/session/blocks/update", { method: "POST" });
     };
 
+    const session = ctrl_state.session;
+    
     const create_session = () => {
         setOpenNewSessionModal(false);
         const exp_name = experimentList[selectedExperimentIdx];
@@ -126,6 +128,14 @@ export const ExperimentView = ({ctrl_state}) => {
     const delete_session = () => {
         setOpenDeleteModal(false);
         fetch(api_url + "/session/delete");
+    };
+
+    const reload_session = () => {
+        fetch(api_url + "/session/close")
+            .then(() => {
+                const split_dir = session.data_dir.split('/');
+                return fetch(api_url + "/session/continue/" + split_dir[split_dir.length-1]);
+            });
     };
     
     const run_experiment = () => {
@@ -203,7 +213,6 @@ export const ExperimentView = ({ctrl_state}) => {
     if (!ctrl_state)
 	return null;
     
-    const session = ctrl_state.session;
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
     const cur_block = ctrl_state.session ? ctrl_state.session.cur_block : undefined;
     
@@ -238,7 +247,9 @@ export const ExperimentView = ({ctrl_state}) => {
                 <Dropdown.Item text='Close session'
                                disabled={!session || is_running}
                                onClick={close_session}/>
-                
+                <Dropdown.Item text='Reload session'
+                               disabled={!session || is_running}
+                               onClick={reload_session}/>
                 <Dropdown.Item text='Delete session...'
                                onClick={() => setOpenDeleteModal(true)}
                                disabled={!session || is_running}/>

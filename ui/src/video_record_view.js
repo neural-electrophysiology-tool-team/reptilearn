@@ -1,7 +1,6 @@
 import React from 'react';
 import {api_url} from './config.js';
-import { Dropdown } from 'semantic-ui-react';
-import { Icon } from 'semantic-ui-react';
+import { Dropdown, Icon } from 'semantic-ui-react';
 import { VideoSettingsView } from './video_settings_view.js';
 
 export const VideoRecordView = ({ctrl_state}) => {
