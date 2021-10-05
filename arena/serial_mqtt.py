@@ -6,8 +6,18 @@ from serial import Serial
 import threading
 import json
 
+"""
+Serial-MQTT Bridge
+author: Tal Eisenberg (2021)
+"""
 
 def serial_port_by_id(id):
+    """
+    Return a port info (`serial.tools.list_ports.ListPortInfo`) matching the id.
+
+    Parameters:
+    - id: Any unique part of an hwid string of a connected device.
+    """
     port_list = list_ports.comports()
     candidates = [port for port in port_list if id in port.hwid]
     if len(candidates) == 1:
@@ -17,7 +27,11 @@ def serial_port_by_id(id):
 
 
 class MQTTLogHandler(logging.Handler):
-    def __init__(self, mqtt_client, base_topic):
+    """
+    Publish log messages over MQTT.
+    """
+
+    def __init__(self, mqtt_client, base_topic, mqtt_publish_lock):
         super().__init__()
         self.setFormatter(
             logging.Formatter(
@@ -27,15 +41,29 @@ class MQTTLogHandler(logging.Handler):
         )
         self.base_topic = base_topic
         self.mqtt_client = mqtt_client
+        self.mqtt_publish_lock = mqtt_publish_lock
 
     def emit(self, record):
         topic_level = record.levelname.lower()
         topic = f"{self.base_topic}/{topic_level}/serial_mqtt"
-        self.mqtt_client.publish(topic, self.format(record))
+        with self.mqtt_publish_lock:
+            self.mqtt_client.publish(topic, self.format(record))
 
 
 class SerialMQTTBridge:
+    """
+    Maintain a two-way bridge between serial ports and mqtt.
+    """
+
     def __init__(self, config, logger):
+        """
+        Initialize the bridge.
+        Load configuration, connect to serial ports, connect to MQTT server,
+        and finally start listening threads for mqtt and for each serial port.
+
+        - config: A config module (see for ex. config.py)
+        - logger: A logging.Logger instance
+        """
         self.log = logger
 
         # load arena config
@@ -89,20 +117,23 @@ class SerialMQTTBridge:
         # init mqtt
         self.mqtt_config = config.mqtt
         self.mqtt = mqtt.Client()
-        self.mqtt.on_connect = self.on_mqtt_connect
-        self.mqtt.on_disconnect = self.on_mqtt_disconnect
+        self.mqtt.on_connect = self._on_mqtt_connect
+        self.mqtt.on_disconnect = self._on_mqtt_disconnect
         self.mqtt.connect(self.mqtt_config["host"], self.mqtt_config["port"])
-        self.mqtt.on_message = self.on_mqtt_message
+        self.mqtt.on_message = self._on_mqtt_message
         self.mqtt.subscribe(self.mqtt_config["command_topic"])
         self.mqtt_q = queue.Queue()
+        self.mqtt_publish_lock = threading.Lock()
 
-        # Send log over mqtt
+        # send log over mqtt
         self.log.addHandler(
-            MQTTLogHandler(self.mqtt, self.mqtt_config["publish_topic"])
+            MQTTLogHandler(
+                self.mqtt, self.mqtt_config["publish_topic"], self.mqtt_publish_lock
+            )
         )
 
         # start listening threads
-        self.mqtt_listen_thread = threading.Thread(target=self.mqtt_listen)
+        self.mqtt_listen_thread = threading.Thread(target=self._mqtt_listen)
         self.serial_listen_threads = {}
 
         for s, (port_name, port_conf), device_conf in zip(
@@ -111,7 +142,7 @@ class SerialMQTTBridge:
             self.arena_conf.values(),
         ):
             self.serial_listen_threads[s.name] = threading.Thread(
-                target=self.serial_listen, args=[s, port_name, port_conf, device_conf]
+                target=self._serial_listen, args=[s, port_name, port_conf, device_conf]
             )
 
         self.shutdown_event = threading.Event()
@@ -122,6 +153,9 @@ class SerialMQTTBridge:
         self.mqtt.loop_start()
 
     def shutdown(self):
+        """
+        Stop listening threads.
+        """
         # stop mqtt_listen_thread
         self.mqtt.loop_stop()
         self.mqtt_q.put_nowait(None)
@@ -131,7 +165,7 @@ class SerialMQTTBridge:
         for s in self.serials.values():
             s.close()
 
-    def serial_listen(self, s: Serial, port_name, port_config, device_conf):
+    def _serial_listen(self, s: Serial, port_name, port_config, device_conf):
         self.log.info(
             f"(SERIAL) Starting listening thread for port {port_name} ({s.name})"
         )
@@ -203,14 +237,15 @@ class SerialMQTTBridge:
                     continue
 
                 self.log.debug(f"(MQTT  ) Publishing {topic}: {payload}")
-                self.mqtt.publish(topic, payload)
+                with self.mqtt_publish_lock:
+                    self.mqtt.publish(topic, payload)
 
             except KeyboardInterrupt:
                 pass
 
         self.log.info(f"(SERIAL) Terminating listening thread for port {s.name}")
 
-    def mqtt_listen(self):
+    def _mqtt_listen(self):
         self.log.info("(MQTT  ) Starting listening thread")
 
         while True:
@@ -278,6 +313,13 @@ class SerialMQTTBridge:
         self.log.info("(MQTT  ) Terminating listening thread")
 
     def is_command_allowed(self, cmd_name, port_conf):
+        """
+        Return True if `cmd_name` is allowed for serial port `port_conf`.
+
+        All commands are allowed by default. Currently, only the get command can be
+        disallowed by adding the key value pair: `"allow_get": False` to the port
+        configuration.
+        """
         if (
             cmd_name == "get"
             and "allow_get" in port_conf
@@ -287,12 +329,12 @@ class SerialMQTTBridge:
         else:
             return True
 
-    def on_mqtt_connect(self, client, userdata, flags, rc):
+    def _on_mqtt_connect(self, client, userdata, flags, rc):
         self.log.info(f"(MQTT  ) Connected to broker with result code {rc}")
 
-    def on_mqtt_disconnect(self, client, userdata, rc):
+    def _on_mqtt_disconnect(self, client, userdata, rc):
         self.log.info(f"(MQTT  ) Disconnected from broker with result code {rc}")
 
-    def on_mqtt_message(self, client, userdata, message):
+    def _on_mqtt_message(self, client, userdata, message):
         self.log.debug(f"(MQTT  ) {message.topic}: {message.payload.decode('utf-8')}")
         self.mqtt_q.put_nowait(message)
