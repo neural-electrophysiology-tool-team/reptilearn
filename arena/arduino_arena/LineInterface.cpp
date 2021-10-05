@@ -27,5 +27,3 @@ void LineInterface::value_changed() {
   }
   digitalWrite(pin, value == 0 ? LOW : HIGH);
 }
-
-void LineInterface::loop() {}

@@ -31,7 +31,7 @@ void loop() {
       break;
     case DeserializationError::EmptyInput:
       return;
-    case DeserializationError::IncompleteInput: // could use a string builder for these 3.
+    case DeserializationError::IncompleteInput:
     case DeserializationError::InvalidInput:
     case DeserializationError::NoMemory:
     default:
@@ -68,6 +68,9 @@ void run_all(JsonArray cmd) {
       }      
     }
     send_json("all_values", &doc);
+  }
+  else {
+    send_message("error/run_all", "Unknown command");
   }
 }
 
@@ -187,19 +190,17 @@ void run_command(JsonArray c) {
     run_all(c);
     return;
   }
-  
-  const char* ifs_name = strdup(c[1].as<const char*>());
 
   for (int i=0; i<num_interfaces; i++) {    
-    if (strcmp(interfaces[i]->get_name(), ifs_name) == 0) {
+    if (interfaces[i]->get_name() == c[1]) {
       interfaces[i]->run(c);
       return;
     }
   }
 
   char msg[128];
+  const char* ifs_name = strdup(c[1].as<const char*>());
   sprintf(msg, "Unknown interface: %s", ifs_name);
   send_message("error/run_command", msg);
-
   free(ifs_name);
 }
