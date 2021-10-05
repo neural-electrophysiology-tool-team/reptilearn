@@ -12,25 +12,38 @@ class FLIRImageSource(ImageSource):
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             self.cam.ExposureTime.SetValue(self.config["exposure"])
 
-            if self.config["trigger"] == "ttl":
+            if "trigger" in self.config and self.config["trigger"] is True:
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-                self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
-            elif self.config["trigger"] == "frame_rate":
+
+            elif "frame_rate" in self.config:
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
                 self.cam.AcquisitionFrameRate.SetValue(self.config["frame_rate"])
-                self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
-
-            if "pixel_format" in self.config:
-                fmt = self.config["pixel_format"]
-                self.cam.PixelFormat.SetValue(getattr(PySpin, f"PixelFormat_{fmt}"))
-
-        except PySpin.SpinnakerException as exc:
-            self.log.error(f"(configure_images); {exc}")
+            else:
+                self.log.error("Configuriation error: Expecting either a 'trigger' or 'frame_rate' properties")
+                return
+            
+            self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
+                
+            if "pyspin" in self.config:
+                for prop, value in self.config["pyspin"]:
+                    if hasattr(self.cam, prop):
+                        if isinstance(value, str):
+                            if hasattr(PySpin, value):
+                                getattr(self.cam, prop).SetValue(getattr(PySpin, value))
+                            else:
+                                self.log.error(f"Unknown PySpin constant: {value}")
+                        else:
+                            getattr(self.cam, prop).SetValue(value)
+                    else:
+                        self.log.error(f"Unknown PySpin camera property: {prop}")
+                        return
+        except Exception:
+            self.log.exception("Exception while configuring camera:")
 
     def update_time_delta(self):
         self.cam.TimestampLatch()
@@ -73,7 +86,7 @@ class FLIRImageSource(ImageSource):
 
         self.image_result = self.cam.GetNextImage()
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
-        
+
         try:
             img = self.image_result.GetNDArray()
             return (img, timestamp)
