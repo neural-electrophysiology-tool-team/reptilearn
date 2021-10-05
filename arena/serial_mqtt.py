@@ -148,13 +148,23 @@ class SerialMQTTBridge:
                 if len(line) == 0:
                     continue
 
-                self.log.debug(
-                    f"(SERIAL) [{port_name}]: {line.decode('utf-8')}".strip()
-                )
+                try:
+                    line_utf8 = line.decode("utf-8")
+                except Exception:
+                    self.log.exception(f"(SERIAL) [{port_name}]: Error while decoding incoming serial data:")
+                    continue
 
-                topic, payload = line.split(b"#")
-                topic = topic.decode("utf-8").strip()
-                payload = payload.decode("utf-8").strip()
+                self.log.debug(f"(SERIAL) [{port_name}]: {line_utf8}".strip())
+
+                split_msg = line_utf8.split("#")
+                if len(split_msg) == 1:
+                    self.log.error(
+                        f"(SERIAL) [{port_name}]: Received invalid serial message '{line}'"
+                    )
+                    continue
+
+                topic = split_msg[0].strip()
+                payload = "#".join(split_msg[1:]).strip()
 
                 if topic == "status" and payload == "Waiting for configuration...":
                     try:
