@@ -19,7 +19,7 @@ class VisualStimuli(exp.Experiment):
     }
 
     def setup(self):
-        arena.turn_touchscreen(True)
+        arena.switch_display(True)
         self.actions["Clear screen"] = {"run": self.clear}
         monitor.set_color("lightgrey")
 
@@ -30,9 +30,9 @@ class VisualStimuli(exp.Experiment):
         monitor.set_color(color)
         monitor.clear()
         
-    def run(self, params):
-        self.paths = list(Path(params["stimuli_path"]).rglob("*.jpg")) + list(
-            Path(params["stimuli_path"]).rglob("*.JPG")
+    def run(self):
+        self.paths = list(Path(exp.get_params()["stimuli_path"]).rglob("*.jpg")) + list(
+            Path(exp.get_params()["stimuli_path"]).rglob("*.JPG")
         )
 
         random.shuffle(self.paths)
@@ -40,13 +40,13 @@ class VisualStimuli(exp.Experiment):
 
         self.log.info(f"Loaded {len(self.paths)} images.")
 
-        intervals = [params["preseq_delay"]] + [
-            params["stimuli_duration"],
-            params["interstimuli_duration"],
+        intervals = [exp.get_params()["preseq_delay"]] + [
+            exp.get_params()["stimuli_duration"],
+            exp.get_params()["interstimuli_duration"],
         ] * len(self.paths)
 
         self.cur_index = 0
-        self.clear(params["interstimuli_color"])
+        self.clear(exp.get_params()["interstimuli_color"])
 
         self.cancel_sequence = schedule.sequence(self.display_stimuli, intervals)
         video_system.start_record()
@@ -66,10 +66,10 @@ class VisualStimuli(exp.Experiment):
 
         self.cur_index += 1
 
-    def end(self, params):
+    def end(self):
         monitor.clear()
         self.cancel_sequence()
         video_system.stop_record()
 
     def release(self):
-        arena.turn_touchscreen(False)
+        arena.switch_display(False)

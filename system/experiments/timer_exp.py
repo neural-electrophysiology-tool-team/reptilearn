@@ -23,23 +23,23 @@ class TimerExperiment(exp.Experiment):
     def setup(self):
         self.cancel_timer = None
 
-    def run_block(self, params):
-        interval = params["interval"]
+    def run_block(self):
+        interval = exp.get_params()["interval"]
 
         self.cancel_timer = schedule.repeat(
-            self.timer_fn, interval, params.get("num_trials", True)
+            self.timer_fn, interval, exp.get_params().get("num_trials", True)
         )
 
-    def run_trial(self, params):
+    def run_trial(self):
         self.log.info(f"{exp.session_state['cur_trial']}: {time.time()}")
         arena.run_command("toggle", "Signal LED", update_value=True)
 
     def timer_fn(self):
         exp.next_trial()
 
-    def end_block(self, params):
+    def end_block(self):
         self.cancel_timer()
         pass
 
-    def end(self, params):
+    def end(self):
         self.log.info("Stopped timer")

@@ -56,10 +56,10 @@ class PogonaHunter(exp.Experiment):
         )
         self.trajectory_logger.start()
 
-    def run_block(self, params):
-        mqtt.client.publish_json("event/command/init_bugs", params)
+    def run_block(self):
+        mqtt.client.publish_json("event/command/init_bugs", exp.get_params())
 
-    def end_block(self, params):
+    def end_block(self):
         mqtt.client.publish_json("event/command/hide_bugs", {})
 
     def release(self):

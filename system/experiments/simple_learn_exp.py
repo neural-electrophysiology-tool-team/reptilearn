@@ -26,48 +26,45 @@ class SimpleLearnExp(exp.Experiment):
         self.stim_cancel = None
         pass
 
-    def run(self, params):
-        self.cur_trial = params["num_trials"]
+    def run(self):
+        self.cur_trial = exp.get_params()["num_trials"]
 
-        if params["record_exp"]:  # record start at init
+        if exp.get_params()["record_exp"]:  # record start at init
             video_system.start_record()
 
-    def run_trial(self, params):
+    def run_trial(self):
         self.log.info(
             "Trial "
-            + str(params["num_trials"] - self.cur_trial)
+            + str(exp.get_params()["num_trials"] - self.cur_trial)
             + " started "
             + str(datetime.datetime.now())
         )
         exp.event_logger.log(
             "simple_exp/trial_start",
-            {"Trial": str(params["num_trials"] - self.cur_trial)},
+            {"Trial": str(exp.get_params()["num_trials"] - self.cur_trial)},
         )
         self.stim()
         self.dispatch_reward()
         self.log.info("run trial procedure finished")
 
     def stim(self):
-        params = exp.get_phase_params()
-        if params["stimulus"].lower() == "led":
+        if exp.get_params()["stimulus"].lower() == "led":
             self.led_stimulus()
         else:
             self.monitor_stimulus()
 
     def led_stimulus(self):
-        params = exp.get_phase_params()
         self.stim_cancel = schedule.repeat(
             lambda: arena.run_command("toggle", "Signal LED"),
-            params["led_duration"],
-            2 * params.get("led_blinks", 1),
+            exp.get_params()["led_duration"],
+            2 * exp.get_params().get("led_blinks", 1),
         )
 
     def monitor_stimulus(self):
-        params = exp.get_phase_params()
-        monitor.chnage_color(params.get("monitor_color", "random"))
+        monitor.set_color(exp.get_params().get("monitor_color", "random"))
         self.stim_cancel = schedule.once(
             mqtt.client.publish(topic="monitor/color", payload="black"),
-            params.get("monitor_duration", 60),
+            exp.get_params().get("monitor_duration", 60),
         )
 
     def end_trial(self, params):
@@ -75,7 +72,7 @@ class SimpleLearnExp(exp.Experiment):
         self.log.info("trial ended")
 
     def dispatch_reward(self):
-        params = exp.get_phase_params()
+        params = exp.get_params()
         if params["stimulus"].lower() == "led":
             self.reward_delay = params["led_duration"] * params["led_blinks"]
         else:
@@ -86,8 +83,8 @@ class SimpleLearnExp(exp.Experiment):
         self.log.info("REWARD SENT")
         arena.run_command("dispense", "Left feeder")
 
-    def end(self, params):
-        if params.get("record_exp", True):
+    def end(self):
+        if exp.get_params().get("record_exp", True):
             video_system.stop_record()
         if self.cancel_trials != None:
             self.cancel_trials()

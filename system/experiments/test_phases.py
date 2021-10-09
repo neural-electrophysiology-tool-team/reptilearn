@@ -1,10 +1,5 @@
-import random
 import experiment as exp
-from experiment import session_state
 import arena
-import schedule
-import mqtt
-from state import state
 
 
 class TestPhasesExperiment(exp.Experiment):
@@ -21,18 +16,18 @@ class TestPhasesExperiment(exp.Experiment):
         self.actions["run block 3"] = {"run": lambda: exp.set_phase(3, 0)}
         self.actions["stop experiment"] = {"run": exp.stop_experiment}
 
-    def run_trial(self, params):
+    def run_trial(self):
         self.log.info("new trial")
         arena.run_command("toggle", "Signal LED")
 
-    def run_block(self, params):
-        self.log.info(params["run_msg"])
+    def run_block(self):
+        self.log.info(exp.get_params()["run_msg"])
 
-    def run(self, params):
-        self.log.info(params["run_msg"])
+    def run(self):
+        self.log.info(exp.get_params()["run_msg"])
 
-    def end_block(self, params):
-        self.log.info(params["end_msg"])
+    def end_block(self):
+        self.log.info(exp.get_params()["end_msg"])
 
-    def end(self, params):
-        self.log.info(params["end_msg"])
+    def end(self):
+        self.log.info(exp.get_params()["end_msg"])

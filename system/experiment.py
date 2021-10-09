@@ -289,7 +289,7 @@ def delete_session():
 
 def run_experiment():
     """
-    Run the experiment of the current session. Calls the experiment class run(params) hook, and starts
+    Run the experiment of the current session. Calls the experiment class run() hook, and starts
     trial 0 of block 0. Updates the session state file.
     """
     if session_state["is_running"] is True:
@@ -305,7 +305,7 @@ def run_experiment():
     event_logger.log("session/run", session_state.get_self())
 
     try:
-        cur_experiment.run(params.get_self())
+        cur_experiment.run()
         st = session_state.get_self()
         set_phase(st["cur_block"], st["cur_trial"], force_run=True)
         _update_state_file()
@@ -324,10 +324,9 @@ def stop_experiment():
         raise ExperimentException("Session is not running.")
 
     try:
-        phase_params = get_phase_params()
-        cur_experiment.end_trial(phase_params)
-        cur_experiment.end_block(phase_params)
-        cur_experiment.end(params.get_self())
+        cur_experiment.end_trial()
+        cur_experiment.end_block()
+        cur_experiment.end()
     except Exception:
         log.exception("Exception while ending session:")
     finally:
@@ -344,7 +343,7 @@ def stop_experiment():
 def set_phase(block, trial, force_run=False):
     """
     Set the current block and trial numbers.
-    Calls the run_block(params) and run_trial(params) experiment class hooks.
+    Calls the run_block() and run_trial() experiment class hooks.
 
     block, trial: int indices (starting with 0).
     force_run: When True, the hooks will be called even when the parameters are
@@ -363,29 +362,25 @@ def set_phase(block, trial, force_run=False):
         cur_trial = session_state.get("cur_trial", None)
         cur_block = session_state.get("cur_block", None)
 
-        prev_phase_params = get_phase_params()
-
         if cur_trial != trial or cur_block != block:
-            cur_experiment.end_trial(prev_phase_params)
+            cur_experiment.end_trial()
 
         if cur_block != block:
-            cur_experiment.end_block(prev_phase_params)
+            cur_experiment.end_block()
 
         session_state.update((), {"cur_block": block, "cur_trial": trial})
 
-        next_phase_params = get_phase_params()
-
-        num_trials = next_phase_params.get("num_trials", None)
+        num_trials = get_params().get("num_trials", None)
         if num_trials is not None and trial >= num_trials:
             raise ExperimentException(
                 f"Trial {trial} is out of range for block {block}."
             )
 
         if cur_block != block or force_run:
-            cur_experiment.run_block(next_phase_params)
+            cur_experiment.run_block()
 
         if cur_trial != trial or cur_block != block or force_run:
-            cur_experiment.run_trial(next_phase_params)
+            cur_experiment.run_trial()
 
 
 def next_trial():
@@ -396,7 +391,7 @@ def next_trial():
     cur_trial = session_state["cur_trial"]
     cur_block = session_state["cur_block"]
 
-    num_trials = get_phase_params().get("num_trials", None)
+    num_trials = get_params().get("num_trials", None)
 
     if num_trials is not None and cur_trial + 1 >= num_trials:
         next_block()
@@ -498,22 +493,40 @@ def run_action(label):
     cur_experiment.actions[label]["run"]()
 
 
-def get_phase_params():
+cached_params = None
+cached_params_block = None
+
+
+def get_params():
     """
     Return the parameters of the current block. These are determined by the
     session parameters overriden by values in the current block parameters.
     """
+    global cached_params, cached_params_block
+
     if (
         blocks.exists(())
         and len(blocks.get_self()) > 0
         and "cur_block" in session_state
     ):
+        cur_block = session_state["cur_block"]
+        if cached_params is not None and cached_params_block == cur_block:
+            return cached_params
+
         block_params = session_state[("blocks", session_state["cur_block"])]
     else:
+        cur_block = None
+        if cached_params is not None and cached_params_block is None:
+            log.info("cached_params")
+            return cached_params
+
         block_params = session_state["params"]
 
     params_dict = params.get_self()
     params_dict.update(block_params)
+    cached_params = params_dict
+    cached_params_block = cur_block
+
     return params_dict
 
 
@@ -532,9 +545,7 @@ class Experiment:
 
     self.log - A logging.Logger for logging.
 
-    Provides various experiment lifecycle methods. Some methods accept a
-    params argument. This is a dictionary (not a cursor) of the current
-    parameters according to the current block number.
+    Provides various experiment lifecycle methods.
     """
 
     def __init__(self, logger):
@@ -543,27 +554,27 @@ class Experiment:
         self.default_params = {}
         self.default_blocks = [{}]
 
-    def run(self, params):
+    def run(self):
         """Called by run_experiment()"""
         pass
 
-    def run_block(self, params):
+    def run_block(self):
         """Called by set_phase()"""
         pass
 
-    def run_trial(self, params):
+    def run_trial(self):
         """Called by set_phase()"""
         pass
 
-    def end(self, params):
+    def end(self):
         """Called by stop_experiment()"""
         pass
 
-    def end_block(self, params):
+    def end_block(self):
         """Called by set_phase() and stop_experiment()"""
         pass
 
-    def end_trial(self, params):
+    def end_trial(self):
         """Called by set_phase() and stop_experiment()"""
         pass
 
