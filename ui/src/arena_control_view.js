@@ -9,8 +9,9 @@ export const ArenaControlView = ({ctrl_state}) => {
             .then((res) => res.json())
             .then((arena_config) => setArenaConfig(arena_config));
     }, []);
-    const toggle_touchscreen = () => {
-	fetch(api_url + `/arena/turn_touchscreen/${!ctrl_state.arena.touchscreen}`);
+    
+    const toggle_display = (display) => {
+	fetch(api_url + `/arena/switch_display/${!ctrl_state.arena.displays[display] ? 1 : 0}`);
     };
     
     const poll_arena = () => {
@@ -41,6 +42,10 @@ export const ArenaControlView = ({ctrl_state}) => {
         return ctrl_state.arena.values[dev["name"]] == 1 ? "toggle on" : "toggle off";
     };
 
+    const get_display_toggle_icon = display => {
+        return ctrl_state.arena.displays[display] == true ? "toggle on" : "toggle off";
+    };
+    
     const get_interface_ui = (ifs) => {
         if (ifs.ui === "toggle") {
             return (
@@ -100,12 +105,19 @@ export const ArenaControlView = ({ctrl_state}) => {
             return null;
         }
     })(ctrl_state.arena.timestamp);
-    
+
+    const display_toggles = !ctrl_state.arena.displays ? null : Object.keys(ctrl_state.arena.displays)
+          .map((d) => (
+              <Dropdown.Item text={d} icon={get_display_toggle_icon(d)} key={d}
+                             onClick={() => toggle_display(d)}/>
+          ));
     return (
         <button>
           <Dropdown text='Arena' scrolling>
             <Dropdown.Menu>
-              {items}
+	      {items}
+	      <Dropdown.Header key="display">Displays</Dropdown.Header>
+              {display_toggles}
               <Dropdown.Divider/>
               {!update_time ? null : (
                   <Dropdown.Item text={`Updated: ${update_time.toLocaleTimeString()}`}

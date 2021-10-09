@@ -35,10 +35,15 @@ def _run_shell_command(cmd):
     return stdout.decode("ascii")
 
 
-def turn_touchscreen(on, display):
-    display_id = _config.arena["displays"][display]
+def switch_display(on, display=None):
+    if display is None:
+        display_id = list(_config.arena["displays"].values())[0]
+        display = list(_config.arena["displays"].keys())[0]
+    else:
+        display_id = _config.arena["displays"][display]
+
     DISPLAY_CMD = f"DISPLAY={display_id} xrandr --output HDMI-0 --{{}}"
-    state["arena", "touchscreen"] = on
+    state["arena", "displays", display] = on
 
     if on:
         _run_shell_command(DISPLAY_CMD.format("auto"))
@@ -190,8 +195,12 @@ def init(logger, config):
         {
             "values": {},
             "timestamp": None,
+            "displays": dict([(d, False) for d in config.arena["displays"].keys()]),
         }
     )
+
+    for display in config.arena["displays"].keys():
+        switch_display(False, display)
 
     try:
         with open(config.arena_config_path, "r") as f:

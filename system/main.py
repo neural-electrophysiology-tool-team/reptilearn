@@ -437,6 +437,12 @@ def route_arena_config():
     return flask.jsonify(arena.get_interfaces_config())
 
 
+@app.route("/arena/poll")
+def route_arena_poll():
+    arena.request_values()
+    return flask.Response("ok")
+
+
 @app.route("/arena/run_command", methods=["POST"])
 def route_arena():
     try:
@@ -461,16 +467,15 @@ def route_arena_request_values(interface=None):
     return flask.Response("ok")
 
 
-@app.route("/arena/turn_touchscreen/<on>")
-@app.route("/arena/turn_touchscreen/<on>/<display>")
-def route_arena_turn_touchscreen(on, display=":0"):
-    arena.turn_touchscreen(on, display)
-    return flask.Response("ok")
+@app.route("/arena/list_displays")
+def route_arena_list_displays():
+    return flask.jsonify(config.arena["display"].keys())
 
 
-@app.route("/arena/poll")
-def route_arena_poll():
-    arena.request_values()
+@app.route("/arena/switch_display/<int:on>")
+@app.route("/arena/switch_display/<int:on>/<display>")
+def route_arena_switch_display(on, display=None):
+    arena.switch_display(on != 0, display)
     return flask.Response("ok")
 
 
