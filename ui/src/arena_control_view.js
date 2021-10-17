@@ -19,7 +19,7 @@ export const ArenaControlView = ({ctrl_state}) => {
     };
 
     const run_command = (command, iface, args, request_values) => {
-        const cmd_array = [command, iface];
+        let cmd_array = [command, iface];
         if (args && args.length > 0) {
             cmd_array = cmd_array.concat(args);
         }
@@ -39,11 +39,11 @@ export const ArenaControlView = ({ctrl_state}) => {
     };
     
     const get_toggle_icon = dev => {
-        return ctrl_state.arena.values[dev["name"]] == 1 ? "toggle on" : "toggle off";
+        return ctrl_state.arena.values[dev["name"]] === 1 ? "toggle on" : "toggle off";
     };
 
     const get_display_toggle_icon = display => {
-        return ctrl_state.arena.displays[display] == true ? "toggle on" : "toggle off";
+        return ctrl_state.arena.displays[display] === true ? "toggle on" : "toggle off";
     };
     
     const get_interface_ui = (ifs) => {
@@ -79,7 +79,7 @@ export const ArenaControlView = ({ctrl_state}) => {
                 const val = ctrl_state.arena.values[ifs.name];
                 if (Array.isArray(val)) {
                     return (
-                        <React.Fragment>
+                        <React.Fragment key={val}>
                           {val.map(make_item)}
                         </React.Fragment>
                     );                    
@@ -111,12 +111,13 @@ export const ArenaControlView = ({ctrl_state}) => {
               <Dropdown.Item text={d} icon={get_display_toggle_icon(d)} key={d}
                              onClick={() => toggle_display(d)}/>
           ));
+   
     return (
         <button>
           <Dropdown text='Arena' scrolling>
             <Dropdown.Menu>
 	      {items}
-	      <Dropdown.Header key="display">Displays</Dropdown.Header>
+	      <Dropdown.Header>Displays</Dropdown.Header>
               {display_toggles}
               <Dropdown.Divider/>
               {!update_time ? null : (
@@ -130,5 +131,4 @@ export const ArenaControlView = ({ctrl_state}) => {
           </Dropdown>
         </button>
     );
-    return null;
 };

@@ -12,6 +12,7 @@ class FLIRImageSource(ImageSource):
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             self.cam.ExposureTime.SetValue(self.config["exposure"])
 
+            self.cam.DeviceLinkThroughputLimit.SetValue(self.cam.DeviceMaxThroughput.GetValue())
             if "trigger" in self.config and self.config["trigger"] is True:
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)

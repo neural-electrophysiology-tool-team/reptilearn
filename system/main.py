@@ -130,7 +130,7 @@ def parse_image_request(src_id):
         and src_config is not None
         and "undistort" in src_config
     ):
-        oheight, owidth = src_config["image_shape"]
+        oheight, owidth = src_config["image_shape"][:2]
         undistort_config = config.undistort[src_config["undistort"]]
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
             owidth, oheight, undistort_config

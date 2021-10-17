@@ -1,8 +1,6 @@
 import cv2 as cv
 import numpy as np
-import random
 import datetime
-import numpy as np
 
 import experiment as exp
 from experiment import session_state
@@ -10,7 +8,7 @@ from video_system import image_sources, image_observers
 import schedule
 import arena
 import data_log
-import bbox
+import video_system
 
 
 def detect_aruco(src_id):
@@ -112,14 +110,14 @@ class DiscriminationExperiment(exp.Experiment):
 
     def log_next_detection(self):
         self.print_next_detection = True
-        
+
     def setup(self):
         self.actions["Find aruco markers"] = {"run": self.find_aruco}
         self.actions["Log next detection"] = {"run": self.log_next_detection}
         self.find_aruco()
         self.bbox_collector = BBoxDataCollector(self.log)
         self.print_next_detection = False
-        
+
     def run(self):
         self.rng = np.random.default_rng()
 
@@ -161,6 +159,9 @@ class DiscriminationExperiment(exp.Experiment):
         self.log.info(f"Saving feeding areas image to {area_image_path}")
         cv.imwrite(str(area_image_path), img)
 
+        if params["record_video"]:
+            video_system.start_record()
+
         self.bbox_collector.run(self.on_bbox_detection)
         self.shaping_mode = params["shaping_mode"]
         session_state["state"] = "idle"
@@ -172,12 +173,16 @@ class DiscriminationExperiment(exp.Experiment):
 
     def end(self):
         self.bbox_collector.end()
+        if exp.get_params()["record_video"]:
+            video_system.stop_record()        
 
     def is_in_area(self, left, det):
         if det is None:
             return None
 
-        centroid = bbox.xyxy_to_centroid(np.array(det))
+        x1, y1, x2, y2 = det[:4]
+        centroid = [(x2 + x1) / 2, (y2 + y1) / 2]
+
         loc = self.left_feeding_pos if left else self.right_feeding_pos
         dist2 = (centroid[0] - loc[0]) ** 2 + (centroid[1] - loc[1]) ** 2
         return dist2 <= self.radius ** 2
@@ -193,10 +198,11 @@ class DiscriminationExperiment(exp.Experiment):
 
         if session_state["state"] == "feed":
             det = payload["detection"]
+            if det is None:
+                return
 
             if self.is_in_area(left=True, det=det):
                 if self.left_trial:
-                    # TODO: don't dispense from bbox process!
                     self.dispense()
 
                 self.to_idle_state()

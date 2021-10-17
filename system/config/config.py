@@ -96,7 +96,7 @@ video_record = {
             "codec": "h264_nvenc",
             "quality": None,
             "macro_block_size": 1,
-            "pixelformat": "bgr0",
+            #"pixelformat": "bgr0",
             "ffmpeg_log_level": "warning",
             "output_params": ["-preset", "slow", "-qp", "30", "-rc", "constqp"],
         },

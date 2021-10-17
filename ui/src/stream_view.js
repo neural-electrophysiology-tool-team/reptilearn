@@ -158,7 +158,6 @@ export class StreamGroupView extends React.Component {
     }
 
     componentDidMount() {
-        console.log(this.image_sources, this.src_ids);
         if (this.src_ids && this.src_ids.length !== 0)
             this.add_stream(0);
     }

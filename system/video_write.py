@@ -5,6 +5,7 @@ from video_stream import ImageObserver, ImageSource
 import imageio
 import queue
 import threading
+import cv2
 
 
 def get_write_path(src_id, file_ext, timestamp=datetime.now()):
@@ -40,6 +41,11 @@ class VideoWriter(ImageObserver):
         self.encoding_params = encoding_params
 
         self.img_src.state["writing"] = False
+
+        if len(self.img_src.image_shape) == 3 and self.img_src.image_shape[2] == 3:
+            self.convert_bgr = True
+        else:
+            self.convert_bgr = False
 
         self.prev_timestamp = None  # for missing frames alert
 
@@ -92,6 +98,9 @@ class VideoWriter(ImageObserver):
 
             t0 = time.time()
             img, timestamp = item
+
+            if self.convert_bgr:
+                img = img[..., ::-1]
 
             self.ts_file.write(str(timestamp) + "\n")
             self.writer.append_data(img)
