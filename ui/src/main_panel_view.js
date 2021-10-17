@@ -7,7 +7,7 @@ import {ReflexContainer, ReflexSplitter, ReflexElement} from 'react-reflex';
 import {LogView} from './log_view.js';
 import {TasksView} from './tasks_view.js';
 
-export const MainPanelView = ({ctrl_state}) => {
+export const MainPanelView = ({ctrl_state, video_config, fetch_video_config}) => {
     //const acquiring_image_sources = Object.keys(ctrl_state.image_sources)
     //    .filter(key => ctrl_state.image_sources[key].acquiring);
 
@@ -16,7 +16,7 @@ export const MainPanelView = ({ctrl_state}) => {
           <ReflexElement minSize={22} maxSize={22} className="section_header"
                          style={{marginBottom: 0, overflow: "visible"}}>
             <span className="title">ReptiLearn</span>
-            <VideoRecordView ctrl_state={ctrl_state}/>
+            <VideoRecordView ctrl_state={ctrl_state} video_config={video_config} fetch_video_config={fetch_video_config}/>
 	    <TasksView />
             <ArenaControlView ctrl_state={ctrl_state}/>
           </ReflexElement>
@@ -25,7 +25,7 @@ export const MainPanelView = ({ctrl_state}) => {
               <ReflexElement>
                 <ReflexContainer orientation="vertical" windowResizeAware={true}>
                   <ReflexElement flex={0.65} className="stream_group_view_container">
-                    <StreamGroupView ctrl_state={ctrl_state}/>
+                    <StreamGroupView ctrl_state={ctrl_state} video_config={video_config}/>
                   </ReflexElement>
                   <ReflexSplitter/>
                   <ReflexElement minSize={400}>

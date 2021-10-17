@@ -3,7 +3,7 @@ import {api_url } from './config.js';
 import { Input, Grid, Divider, Dropdown, Modal, Button, Icon, Tab } from 'semantic-ui-react';
 import ReactJson from 'react-json-view';
 
-export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
+export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, open}) => {
     const [openAddModal, setOpenAddModal] = React.useState(false);
     const [addIdInput, setAddIdInput] = React.useState(undefined);
     const [addClassInput, setAddClassInput] = React.useState(undefined);
@@ -14,21 +14,13 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
     const [selectedObserver, setSelectedObserver] = React.useState(null);
     const [isApplying, setApplying] = React.useState(false);
     
-    const get_configs = (state) => {
-        const confs = {};
-        for (const key of Object.keys(state)) {
-            confs[key] = state[key].config;
-        }
-        return confs;
-    };
-    
     React.useEffect(() => {
         if (!open) {
             return;
         }
 
-        const srcs_conf = get_configs(ctrl_state.video.image_sources);
-        const obs_conf = get_configs(ctrl_state.video.image_observers);
+        const srcs_conf = video_config.image_sources;
+        const obs_conf = video_config.image_observers;
 
         setSourcesConfig(srcs_conf);
         setObserversConfig(obs_conf);
@@ -41,7 +33,7 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
         }
     }, [open]);
 
-    if (!ctrl_state) {
+    if (!video_config) {
         return null;
     }
 
@@ -59,10 +51,18 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
                 "image_sources": sourcesConfig,
                 "image_observers": observersConfig
             })})
+            .then((resp) => {
+                if (fetch_video_config) {
+                    return fetch_video_config();
+                }
+                else {
+                    return resp;
+                }
+            })
             .then(() => {
                 setOpen(false);
                 setApplying(false);
-            })
+            })        
             .catch((e) => {
                 console.log("Error while updating config:", e);
                 setApplying(false);
@@ -120,11 +120,11 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
 	const obj_id = (activeTabIdx === 0) ? selectedSource : selectedObserver;
 
         if (activeTabIdx === 0) {
-            cfg[obj_id] = ctrl_state.video.image_sources[obj_id].config;
+            cfg[obj_id] = video_config.image_sources[obj_id];
             setSourcesConfig(cfg);
         }
         else if (activeTabIdx === 1) {
-            cfg[obj_id] = ctrl_state.video.image_observers[obj_id].config;
+            cfg[obj_id] = video_config.image_observers[obj_id];
             setObserversConfig(cfg);
         }
     };
@@ -224,8 +224,8 @@ export const VideoSettingsView = ({ctrl_state, setOpen, open}) => {
         return true;
     };
 
-    const dirty = !deep_equals(sourcesConfig, get_configs(ctrl_state.video.image_sources)) ||
-          !deep_equals(observersConfig, get_configs(ctrl_state.video.image_observers));
+    const dirty = !deep_equals(sourcesConfig, video_config.image_sources) ||
+          !deep_equals(observersConfig, video_config.image_observers);
     
     return (
         <React.Fragment>

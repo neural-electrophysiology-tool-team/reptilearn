@@ -35,19 +35,19 @@ def load_observer(obs_id, config):
     )
 
 
-def load_video_config(video_config: dict):
+def load_video_config(config: dict):
     if "video" not in state:
         state["video"] = {
             "image_sources": {},
             "image_observers": {},
         }
 
-    if "image_sources" in video_config:
-        for src_id, conf in video_config["image_sources"].items():
+    if "image_sources" in config:
+        for src_id, conf in config["image_sources"].items():
             load_source(src_id, conf)
 
-    if "image_observers" in video_config:
-        for obs_id, conf in video_config["image_observers"].items():
+    if "image_observers" in config:
+        for obs_id, conf in config["image_observers"].items():
             load_observer(obs_id, conf)
 
 
@@ -68,19 +68,22 @@ def load_video_writers():
         )
 
 
-def update_video_config(video_config: dict):
-    global image_sources, image_observers
+def update_video_config(config: dict):
+    global image_sources, image_observers, video_config
     shutdown_video()
 
     image_sources = {}
     image_observers = {}
-
-    load_video_config(video_config)
+    
+    load_video_config(config)
     load_video_writers()
 
     start()
+
     with open(_config.video_config_path, "w") as f:
         json.dump(video_config, f, indent=4)
+
+    video_config = config
 
 
 def restore_after_experiment_session():

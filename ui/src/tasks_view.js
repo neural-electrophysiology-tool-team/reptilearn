@@ -142,18 +142,6 @@ export const TasksView = () => {
     }
         
     const panes = [
-        { menuItem: 'Date/Time', render: () => (
-            <Tab.Pane>
-              <p>Run the task at a specific date and time:</p>
-              <DatePicker selected={scheduleDate}
-                          onChange={setScheduleDate}
-                          showTimeSelect
-                          timeIntervals={15}
-                          showPopperArrow={false}
-                          popperPlacement="bottom-start"
-                          dateFormat="Pp"/>
-            </Tab.Pane>
-        ) },
         { menuItem: 'Interval', render: () => (
             <Tab.Pane>
               <table>
@@ -186,13 +174,20 @@ export const TasksView = () => {
                   </tr>
                 </tbody>
               </table>
-              <div>
-              </div>
-              <div>
-
-              </div>
             </Tab.Pane>
         )},
+        { menuItem: 'Date/Time', render: () => (
+            <Tab.Pane>
+              <p>Run the task at a specific date and time:</p>
+              <DatePicker selected={scheduleDate}
+                          onChange={setScheduleDate}
+                          showTimeSelect
+                          timeIntervals={15}
+                          showPopperArrow={false}
+                          popperPlacement="bottom-start"
+                          dateFormat="Pp"/>
+            </Tab.Pane>
+        ) },        
         { menuItem: 'Time of day', render: () => (
             <Tab.Pane>
               <table>
@@ -327,7 +322,6 @@ export const TasksView = () => {
           <button>       
             <Dropdown text='Schedule'
                       onOpen={load_task_list}
-                      loading={isLoading}
                       scrolling> 
               <Dropdown.Menu>
                 <Dropdown.Item key='schedule'

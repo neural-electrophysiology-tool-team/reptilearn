@@ -1,17 +1,17 @@
 import React from 'react';
 import {Selector} from './components.js';
-import {api_url} from './config.js';
+import { api_url } from './config.js';
 import { Icon } from 'semantic-ui-react';
 import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 
 const StreamView = (
-    {idx, streams, set_streams, image_sources, src_ids, unused_src_ids, add_stream}
+    {idx, streams, set_streams, video_config, src_ids, unused_src_ids, add_stream}
 ) => {
     const {src_id, width, undistort, is_streaming} = streams[idx];
-    const src_width = image_sources[src_id].config.image_shape[1];
-    const src_height = image_sources[src_id].config.image_shape[0];
-    
+    const src_width = video_config.image_sources[src_id].image_shape[1];
+    const src_height = video_config.image_sources[src_id].image_shape[0];
+
     const stream_height = src_height * (width / src_width);
     const stream_url = api_url
           + `/image_sources/${src_id}/stream?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
@@ -149,17 +149,17 @@ export class StreamGroupView extends React.Component {
 
     constructor(props) {
         super(props);
-        const { ctrl_state } = props;
+        const { ctrl_state, video_config } = props;
 
-        if (ctrl_state && ctrl_state.video && ctrl_state.video.image_sources) {
-            this.image_sources = ctrl_state.video.image_sources;
-            this.src_ids = Object.keys(this.image_sources);   
+        if (video_config && video_config.image_sources) {
+            this.src_ids = Object.keys(video_config.image_sources);
         }
     }
 
     componentDidMount() {
-        if (this.src_ids && this.src_ids.length !== 0)
+        if (this.src_ids && this.src_ids.length !== 0) {
             this.add_stream(0);
+        }
     }
     
     unused_src_ids = () => {
@@ -179,7 +179,7 @@ export class StreamGroupView extends React.Component {
             is_streaming: new_is_streaming,
         };
         const new_streams = [...this.state.streams];
-        new_streams.splice(idx + 1, 0, new_stream);        
+        new_streams.splice(idx + 1, 0, new_stream);
         
         this.setState({streams: new_streams});
     }
@@ -205,7 +205,7 @@ export class StreamGroupView extends React.Component {
      }
     
     render() {
-        if (!this.image_sources) {
+        if (!this.props.video_config) {
             return null;
         }
         
@@ -214,7 +214,7 @@ export class StreamGroupView extends React.Component {
                                idx={idx}
                                streams={this.state.streams}
                                set_streams={s => this.setState({streams: s})}
-                               image_sources={this.image_sources}
+                               video_config={this.props.video_config}
                                src_ids={this.src_ids}
                                unused_src_ids={this.unused_src_ids()}
                                add_stream={this.add_stream}

@@ -121,7 +121,7 @@ def parse_image_request(src_id):
     height = None if sheight is None else int(sheight)
 
     if src_id in state["video", "image_sources"]:
-        src_config = state["video", "image_sources", src_id, "config"]
+        src_config = video_system.video_config["image_sources"][src_id]
     else:
         src_config = None
 
@@ -130,7 +130,7 @@ def parse_image_request(src_id):
         and src_config is not None
         and "undistort" in src_config
     ):
-        oheight, owidth = src_config["image_shape"][:2]
+        oheight, owidth = src_config["image_shape"]
         undistort_config = config.undistort[src_config["undistort"]]
         undistort_mapping, _, _ = undistort.get_undistort_mapping(
             owidth, oheight, undistort_config
@@ -391,6 +391,15 @@ def route_update_config():
         flask.abort(500, e)
 
 
+@app.route("/video/get_config")
+def route_video_get_config():
+    try:
+        return flask.jsonify(video_system.video_config)
+    except Exception as e:
+        log.exception("Exception while getting video config:")
+        flask.abort(500, e)
+
+
 @app.route("/video_record/select_source/<src_id>")
 def route_select_source(src_id):
     video_system.select_source(src_id)
@@ -437,12 +446,6 @@ def route_arena_config():
     return flask.jsonify(arena.get_interfaces_config())
 
 
-@app.route("/arena/poll")
-def route_arena_poll():
-    arena.request_values()
-    return flask.Response("ok")
-
-
 @app.route("/arena/run_command", methods=["POST"])
 def route_arena():
     try:
@@ -467,15 +470,16 @@ def route_arena_request_values(interface=None):
     return flask.Response("ok")
 
 
-@app.route("/arena/list_displays")
-def route_arena_list_displays():
-    return flask.jsonify(config.arena["display"].keys())
+@app.route("/arena/turn_touchscreen/<on>")
+@app.route("/arena/turn_touchscreen/<on>/<display>")
+def route_arena_turn_touchscreen(on, display=":0"):
+    arena.turn_touchscreen(on, display)
+    return flask.Response("ok")
 
 
-@app.route("/arena/switch_display/<int:on>")
-@app.route("/arena/switch_display/<int:on>/<display>")
-def route_arena_switch_display(on, display=None):
-    arena.switch_display(on != 0, display)
+@app.route("/arena/poll")
+def route_arena_poll():
+    arena.request_values()
     return flask.Response("ok")
 
 

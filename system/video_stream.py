@@ -20,8 +20,8 @@ class ImageSource(mp.Process):
         self.src_id = src_id
 
         self.state = state_cursor
-        self.state.set_self({"acquiring": False, "config": config})
-        self.config = self.state.get_cursor("config")
+        self.state.set_self({"acquiring": False})
+        self.config = config
 
         self.buf_shape = (
             self.image_shape
@@ -146,8 +146,7 @@ class ImageObserver(mp.Process):
         self.img_src = img_src
         self.state = state_cursor
         if self.state is not None and config is not None:
-            self.state.set_self({"config": config})
-            self.config = self.state.get_cursor("config")
+            self.config = config
 
         self.update_event = mp.Event()
         img_src.add_observer_event(self.update_event)

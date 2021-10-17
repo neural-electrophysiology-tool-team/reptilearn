@@ -3,7 +3,7 @@ import {api_url} from './config.js';
 import { Dropdown, Icon } from 'semantic-ui-react';
 import { VideoSettingsView } from './video_settings_view.js';
 
-export const VideoRecordView = ({ctrl_state}) => {
+export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) => {
     const [openSettingsModal, setOpenSettingsModal] = React.useState(false);
     const prefix_input_ref = React.useRef();
 
@@ -67,7 +67,8 @@ export const VideoRecordView = ({ctrl_state}) => {
             <React.Fragment>
               <VideoSettingsView open={openSettingsModal}
                                  setOpen={setOpenSettingsModal}
-                                 ctrl_state={ctrl_state}/>
+                                 video_config={video_config}
+                                 fetch_video_config={fetch_video_config}/>
               <Dropdown text='Video' disabled={is_recording}>
                 <Dropdown.Menu>
                   <Dropdown.Header>Record Sources</Dropdown.Header>
