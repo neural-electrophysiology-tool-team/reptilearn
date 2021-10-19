@@ -97,6 +97,7 @@ const StreamView = (
                    lockAspectRatio={true}
                    onResize={on_resize}
                    minConstraints={[240, 240]}
+                   maxConstraints={[src_width, src_height]}
                    >
           <div className="stream_view"
                style={{width: width + 'px', height: stream_height + 50 + 'px'}}>
@@ -184,26 +185,6 @@ export class StreamGroupView extends React.Component {
         this.setState({streams: new_streams});
     }
         
-    shouldComponentUpdate(next_props, next_state) {
-         if (JSON.stringify(next_state) !== JSON.stringify(this.state))
-             return true;
-
-         if (next_props.ctrl_state && this.props.ctrl_state) {
-             const next_srcs = next_props.ctrl_state.video.image_sources;
-             const prev_srcs = this.props.ctrl_state.video.image_sources;
-            
-             if (next_srcs.length !== prev_srcs.length)
-                 return true;
-        
-             for (let i=0; i<next_srcs.length; i++)
-                 if (next_srcs[i] !== prev_srcs[i])
-                     return true;
-
-             return false;
-         }
-         return true;
-     }
-    
     render() {
         if (!this.props.video_config) {
             return null;

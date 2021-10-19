@@ -5,6 +5,7 @@ import { VideoSettingsView } from './video_settings_view.js';
 
 export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) => {
     const [openSettingsModal, setOpenSettingsModal] = React.useState(false);
+    const [isLoadingConfig, setLoadingConfig] = React.useState(false);
     const prefix_input_ref = React.useRef();
 
     React.useEffect(() => {
@@ -50,7 +51,10 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
     };
 
     const open_settings_dropdown = () => {
-        setOpenSettingsModal(true);
+        fetch_video_config().then(() => {
+            setLoadingConfig(true);
+            setOpenSettingsModal(true);
+        });
     };
           
     const video_menu = (() => {
@@ -68,6 +72,7 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
               <VideoSettingsView open={openSettingsModal}
                                  setOpen={setOpenSettingsModal}
                                  video_config={video_config}
+                                 loading={isLoadingConfig}
                                  fetch_video_config={fetch_video_config}/>
               <Dropdown text='Video' disabled={is_recording}>
                 <Dropdown.Menu>

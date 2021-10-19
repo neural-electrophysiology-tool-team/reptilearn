@@ -2,9 +2,10 @@ import React from 'react';
 import {SocketContext} from './socket.js';
 
 export const LogView = () => {
-    const logContainer = React.useRef((localStorage.log + "\n===================") || "");
+    const logContainer = React.useRef((localStorage.log || '')  +
+                                      (localStorage.log ? '\n===================' : ''));
     const textarea_ref = React.useRef();
-    const [logMsg, setLogMsg] = React.useState(null);
+    const [logMsg, setLogMsg] = React.useState(logContainer.current);
     
     const socket = React.useContext(SocketContext);
 
@@ -41,6 +42,7 @@ export const LogView = () => {
 
     const clear_log = () => {
         logContainer.current = "";
+        localStorage.log = logContainer.current; 
         setLogMsg(null);
     };
 

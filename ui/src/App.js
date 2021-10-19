@@ -29,7 +29,7 @@ const App = () => {
     }, [handle_disconnect, handle_new_state, socket]);
 
     const fetch_video_config = () => {
-        fetch(api_url + '/video/get_config')
+        return fetch(api_url + '/video/get_config')
             .then((res) => res.json())
             .then((config) => setVideoConfig(config));        
     };
