@@ -263,6 +263,8 @@ class VideoInfo:
         if not self.timestamp_path.exists():
             self.timestamp_path = None
             self.duration = None
+            self.timestamps = None
+            self.frame_count = None
         else:
             self.timestamps = read_timeseries_csv(
                 self.timestamp_path, time_col=["time", "timestamp"]
@@ -281,7 +283,7 @@ class VideoInfo:
             ]  # NOTE: what happens when both src_id and name has underscores?
 
     def __repr__(self):
-        return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count if hasattr(self, 'frame_count') else 'NA'},\n\tduration: {self.duration})"
+        return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count},\n\tduration: {self.duration})"
 
 
 @dataclass(init=False)
