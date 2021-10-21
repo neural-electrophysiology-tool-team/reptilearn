@@ -281,7 +281,7 @@ class VideoInfo:
             ]  # NOTE: what happens when both src_id and name has underscores?
 
     def __repr__(self):
-        return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count},\n\tduration: {self.duration})"
+        return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count if self.hasattr(self.frame_count) else 'NA'},\n\tduration: {self.duration})"
 
 
 @dataclass(init=False)
