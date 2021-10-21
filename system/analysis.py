@@ -268,9 +268,10 @@ class VideoInfo:
                 self.timestamp_path, time_col=["time", "timestamp"]
             )
             self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
+            self.frame_count = self.timestamps.shape[0]
 
         self.path = path
-        self.frame_count = self.timestamps.shape[0]
+
         split = self.name.split("_")
         if len(split) == 1:
             self.src_id = self.name
