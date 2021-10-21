@@ -2,6 +2,7 @@ from pathlib import Path
 from dataclasses import dataclass
 import pandas as pd
 
+import re
 import os
 import moviepy.editor as mpy
 import moviepy.tools
