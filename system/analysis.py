@@ -8,7 +8,6 @@ import moviepy.tools
 import moviepy.config
 import json
 import bbox
-import experiment as exp
 
 # TODO:
 # - option to choose locale
@@ -18,6 +17,18 @@ import experiment as exp
 events_log_filename = "events.csv"
 session_state_filename = "session_state.json"
 name_locale = "Asia/Jerusalem"
+
+
+def split_name_datetime(s):
+    """
+    Split a string with format {name}_%Y%m%d_%H%M%S into name and a datetime64 objects.
+
+    Return name (string), dt (np.datetime64)
+    """
+    match = re.search("(.*)_([0-9]*)[-_]([0-9]*)", s)
+    dt = pd.to_datetime(match.group(2) + " " + match.group(3), format="%Y%m%d %H%M%S")
+    name = match.group(1)
+    return name, dt
 
 
 def read_timeseries_csv(path: Path, time_col="time", tz="utc") -> pd.DataFrame:
@@ -148,7 +159,7 @@ def sessions_df(session_data_root: Path) -> pd.DataFrame:
     dts = []
     names = []
     for exp_dir in exp_dirs:
-        name, dt = exp.split_name_datetime(exp_dir.stem)
+        name, dt = split_name_datetime(exp_dir.stem)
         dts.append(dt)
         names.append(name)
 
@@ -244,7 +255,7 @@ class VideoInfo:
         """
         Return a new VideoInfo instance for the video file at the supplied path.
         """
-        self.name, self.time = exp.split_name_datetime(path.stem)
+        self.name, self.time = split_name_datetime(path.stem)
         self.time = self.time.tz_localize(name_locale).tz_convert("utc")
 
         self.timestamp_path = path.parent / (path.stem + ".csv")
@@ -337,7 +348,7 @@ class SessionInfo:
         if not session_dir.exists():
             raise ValueError(f"Session directory doesn't exist: {str(session_dir)}")
 
-        self.name, self.time = exp.split_name_datetime(session_dir.stem)
+        self.name, self.time = split_name_datetime(session_dir.stem)
         self.time = self.time.tz_localize(name_locale).tz_convert("utc")
         self.dir = session_dir
 
