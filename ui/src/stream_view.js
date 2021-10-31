@@ -75,7 +75,11 @@ const StreamView = (
         return fetch(api_url + `/save_image/${src_id}`);
     };
     
-    const dims_style = {width: (width) + "px", height: (stream_height) + "px"};
+    const stream_style = {
+        width: (width) + "px",
+        height: (stream_height) + "px",
+        background: 'black',
+    };
 
     const stream = is_streaming ?
 	  (
@@ -121,13 +125,13 @@ const StreamView = (
             <button onClick={save_image} title="Save image">
               <Icon  fitted name="file image outline"/>
             </button>
-            <button onClick={() => add_stream(idx)}
+            <button onClick={() => add_stream(idx + 1)}
                     disabled={streams.length === src_ids.length}
                     title="Add stream">
               <Icon size="small" fitted name="add"/>
             </button>
           </div>
-          <div className="stream" style={dims_style}>
+          <div className="stream" style={stream_style}>
             {stream}
           </div>
           <div className="toolbar">

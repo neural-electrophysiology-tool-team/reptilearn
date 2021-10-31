@@ -1,6 +1,6 @@
 import numpy as np
 import multiprocessing as mp
-import cv2 as cv
+import cv2
 import time
 import rl_logging
 
@@ -54,15 +54,41 @@ class ImageSource(mp.Process):
         for e in self.stop_streaming_events:
             e.set()
 
+    def make_timeout_img(self, shape, text="NO IMAGE"):
+        im_h, im_w = shape
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_size = cv2.getTextSize(text, font, 5, 10)[0]
+        pos = ((im_w - text_size[0]) // 2, (im_h + text_size[1]) // 2)
+        img = np.zeros(shape)
+        
+        cv2.putText(
+            img,
+            text,
+            pos,
+            font,
+            5,
+            (160, 160, 160),
+            10,
+            cv2.LINE_AA,
+        )
+        return img
+
     def stream_gen(self, frame_rate=15):
         self.stop_streaming()
 
         stop_this_stream_event = mp.Event()
         self.stop_streaming_events.append(stop_this_stream_event)
 
+        timeout_img = self.make_timeout_img(self.image_shape)
+
         while True:
             t1 = time.time()
-            self.stream_obs_event.wait()
+            self.stream_obs_event.wait(5)
+            if not self.stream_obs_event.is_set():
+                # timed out while waiting for image
+                yield timeout_img, None
+                continue
+
             self.stream_obs_event.clear()
 
             if self.end_event.is_set() or stop_this_stream_event.is_set():
@@ -244,17 +270,17 @@ class VideoImageSource(ImageSource):
         self.is_color = config.get("is_color", False)
         self.src_id = src_id
 
-        vcap = cv.VideoCapture(str(self.video_path))
+        vcap = cv2.VideoCapture(str(self.video_path))
         if self.is_color:
             image_shape = (
-                int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
-                int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
+                int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                int(vcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
                 3,
             )
         else:
             image_shape = (
-                int(vcap.get(cv.CAP_PROP_FRAME_HEIGHT)),
-                int(vcap.get(cv.CAP_PROP_FRAME_WIDTH)),
+                int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                int(vcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             )
 
         vcap.release()
@@ -262,11 +288,11 @@ class VideoImageSource(ImageSource):
         super().__init__(src_id, image_shape, state_cursor)
 
     def on_begin(self):
-        self.vcap = cv.VideoCapture(str(self.video_path))
+        self.vcap = cv2.VideoCapture(str(self.video_path))
         if self.end_frame is None:
-            self.end_frame = self.vcap.get(cv.CAP_PROP_FRAME_COUNT) - 1
+            self.end_frame = self.vcap.get(cv2.CAP_PROP_FRAME_COUNT) - 1
         if self.start_frame != 0:
-            self.vcap.set(cv.CAP_PROP_POS_FRAMES, self.start_frame)
+            self.vcap.set(cv2.CAP_PROP_POS_FRAMES, self.start_frame)
 
         self.frame_num = self.start_frame
         self.repeat_count = 0
@@ -282,7 +308,7 @@ class VideoImageSource(ImageSource):
             raise AcquireException("Error reading frame")
 
         if not self.is_color:
-            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         if self.frame_num >= self.end_frame:
             if self.repeat is False:
@@ -293,7 +319,7 @@ class VideoImageSource(ImageSource):
                     self.log.info(f"Done repeating {self.repeat} times.")
                     return None, t
                 else:
-                    self.vcap.set(cv.CAP_PROP_POS_FRAMES, self.start_frame)
+                    self.vcap.set(cv2.CAP_PROP_POS_FRAMES, self.start_frame)
                     self.frame_num = self.start_frame
 
         self.frame_num += 1

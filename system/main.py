@@ -161,7 +161,7 @@ def route_image_sources_get_image(src_id, width=None, height=None):
 
 
 @app.route("/image_sources/<src_id>/stream")
-def route_image_sources_stream(src_id, width=None, height=None):
+def route_image_sources_stream(src_id):
     img_src = video_system.image_sources[src_id]
 
     frame_rate = int(
@@ -171,21 +171,25 @@ def route_image_sources_stream(src_id, width=None, height=None):
     enc_args = parse_image_request(src_id)
 
     def flask_gen():
+        # log.info(f"Starting new stream: {src_id}")
         gen = img_src.stream_gen(frame_rate)
-        while True:
-            try:
-                img, timestamp = next(gen)
-                enc_img = encode_image_for_response(img, *enc_args)
 
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/webp\r\n\r\n"
-                    + bytearray(enc_img)
-                    + b"\r\n\r\n"
-                )
-
-            except StopIteration:
-                break
+        try:
+            while True:
+                try:
+                    img, _ = next(gen)
+                    enc_img = encode_image_for_response(img, *enc_args)
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/webp\r\n\r\n"
+                        + bytearray(enc_img)
+                        + b"\r\n\r\n"
+                    )
+                except StopIteration:
+                    break
+        finally:
+            # log.info("Stopping stream")
+            pass
 
     return flask.Response(
         flask_gen(),
