@@ -113,22 +113,20 @@ export const ArenaControlView = ({ctrl_state}) => {
           ));
    
     return (
-        <button>
-          <Dropdown text='Arena' scrolling>
-            <Dropdown.Menu>
-	      {items}
-	      <Dropdown.Header>Displays</Dropdown.Header>
-              {display_toggles}
-              <Dropdown.Divider/>
-              {!update_time ? null : (
-                  <Dropdown.Item text={`Updated: ${update_time.toLocaleTimeString()}`}
-                                 key={update_time}/>
-              )}
-              <Dropdown.Item text="Poll arena"
-                             icon="stethoscope"
-                             onClick={poll_arena}/>
-            </Dropdown.Menu>
-          </Dropdown>
-        </button>
+        <Dropdown item text='Arena' scrolling>
+          <Dropdown.Menu>
+	    {items}
+	    <Dropdown.Header>Displays</Dropdown.Header>
+            {display_toggles}
+            <Dropdown.Divider/>
+            {!update_time ? null : (
+                <Dropdown.Item text={`Updated: ${update_time.toLocaleTimeString()}`}
+                               key={update_time}/>
+            )}
+            <Dropdown.Item text="Poll arena"
+                           icon="stethoscope"
+                           onClick={poll_arena}/>
+          </Dropdown.Menu>
+        </Dropdown>
     );
 };

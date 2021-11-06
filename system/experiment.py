@@ -287,6 +287,42 @@ def delete_session():
     log.info(f"Deleted session data at {data_dir}")
 
 
+def archive_sessions(sessions, archives, move=False):
+    sessions_fmt = ", ".join(map(lambda s: s[2], sessions))
+    archives_fmt = ", ".join(archives)
+
+    log.info(
+        f"{'Moving' if move else 'Copying'} sessions: {sessions_fmt} to archives: {archives_fmt}"
+    )
+
+    def copy_fn(src, dst):
+        log.info(f"- copying {src} to {dst}")
+        shutil.copy2(src, dst)
+
+    for session in sessions:
+        src = config.session_data_root / session[2]
+        for archive in archives:
+            if archive not in config.archive_dirs:
+                log.error(f"Unknown archive: {archive}")
+                continue
+
+            archive_dir = config.archive_dirs[archive]
+            if not archive_dir.exists():
+                log.error(f"Archive directory: {archive_dir} does not exist!")
+                continue
+
+            dst = archive_dir / session[2]
+            if dst.exists():
+                log.error(f"Session already exists in destination, skipping: {dst}")
+                continue
+
+            try:
+                shutil.copytree(src, dst, copy_function=copy_fn)
+                log.info(f"Done copying {src} to {dst}")
+            except Exception:
+                log.exception("Exception while copying file:")
+
+
 def run_experiment():
     """
     Run the experiment of the current session. Calls the experiment class run() hook, and starts

@@ -15,12 +15,10 @@ export const ActionsView = ({actions}) => {
     ));
     
     return (
-        <button>
-          <Dropdown text='Actions'>
-            <Dropdown.Menu>
-              {action_items}
-            </Dropdown.Menu>
-          </Dropdown>
-        </button>
+        <Dropdown size="small" item text='Actions'>
+          <Dropdown.Menu>
+            {action_items}
+          </Dropdown.Menu>
+        </Dropdown>
     );
 };

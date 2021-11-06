@@ -319,22 +319,21 @@ export const TasksView = () => {
         <React.Fragment>
           {schedule_modal}
           {task_list_modal}
-          <button>       
-            <Dropdown text='Schedule'
-                      onOpen={load_task_list}
-                      scrolling> 
-              <Dropdown.Menu>
-                <Dropdown.Item key='schedule'
-                               text='Schedule task'
-                               onClick={open_schedule_modal}/>
-                <Dropdown.Divider/>
-                <Dropdown.Item key='scheduled'
-                               text='Show schedules'
-                               onClick={open_task_list_modal}>
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </button>          
+          <Dropdown text='Schedule'
+                    onOpen={load_task_list}
+                    scrolling
+                    item>
+            <Dropdown.Menu>
+              <Dropdown.Item key='schedule'
+                             text='Schedule task'
+                             onClick={open_schedule_modal}/>
+              <Dropdown.Divider/>
+              <Dropdown.Item key='scheduled'
+                             text='Show schedules'
+                             onClick={open_task_list_modal}>
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
         </React.Fragment>
     );
 };

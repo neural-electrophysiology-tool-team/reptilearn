@@ -206,7 +206,10 @@ def route_stop_stream(src_id):
 
 @app.route("/state")
 def route_state():
-    return flask.jsonify(state.get_self())
+    return flask.Response(
+        json.dumps(state.get_self(), default=json_convert),
+        mimetype="application/json",
+    )
 
 
 @app.route("/experiment/list")
@@ -342,6 +345,18 @@ def route_session_list():
         return flask.jsonify(sessions)
     except Exception as e:
         log.exception("Exception while getting session list:")
+        flask.abort(500, e)
+
+
+@app.route("/archive/<action>", methods=["POST"])
+def archive(action):
+    try:
+        archives = flask.request.json["archives"]
+        sessions = flask.request.json["sessions"]
+        experiment.archive_sessions(sessions, archives, move=(action == "move"))
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while running arena command:")
         flask.abort(500, e)
 
 
@@ -488,7 +503,7 @@ def route_arena_switch_display(on, display=None):
 
 @app.route("/save_image/<src_id>")
 def route_save_image(src_id):
-    video_system.save_image([src_id])
+    video_write.save_image([src_id])
     return flask.Response("ok")
 
 
