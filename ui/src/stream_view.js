@@ -100,6 +100,7 @@ const StreamView = (
                    resizeHandles={['se']}
                    lockAspectRatio={true}
                    onResize={on_resize}
+                   className="controls-view"
                    minConstraints={[240, 240]}
                    maxConstraints={[src_width, src_height]}
                    >

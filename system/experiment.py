@@ -271,22 +271,6 @@ def close_session():
     log.info("Closed session.")
 
 
-def delete_session():
-    """
-    Close the current session and delete its data directory.
-    """
-    if not session_state.exists(()):
-        raise ExperimentException("Can't delete session. No session is open currently.")
-
-    if session_state["is_running"] is True:
-        raise ExperimentException("Can't delete session while experiment is running.")
-
-    data_dir = session_state["data_dir"]
-    close_session()
-    shutil.rmtree(data_dir)
-    log.info(f"Deleted session data at {data_dir}")
-
-
 def archive_sessions(sessions, archives, move=False):
     sessions_fmt = ", ".join(map(lambda s: s[2], sessions))
     archives_fmt = ", ".join(archives)
@@ -321,6 +305,23 @@ def archive_sessions(sessions, archives, move=False):
                 log.info(f"Done copying {src} to {dst}")
             except Exception:
                 log.exception("Exception while copying file:")
+
+
+def delete_sessions(sessions):
+    if session_state.exists(()) and session_state["is_running"] is True:
+        raise ExperimentException(
+            "Can't delete session while an experiment is running."
+        )
+
+    data_dirs = [config.session_data_root / s[2] for s in sessions]
+
+    if session_state.exists(()) and session_state["data_dir"] in data_dirs:
+        log.warning("Closing and deleting current session.")
+        close_session()
+
+    for dir in data_dirs:
+        shutil.rmtree(dir)
+        log.info(f"Deleted session data directory: {dir}")
 
 
 def run_experiment():

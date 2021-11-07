@@ -8,10 +8,6 @@
 
 button {
     font-family: 'Open Sans', sans-serif;
-    /* margin: 1px; */
-    /* margin-left: 4px !important; */
-    /* margin-right: 4px !important; */
-
     vertical-align: middle;
 }
 
@@ -214,12 +210,12 @@ input[type="search"]::-webkit-search-cancel-button {
     margin-bottom: 0px !important;
 }
 
-.experiment-view button {
+.controls-view button {
     margin-right: 2px;
     margin-left: 2px;
 }
 
-.experiment-view input {
+.controls-view input {
     margin-right: 2px;
     margin-left: 2px;
 }

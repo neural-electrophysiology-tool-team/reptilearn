@@ -3,6 +3,7 @@ import { Dropdown, Button, Modal, Input } from 'semantic-ui-react';
 import { api_url } from './config.js';
 
 import { SessionListView } from './session_list_view.js';
+import { DeleteSessionModal } from './delete_session_modal.js';
 
 export const SessionMenuView = ({ctrl_state}) => {
     const [experimentList, setExperimentList] = React.useState([]);
@@ -57,11 +58,6 @@ export const SessionMenuView = ({ctrl_state}) => {
         fetch(api_url + "/session/close");
     };
 
-    const delete_session = () => {
-        setOpenDeleteModal(false);
-        fetch(api_url + "/session/delete");
-    };
-
     if (!ctrl_state)
 	return null;
     
@@ -76,23 +72,6 @@ export const SessionMenuView = ({ctrl_state}) => {
     };        
     
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
-
-    const delete_session_modal = session ? (
-        <Modal size="small"
-               onClose={() => setOpenDeleteModal(false)}
-               onOpen={() => setOpenDeleteModal(true)}
-               open={openDeleteModal}>
-          <Modal.Header>Are you sure?</Modal.Header>
-          <Modal.Content>
-            <p>This will delete data directory:</p>
-            <p>{session.data_dir}</p>
-          </Modal.Content>
-          <Modal.Actions>
-            <Button onClick={delete_session} negative>Yes</Button>
-            <Button onClick={() => setOpenDeleteModal(false)} positive>No</Button>
-          </Modal.Actions>
-        </Modal>
-    ) : null;
 
     const experiment_options = experimentList.map((e, i) => {return {text: e, key: e, value: i};});
     const new_session_modal = (
@@ -139,19 +118,15 @@ export const SessionMenuView = ({ctrl_state}) => {
         </Modal>
     );
 
-    const session_list_modal = (
-        <SessionListView onSelect={session_name => continue_session(session_name)}
-                         selectable={!manageSessions}
-                         manageable={manageSessions}
-                         open={openSessionListModal}
-                         setOpen={setOpenSessionListModal}/>
-    );
-    
     return (
         <React.Fragment>
+          <DeleteSessionModal session={session} open={openDeleteModal} setOpen={setOpenDeleteModal}/>
+          <SessionListView onSelect={session_name => continue_session(session_name)}
+                           selectable={!manageSessions}
+                           manageable={manageSessions}
+                           open={openSessionListModal}
+                           setOpen={setOpenSessionListModal}/>
           {new_session_modal}
-	  {delete_session_modal}
-	  {session_list_modal}
           <Dropdown item text="Session">
             <Dropdown.Menu>
               <Dropdown.Item text='Start new session...'

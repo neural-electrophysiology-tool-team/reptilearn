@@ -227,7 +227,7 @@ export const ExperimentView = ({ctrl_state}) => {
     ) : null;
     
     return (
-        <ReflexContainer orientation="horizontal" className="experiment-view">
+        <ReflexContainer orientation="horizontal" className="controls-view">
           <ReflexElement minSize={26} style={{overflow: "hidden"}}>
             <div className="section_header">
               <span className="title">{session_title}</span>

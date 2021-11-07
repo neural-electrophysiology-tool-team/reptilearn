@@ -8,10 +8,8 @@ export const ArchiveView = ({sessions, setOpen, open, close_session_list}) => {
     
     React.useEffect(() => {
         fetch(api_url + "/config/archive_dirs")
-	    .then(res => res.json())
-	    .then((res) => {
-                setArchives(res);
-            });
+	    .then((res) => res.json())
+	    .then((res) => setArchives(res));
     }, [open]);
 
     const archive_option = (e) => {
@@ -27,7 +25,7 @@ export const ArchiveView = ({sessions, setOpen, open, close_session_list}) => {
     };
 
     const copy = () => {
-        fetch(api_url + "/archive/copy", {
+        fetch(api_url + "/sessions/archive/copy", {
             method: "POST",
             headers: {
                 "Accept": "application/json",
