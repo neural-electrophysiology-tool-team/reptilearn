@@ -12,6 +12,7 @@ import json
 import shutil
 import pandas as pd
 from pathlib import Path
+import threading
 
 
 class ExperimentException(Exception):
@@ -283,28 +284,31 @@ def archive_sessions(sessions, archives, move=False):
         log.info(f"- copying {src} to {dst}")
         shutil.copy2(src, dst)
 
-    for session in sessions:
-        src = config.session_data_root / session[2]
-        for archive in archives:
-            if archive not in config.archive_dirs:
-                log.error(f"Unknown archive: {archive}")
-                continue
+    def archive_fn():
+        for session in sessions:
+            src = config.session_data_root / session[2]
+            for archive in archives:
+                if archive not in config.archive_dirs:
+                    log.error(f"Unknown archive: {archive}")
+                    continue
 
-            archive_dir = config.archive_dirs[archive]
-            if not archive_dir.exists():
-                log.error(f"Archive directory: {archive_dir} does not exist!")
-                continue
+                archive_dir = config.archive_dirs[archive]
+                if not archive_dir.exists():
+                    log.error(f"Archive directory: {archive_dir} does not exist!")
+                    continue
 
-            dst = archive_dir / session[2]
-            if dst.exists():
-                log.error(f"Session already exists in destination, skipping: {dst}")
-                continue
+                dst = archive_dir / session[2]
+                if dst.exists():
+                    log.error(f"Session already exists in destination, skipping: {dst}")
+                    continue
 
-            try:
-                shutil.copytree(src, dst, copy_function=copy_fn)
-                log.info(f"Done copying {src} to {dst}")
-            except Exception:
-                log.exception("Exception while copying file:")
+                try:
+                    shutil.copytree(src, dst, copy_function=copy_fn)
+                    log.info(f"Done copying {src} to {dst}")
+                except Exception:
+                    log.exception("Exception while copying file:")
+
+    threading.Thread(target=archive_fn).start()
 
 
 def delete_sessions(sessions):
@@ -319,9 +323,11 @@ def delete_sessions(sessions):
         log.warning("Closing and deleting current session.")
         close_session()
 
-    for dir in data_dirs:
-        shutil.rmtree(dir)
-        log.info(f"Deleted session data directory: {dir}")
+    def delete_fn():
+        for dir in data_dirs:
+            shutil.rmtree(dir)
+            log.info(f"Deleted session data directory: {dir}")
+    threading.Thread(target=delete_fn).start()
 
 
 def run_experiment():

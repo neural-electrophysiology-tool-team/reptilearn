@@ -53,7 +53,7 @@ video_record = {
             "macro_block_size": 1,
             "pixelformat": "bgr0",
             "ffmpeg_log_level": "warning",
-            "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
+            "output_params": ["-preset", "slow", "-qp", "30", "-rc", "constqp"],
         },
         "color": {
             "codec": "h264_nvenc",
