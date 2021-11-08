@@ -55,7 +55,7 @@ class ImageSource(mp.Process):
             e.set()
 
     def make_timeout_img(self, shape, text="NO IMAGE"):
-        im_h, im_w = shape
+        im_h, im_w = shape[:2]
         font = cv2.FONT_HERSHEY_SIMPLEX
         text_size = cv2.getTextSize(text, font, 5, 10)[0]
         pos = ((im_w - text_size[0]) // 2, (im_h + text_size[1]) // 2)
