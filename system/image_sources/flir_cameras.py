@@ -18,7 +18,7 @@ class FLIRImageSource(ImageSource):
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-
+                self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_FallingEdge)
             elif "frame_rate" in self.config:
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
@@ -30,7 +30,12 @@ class FLIRImageSource(ImageSource):
             self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
                 
             if "pyspin" in self.config:
-                for prop, value in self.config["pyspin"]:
+                for prop_value in self.config["pyspin"]:
+                    if len(prop_value) != 2:
+                        self.log.error(f"Configuration error: Expecting 2 elements: property, value, but got: {prop_value}")
+                        continue
+
+                    prop, value = prop_value
                     if hasattr(self.cam, prop):
                         if isinstance(value, str):
                             if hasattr(PySpin, value):
