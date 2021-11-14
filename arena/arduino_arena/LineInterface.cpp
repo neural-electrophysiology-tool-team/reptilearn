@@ -16,8 +16,8 @@ LineInterface::LineInterface(JsonVariant conf)
   }
   
   pin = conf["pin"].as<int>();
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW);
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, LOW);
 }
 
 void LineInterface::value_changed() {

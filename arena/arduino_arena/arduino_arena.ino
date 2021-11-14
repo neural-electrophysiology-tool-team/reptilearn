@@ -3,11 +3,12 @@
 #include "Feeder.h"
 #include "Interface.h"
 
-// To remove any unused interface type simply comment its include line below:
+// To remove any unused interface type, simply comment its include line below:
 #include "LineInterface.h"
 #include "TriggerInterface.h"
 #include "FeederInterface.h"
 #include "DallasTemperatureInterface.h"
+#include "MuxInterface.h"
 
 static const int MAX_INTERFACES = 32;
 
@@ -150,6 +151,13 @@ void parse_interface_config(JsonObject conf) {
   #ifdef TriggerInterface_h
   if (conf["type"] == "trigger") {
     add_interface(new TriggerInterface(conf));
+    return;
+  }
+  #endif
+
+  #ifdef MuxInterface_h
+  if (conf["type"] == "mux") {
+    add_interface(new MuxInterface(conf));
     return;
   }
   #endif
