@@ -23,48 +23,11 @@ video_config_path: Path = Path("./config/video_config.json")
 # Path to the arena hardware controller configuration file
 arena_config_path: Path = Path("./config/arena_config.json")
 
-# Lens correction values for various camera and lens combinations.
-undistort = {
-    "flir_firefly_4mm": {
-        "mtx": np.array(
-            [
-                [1.14515564e03, 0.00000000e00, 7.09060713e02],
-                [0.00000000e00, 1.14481967e03, 5.28220061e02],
-                [0.00000000e00, 0.00000000e00, 1.00000000e00],
-            ]
-        ),
-        "dist": np.array(
-            [
-                [
-                    -4.25580120e-01,
-                    3.02361751e-01,
-                    -1.56952670e-03,
-                    -4.04385846e-04,
-                    -2.27525587e-01,
-                ]
-            ]
-        ),
-    },
-    "flir_blackfly_computar": {
-        "dist": np.array(
-            [
-                [
-                    -3.73487649e-01,
-                    1.70639650e-01,
-                    2.12535002e-04,
-                    9.02337277e-05,
-                    -4.25039396e-02,
-                ]
-            ]
-        ),
-        "mtx": np.array(
-            [
-                [1.04345883e03, 0.00000000e00, 7.94892178e02],
-                [0.00000000e00, 1.04346538e03, 6.09748241e02],
-                [0.00000000e00, 0.00000000e00, 1.00000000e00],
-            ]
-        ),
-    },
+
+# Available archive directories
+archive_dirs = {
+    "Local archive": Path("/media/2TB/rl_archive"),
+    "Tal on SIL2": Path("/media/sil2/tal/reptilearn_sessions/rl2_archive")
 }
 
 # The frame rate of HTTP image source streaming. Lower this to reduce network usage.
@@ -90,13 +53,13 @@ video_record = {
             "macro_block_size": 1,
             "pixelformat": "bgr0",
             "ffmpeg_log_level": "warning",
-            "output_params": ["-preset", "slow", "-qmin", "25", "-qmax", "30"],
+            "output_params": ["-preset", "slow", "-qp", "30", "-rc", "constqp"],
         },
         "color": {
             "codec": "h264_nvenc",
             "quality": None,
             "macro_block_size": 1,
-            #"pixelformat": "bgr0",
+            # "pixelformat": "bgr0",
             "ffmpeg_log_level": "warning",
             "output_params": ["-preset", "slow", "-qp", "30", "-rc", "constqp"],
         },
@@ -151,4 +114,49 @@ event_log = {
     "log_to_csv": True,
     # The database table where events will be stored.
     "table_name": "events",
+}
+
+
+# Lens correction values for various camera and lens combinations.
+undistort = {
+    "flir_firefly_4mm": {
+        "mtx": np.array(
+            [
+                [1.14515564e03, 0.00000000e00, 7.09060713e02],
+                [0.00000000e00, 1.14481967e03, 5.28220061e02],
+                [0.00000000e00, 0.00000000e00, 1.00000000e00],
+            ]
+        ),
+        "dist": np.array(
+            [
+                [
+                    -4.25580120e-01,
+                    3.02361751e-01,
+                    -1.56952670e-03,
+                    -4.04385846e-04,
+                    -2.27525587e-01,
+                ]
+            ]
+        ),
+    },
+    "flir_blackfly_computar": {
+        "dist": np.array(
+            [
+                [
+                    -3.73487649e-01,
+                    1.70639650e-01,
+                    2.12535002e-04,
+                    9.02337277e-05,
+                    -4.25039396e-02,
+                ]
+            ]
+        ),
+        "mtx": np.array(
+            [
+                [1.04345883e03, 0.00000000e00, 7.94892178e02],
+                [0.00000000e00, 1.04346538e03, 6.09748241e02],
+                [0.00000000e00, 0.00000000e00, 1.00000000e00],
+            ]
+        ),
+    },
 }

@@ -206,7 +206,10 @@ def route_stop_stream(src_id):
 
 @app.route("/state")
 def route_state():
-    return flask.jsonify(state.get_self())
+    return flask.Response(
+        json.dumps(state.get_self(), default=json_convert),
+        mimetype="application/json",
+    )
 
 
 @app.route("/experiment/list")
@@ -260,16 +263,6 @@ def route_session_run():
 def route_session_stop():
     try:
         experiment.stop_experiment()
-        return flask.Response("ok")
-    except Exception as e:
-        log.exception("Exception while ending session:")
-        flask.abort(500, e)
-
-
-@app.route("/session/delete")
-def route_session_delete():
-    try:
-        experiment.delete_session()
         return flask.Response("ok")
     except Exception as e:
         log.exception("Exception while ending session:")
@@ -342,6 +335,29 @@ def route_session_list():
         return flask.jsonify(sessions)
     except Exception as e:
         log.exception("Exception while getting session list:")
+        flask.abort(500, e)
+
+
+@app.route("/sessions/archive/<action>", methods=["POST"])
+def sessions_archive(action):
+    try:
+        archives = flask.request.json["archives"]
+        sessions = flask.request.json["sessions"]
+        experiment.archive_sessions(sessions, archives, move=(action == "move"))
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while archiving sessions:")
+        flask.abort(500, e)
+
+
+@app.route("/sessions/delete", methods=["POST"])
+def sessions_delete():
+    try:
+        sessions = flask.request.json
+        experiment.delete_sessions(sessions)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception("Exception while deleting sessions:")
         flask.abort(500, e)
 
 
@@ -488,7 +504,7 @@ def route_arena_switch_display(on, display=None):
 
 @app.route("/save_image/<src_id>")
 def route_save_image(src_id):
-    video_system.save_image([src_id])
+    video_write.save_image([src_id])
     return flask.Response("ok")
 
 

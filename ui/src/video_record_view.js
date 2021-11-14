@@ -1,6 +1,6 @@
 import React from 'react';
-import {api_url} from './config.js';
-import { Dropdown, Icon } from 'semantic-ui-react';
+import { api_url } from './config.js';
+import { Popup, Input, Menu, Dropdown, Icon } from 'semantic-ui-react';
 import { VideoSettingsView } from './video_settings_view.js';
 
 export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) => {
@@ -27,8 +27,13 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
         }
         else {
             const prefix = prefix_input_ref.current.value;
-            fetch(api_url + `/video_record/set_prefix/${prefix}`)
-                .then(res => fetch(api_url + "/video_record/start"));
+            if (prefix) {
+                fetch(api_url + `/video_record/set_prefix/${prefix}`)
+                    .then(res => fetch(api_url + "/video_record/start"));
+            }
+            else {
+                fetch(api_url + "/video_record/start");
+            }
         }
     };
 
@@ -74,7 +79,7 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
                                  video_config={video_config}
                                  loading={isLoadingConfig}
                                  fetch_video_config={fetch_video_config}/>
-              <Dropdown text='Video' disabled={is_recording}>
+              <Dropdown item text='Video' disabled={is_recording}>
                 <Dropdown.Menu>
                   <Dropdown.Header>Record Sources</Dropdown.Header>
                   {src_items}
@@ -89,23 +94,26 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
     })();
 
     return (
-        <span className="video_record_view">
-          <input type="text"
+        <React.Fragment>
+          <Input type="text"
                  name="prefix_input"
-                 placeholder="video name"
+                 placeholder="recording name"
                  ref={prefix_input_ref}
                  disabled={is_recording}
           />
-          <button onClick={toggle_recording}
-                  title={is_recording ? "Stop recording" : "Start recording"}>
-            <Icon size="small" fitted name={is_recording ? "stop circle" : "circle"}/>
-          </button>
-          <button onClick={toggle_ttl_trigger}>
-            {ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
-          </button>
-          <button disabled={is_recording}>
-            {video_menu}
-          </button>
-        </span>
+          <Popup content={is_recording ? "Stop recording" : "Start recording"}
+                 trigger={
+                     <Menu.Item onClick={toggle_recording} icon>
+                       <Icon fitted name={is_recording ? "stop circle" : "circle"}/>
+                     </Menu.Item>
+                 }/>
+          <Popup content={ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
+                 trigger={
+                     <Menu.Item onClick={toggle_ttl_trigger}>
+                       <Icon fitted name={ttl_trigger_state ? "clock" : "clock outline"}/>
+                     </Menu.Item>
+                 }/>
+          {video_menu}
+        </React.Fragment>
     );
 };

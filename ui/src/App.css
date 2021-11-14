@@ -8,10 +8,6 @@
 
 button {
     font-family: 'Open Sans', sans-serif;
-    margin: 1px;
-    margin-left: 4px !important;
-    margin-right: 4px !important;
-
     vertical-align: middle;
 }
 
@@ -99,9 +95,6 @@ input, select {
     font-family: monospace;
 }
 
-.video_record_view {
-}
-
 .section_header {
     background-color: lightgrey;
     padding: 0px;
@@ -132,12 +125,6 @@ input, select {
     border-bottom: 1px solid grey;
 }
 
-/*
-input {
-    margin-left: 4px !important;
-    margin-right: 4px !important;
-}
-*/
 .subsection_header .title {
     font-weight: bold;
     padding-left: 2px;
@@ -221,4 +208,14 @@ input[type="search"]::-webkit-search-cancel-button {
 
 .tight-dropdown-item:last-of-type {
     margin-bottom: 0px !important;
+}
+
+.controls-view button {
+    margin-right: 2px;
+    margin-left: 2px;
+}
+
+.controls-view input {
+    margin-right: 2px;
+    margin-left: 2px;
 }
