@@ -29,6 +29,7 @@ import state as state_mod
 import experiment
 import task
 import video_system
+import video_write
 from json_convert import json_convert
 
 # Load environment variables from .env file.
@@ -504,7 +505,7 @@ def route_arena_switch_display(on, display=None):
 
 @app.route("/save_image/<src_id>")
 def route_save_image(src_id):
-    video_write.save_image([src_id])
+    video_system.capture_images([src_id])
     return flask.Response("ok")
 
 

@@ -162,11 +162,11 @@ def capture_images(src_ids=None):
         src_ids = _rec_state["selected_sources"]
 
     selected_sources = [image_sources[src_id] for src_id in src_ids]
-    timestamp = datetime.now()
 
     for src in selected_sources:
-        p = video_write.save_image(src, timestamp)
-        _log.info(f"Saved image from {src} to {p}")
+        img, ts = src.get_image()
+        p = video_write.save_image(img, ts, src.src_id)
+        _log.info(f"Saved image from image_source '{src.src_id}' in {p}")
 
 
 def init(log, config):

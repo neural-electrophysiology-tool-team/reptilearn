@@ -327,6 +327,7 @@ def delete_sessions(sessions):
         for dir in data_dirs:
             shutil.rmtree(dir)
             log.info(f"Deleted session data directory: {dir}")
+
     threading.Thread(target=delete_fn).start()
 
 
@@ -335,6 +336,8 @@ def run_experiment():
     Run the experiment of the current session. Calls the experiment class run() hook, and starts
     trial 0 of block 0. Updates the session state file.
     """
+    global cached_params, cached_params_block
+
     if session_state["is_running"] is True:
         raise ExperimentException("Experiment is already running.")
 
@@ -346,6 +349,9 @@ def run_experiment():
     log.info(f"Running experiment {session_state['experiment']}.")
 
     event_logger.log("session/run", session_state.get_self())
+
+    cached_params = None
+    cached_params_block = None
 
     try:
         cur_experiment.run()

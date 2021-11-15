@@ -171,7 +171,7 @@ export const ExperimentView = ({ctrl_state}) => {
         const st = new Date(session.start_time);
         const start_time_format = st.getDate()  + "-" + (st.getMonth()+1) + "-" + st.getFullYear() + " " +
               st.getHours() + ":" + st.getMinutes();
-        return `Session ${session.id} (${start_time_format})`;
+        return `Session ${session.id} (${ctrl_state.session.experiment} ${start_time_format})`;
     })();
     
     
