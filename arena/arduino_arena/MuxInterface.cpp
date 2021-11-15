@@ -70,8 +70,8 @@ void MuxInterface::value_changed() {
 
 void MuxInterface::run(JsonArray cmd) {
   if (cmd[0] == "set_channel") {
-    if (control_pins == nulptr) {
-      send_Error("Can't change channel. 'control_pins' config key is undefined.");
+    if (control_pins == nullptr) {
+      send_error("Can't change channel. 'control_pins' config key is undefined.");
       return;
     }
     

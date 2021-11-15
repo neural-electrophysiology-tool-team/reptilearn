@@ -1,7 +1,6 @@
 import experiment as exp
 from experiment import session_state
 from video_system import image_sources, image_observers
-from state import state
 import arena
 import schedule
 import video_system

@@ -70,6 +70,8 @@ def upload_program(logger, serial_ports_config):
 
         except Exception:
             logger.exception("Exception while uploading program:")
+            return False
+
     logger.info("Done uploading!")
     return True
 

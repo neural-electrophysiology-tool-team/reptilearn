@@ -19,8 +19,6 @@ export const DeleteSessionModal = ({ session, sessions, open, setOpen, close_ses
         return null;
     }
 
-    console.log(sessions);
-    
     const delete_sessions = () => {
         setOpen(false);
         fetch(api_url + "/sessions/delete", {

@@ -80,6 +80,7 @@ def update_video_config(config: dict):
 
     start()
 
+    _log.info(f"Saving video config to '{_config.video_config_path.resolve()}'...")
     with open(_config.video_config_path, "w") as f:
         json.dump(video_config, f, indent=4)
 

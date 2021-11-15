@@ -39,15 +39,15 @@ export const TasksView = () => {
         switch (activeTabIdx) {
         case 0:
             args = {
-                task_type: 'datetime',
-                dt: scheduleDate
+                task_type: 'interval',
+                interval: scheduleInterval * scheduleIntervalUnit,
+                repeats: scheduleRepeats
             };
             break;
         case 1:
             args = {
-                task_type: 'interval',
-                interval: scheduleInterval * scheduleIntervalUnit,
-                repeats: scheduleRepeats
+                task_type: 'datetime',
+                dt: scheduleDate
             };
             break;
         case 2:
