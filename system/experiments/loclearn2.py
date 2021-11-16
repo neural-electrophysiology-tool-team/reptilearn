@@ -5,10 +5,10 @@ import arena
 import schedule
 import video_system
 import cv2 as cv
-import datetime
 import numpy as np
 import time
 import data_log
+import datetime
 import bbox
 import random
 
@@ -97,9 +97,9 @@ class BBoxDataCollector:
 class LocationExperiment(exp.Experiment):
     default_params = {
         "reinforced_area": {
-            "location": [0, 0],
+            # "location": [0, 0],  # or
+            "aruco_id": 0,
             "radius": 200,
-            "use_aruco": True,  # Bypass the location value with Aruco marker coordinates
         },
         "area_stay_duration": 2,  # seconds
         "cooldown_duration": 10,  # seconds
@@ -175,6 +175,10 @@ class LocationExperiment(exp.Experiment):
         if exp.get_params()["record_video"]:
             video_system.start_record()
 
+        rl = session_state["reinforced_location"]
+        r = exp.get_params()["reinforced_area"]["radius"]
+        self.log.info(f"Experiment started. Reinforced area at ({rl[0]}, {rl[1]}), radius: {r}.")
+
     def end(self):
         self.bbox_collector.end()
         session_state.remove_callback("is_in_area")
@@ -183,32 +187,45 @@ class LocationExperiment(exp.Experiment):
 
     def find_reinforced_location(self):
         params = exp.get_params()
-        if params["reinforced_area"]["use_aruco"] and self.aruco_img is not None:
+        ra = params["reinforced_area"]
+        if "aruco_id" in ra:
             if "aruco" in session_state:
-                session_state["reinforced_location"] = session_state["aruco"]
+                id = ra["aruco_id"]
+                ms = filter(lambda m: m["id"] == id, session_state["aruco"])
+                if len(ms) == 1:
+                    session_state["reinforced_location"] = ms[0].center
+                else:
+                    raise Exception(f"Aruco with id {id} was not found.")
             else:
-                session_state["reinforced_location"] = params["reinforced_area"][
-                    "location"
-                ]
+                raise Exception("Can't find aruco markers in session state.")
+        elif "location" in ra:
+            session_state["reinforced_location"] = ra["location"]
         else:
-            session_state["reinforced_location"] = params["reinforced_area"]["location"]
+            raise Exception(
+                "Expecting either 'aruco_id' or 'location' params in 'reinforced_location'"
+            )
 
-        # if self.aruco_img is not None:
-        #     img = np.copy(self.aruco_img)
-        # else:
-        #     img, _ = image_sources[params["image_source_id"]].get_image()
+        if self.aruco_img is not None:
+            img = np.copy(self.aruco_img)
+        else:
+            img, _ = image_sources[params["image_source_id"]].get_image()
+            img = np.stack((img,)*3, axis=-1)
 
-        # img = cv.circle(
-        #     img,
-        #     tuple(session_state["reinforced_location"]),
-        #     radius=params["reinforced_area"]["radius"],
-        #     color=(0, 255, 0),
-        #     thickness=5,
-        # )
-        # now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        # area_image_path = session_state["data_dir"] / f"reinforced_area_{now_str}.jpg"
-        # self.log.info(f"Saving area image to {area_image_path}")
-        # cv.imwrite(str(area_image_path), img)
+        loc = tuple(session_state["reinforced_location"])
+        r = params["reinforced_area"]["radius"]
+
+        img = cv.circle(
+            img,
+            loc,
+            radius=r,
+            color=(0, 255, 0),
+            thickness=5,
+        )
+
+        now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        area_image_path = session_state["data_dir"] / f"area_{now_str}.jpg"
+        self.log.info(f"Saving area image to {area_image_path}")
+        cv.imwrite(str(area_image_path), img)
 
     def on_bbox_detection(self, payload):
         det = payload["detection"]
@@ -244,11 +261,25 @@ class LocationExperiment(exp.Experiment):
             and time.time() - self.in_out_time > params["area_stay_duration"]
         ):
             session_state["reward_scheduled"] = True
-
-            start_blink(
-                params["cue"]["interface"],
-                params["cue"]["led_duration"] / params["cue"]["num_blinks"] // 2,
+            session_state["cooldown"] = True
+            self.cancel_cooldown = schedule.once(
+                self.end_cooldown, exp.get_params()["cooldown_duration"]
             )
+
+            self.log.info("Starting blink.")
+            interface = (params["cue"]["interface"],)
+            led_dur = params["cue"]["led_duration"]
+            num_blinks = params["cue"]["num_blinks"]
+            start_blink(
+                interface,
+                led_dur / num_blinks // 2,
+            )
+
+            def stop():
+                self.log.info("Stop blinking.")
+                stop_blink(interface)
+
+            schedule.once(lambda: stop, led_dur)
 
             if random.random() <= params["reward"]["stochastic_delay_prob"]:
                 delay = params["reward"]["stochastic_delay"]
@@ -259,9 +290,8 @@ class LocationExperiment(exp.Experiment):
 
             self.cancel_reward_delay = schedule.once(self.dispense_reward, delay)
 
-    def maybe_end_cooldown(self):
-        if not session_state["is_in_area"] and session_state["cooldown"]:
-            session_state["cooldown"] = False
+    def end_cooldown(self):
+        session_state["cooldown"] = False
 
     def is_in_area_changed(self, old, new):
         # TODO: make sure area changed continuously
@@ -271,8 +301,8 @@ class LocationExperiment(exp.Experiment):
             )
             if session_state["cooldown"]:
                 self.log.info("Animal entered the reinforced area during cooldown.")
-                self.cancel_cooldown()
-                session_state["cooldown"] = False
+                # self.cancel_cooldown()
+                # session_state["cooldown"] = False
             else:
                 self.log.info("Animal entered the reinforced area.")
                 schedule.once(
@@ -282,12 +312,6 @@ class LocationExperiment(exp.Experiment):
         elif old and not new:
             exp.event_logger.log("loclearn/left_area", None)
             self.log.info("Animal left the reinforced area.")
-
-            if session_state["reward_scheduled"]:
-                session_state["cooldown"] = True
-                self.cancel_cooldown = schedule.once(
-                    self.maybe_end_cooldown, exp.get_params()["cooldown_duration"]
-                )
 
     def dispense_reward(self):
         if random.random() <= exp.get_params()["reward"]["dispense_prob"]:
