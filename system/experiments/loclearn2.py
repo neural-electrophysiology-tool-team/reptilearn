@@ -53,7 +53,7 @@ def stop_blink(interface):
 
 
 def start_blink(interface, period_time=None):
-    arena.run_command("periodic", interface, [1, period_time], False)
+    arena.run_command("periodic", interface, [1, int(period_time)], False)
 
 
 class BBoxDataCollector:
@@ -102,7 +102,8 @@ class LocationExperiment(exp.Experiment):
             "radius": 200,
         },
         "area_stay_duration": 2,  # seconds
-        "cooldown_duration": 10,  # seconds
+        "cooldown_duration": 20,  # seconds
+        "cooldown_radius": 300,
         "cue": {
             "type": "led",  # "led" | "led_blink" | "display"
             "interface": "Cue LED",
@@ -160,24 +161,29 @@ class LocationExperiment(exp.Experiment):
         self.print_next_detection = False
 
     def run(self):
-        self.find_reinforced_location()
         self.bbox_collector.run(self.on_bbox_detection)
         session_state["is_in_area"] = False
-        self.in_out_time = None
         session_state.add_callback("is_in_area", self.is_in_area_changed)
-        session_state["cooldown"] = False
-        session_state["reward_scheduled"] = False
-        self.cancel_cooldown = None
-        self.cancel_reward_delay = None
-        self.using_stochastic_delay = None
         self.rewards_count = 0
 
         if exp.get_params()["record_video"]:
             video_system.start_record()
 
+    def run_block(self):
+        self.find_reinforced_location()
+        self.in_out_time = None
+        session_state["cooldown_time"] = False
+        session_state["cooldown_dist"] = False
+        session_state["reward_scheduled"] = False
+        self.cancel_cooldown_time = None        
+        self.cancel_reward_delay = None
+        self.using_stochastic_delay = None
+
         rl = session_state["reinforced_location"]
         r = exp.get_params()["reinforced_area"]["radius"]
-        self.log.info(f"Experiment started. Reinforced area at ({rl[0]}, {rl[1]}), radius: {r}.")
+        self.log.info(
+            f"Experiment started. Reinforced area at ({rl[0]}, {rl[1]}), radius: {r}."
+        )
 
     def end(self):
         self.bbox_collector.end()
@@ -209,16 +215,24 @@ class LocationExperiment(exp.Experiment):
             img = np.copy(self.aruco_img)
         else:
             img, _ = image_sources[params["image_source_id"]].get_image()
-            img = np.stack((img,)*3, axis=-1)
+            img = np.stack((img,) * 3, axis=-1)
 
         loc = tuple(session_state["reinforced_location"])
-        r = params["reinforced_area"]["radius"]
+        r1 = params["reinforced_area"]["radius"]
+        r2 = params["cooldown_radius"]
+        img = cv.circle(
+            img,
+            loc,
+            radius=r1,
+            color=(0, 255, 0),
+            thickness=5,
+        )
 
         img = cv.circle(
             img,
             loc,
-            radius=r,
-            color=(0, 255, 0),
+            radius=r2,
+            color=(255, 0, 0),
             thickness=5,
         )
 
@@ -245,6 +259,11 @@ class LocationExperiment(exp.Experiment):
 
         loc = session_state["reinforced_location"]
         dist_to_location = (centroid[0] - loc[0]) ** 2 + (centroid[1] - loc[1]) ** 2
+        if session_state["cooldown_dist"] is True:
+            if dist_to_location >= exp.get_params()["cooldown_radius"] ** 2:
+                self.log.info("Distance cooldown off. Animal is far enough from reinforced area.")
+                session_state["cooldown_dist"] = False
+
         is_in_area = (
             dist_to_location <= exp.get_params()["reinforced_area"]["radius"] ** 2
         )
@@ -261,25 +280,27 @@ class LocationExperiment(exp.Experiment):
             and time.time() - self.in_out_time > params["area_stay_duration"]
         ):
             session_state["reward_scheduled"] = True
-            session_state["cooldown"] = True
+            session_state["cooldown_time"] = True
+            session_state["cooldown_dist"] = True
             self.cancel_cooldown = schedule.once(
-                self.end_cooldown, exp.get_params()["cooldown_duration"]
+                self.end_time_cooldown, exp.get_params()["cooldown_duration"]
             )
 
-            self.log.info("Starting blink.")
-            interface = (params["cue"]["interface"],)
+            interface = params["cue"]["interface"]
             led_dur = params["cue"]["led_duration"]
             num_blinks = params["cue"]["num_blinks"]
+            period_time = 1000 * led_dur / num_blinks // 2
+            self.log.info(f"Starting blinking {interface}. {num_blinks} blinks in {led_dur}s (period {period_time}ms)")
             start_blink(
                 interface,
-                led_dur / num_blinks // 2,
+                period_time,
             )
 
             def stop():
                 self.log.info("Stop blinking.")
                 stop_blink(interface)
 
-            schedule.once(lambda: stop, led_dur)
+            schedule.once(stop, led_dur)
 
             if random.random() <= params["reward"]["stochastic_delay_prob"]:
                 delay = params["reward"]["stochastic_delay"]
@@ -290,19 +311,20 @@ class LocationExperiment(exp.Experiment):
 
             self.cancel_reward_delay = schedule.once(self.dispense_reward, delay)
 
-    def end_cooldown(self):
-        session_state["cooldown"] = False
+    def end_time_cooldown(self):
+        session_state["cooldown_time"] = False
 
     def is_in_area_changed(self, old, new):
         # TODO: make sure area changed continuously
         if not old and new:
             exp.event_logger.log(
-                "loclearn/entered_area", {"cooldown": session_state["cooldown"]}
+                "loclearn/entered_area", {
+                    "cooldown_time": session_state["cooldown_time"],
+                    "cooldown_dist": session_state["cooldown_dist"],
+                }
             )
-            if session_state["cooldown"]:
+            if session_state["cooldown_time"] or session_state["cooldown_dist"]:
                 self.log.info("Animal entered the reinforced area during cooldown.")
-                # self.cancel_cooldown()
-                # session_state["cooldown"] = False
             else:
                 self.log.info("Animal entered the reinforced area.")
                 schedule.once(
@@ -319,6 +341,7 @@ class LocationExperiment(exp.Experiment):
         else:
             self.log.info("Trial ended.")
             exp.next_trial()
+            return
 
         session_state["reward_scheduled"] = False
 
@@ -333,7 +356,7 @@ class LocationExperiment(exp.Experiment):
 
             if self.rewards_count <= rewards_sum:
                 exp.event_logger.log(
-                    "dispencing_reward",
+                    "dispensing_reward",
                     {
                         "num": self.rewards_count,
                         "stochastic_delay": self.using_stochastic_delay,
