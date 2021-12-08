@@ -30,6 +30,7 @@ import experiment
 import task
 import video_system
 import video_write
+import video_transforms
 from json_convert import json_convert
 
 # Load environment variables from .env file.
@@ -143,6 +144,8 @@ def parse_image_request(src_id):
 
 
 def encode_image_for_response(img, width, height, undistort_mapping):
+    img = video_transforms.transform_image(img, video_transforms.transforms)
+
     if undistort_mapping is not None:
         img = undistort.undistort_image(img, undistort_mapping)
 
