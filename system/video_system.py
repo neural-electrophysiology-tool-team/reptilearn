@@ -193,6 +193,14 @@ def init(log, config):
 
     if not config_path.exists():
         video_config = {}
+        try:
+            with open(config_path, "w") as f:
+                json.dump({
+                    "image_sources": {},
+                    "image_observers": {},
+                }, f)
+        except Exception:
+            log.exception(f"Exception while writing to {str(config_path)}")
     else:
         try:
             with open(config_path, "r") as f:

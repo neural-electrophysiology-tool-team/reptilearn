@@ -10,7 +10,6 @@ single points of data, or data arrays.
 import numpy as np
 import cv2 as cv
 from pathlib import Path
-from tqdm.auto import tqdm
 
 # Undistortion code from:
 #   https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_calib3d/py_calibration/py_calibration.html
@@ -32,7 +31,8 @@ def get_distortion_matrix(chkr_im_path: Path, rows=6, cols=9):
     :param: cols - number of cols in checkerboard
     :return: numpy array: camera matrix, numpy array: distortion coefficients
     """
-
+    from tqdm.auto import tqdm
+    
     # termination criteria
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 

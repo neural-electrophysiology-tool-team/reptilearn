@@ -9,6 +9,7 @@ import moviepy.tools
 import moviepy.config
 import json
 import bbox
+import cv2
 
 # TODO:
 # - option to choose locale
@@ -22,7 +23,7 @@ name_locale = "Asia/Jerusalem"
 
 def split_name_datetime(s):
     """
-    Split a string with format {name}_%Y%m%d_%H%M%S into name and a datetime64 objects.
+    Split a string with format {name}_%Y%m%d_%H%M%S into name and date.
 
     Return name (string), dt (np.datetime64)
     """
@@ -100,6 +101,18 @@ def format_timedelta(td: pd.Timedelta, use_colons=True):
         return f"{hrs:02}:{mins:02}:{secs:02}"
     else:
         return f"{hrs:02}{mins:02}{secs:02}"
+
+
+def format_timestamp(ts: pd.Timestamp, fmt="%m-%d %H:%M:%S", tz="Asia/Jerusalem"):
+    return pd.to_datetime(ts.tz_convert(tz)).strftime(fmt)
+
+
+def background_for_ts(info, ts, infix):
+    imgs = [p for p in info.images if infix in p.name]
+    im_tss = [split_name_datetime(p.stem)[1].tz_localize("Asia/Jerusalem").tz_convert("utc") for p in imgs]
+    df = pd.DataFrame(data={'ts': im_tss, 'ts_diff': pd.Series(im_tss) - ts, 'path': imgs}, columns=['ts', 'ts_diff', 'path'])
+    row = df[df.ts_diff < pd.Timedelta(0)].max()
+    return cv2.imread(str(row.path))
 
 
 def extract_clip(vid_path, start_frame: int, end_frame: int, output_path):
@@ -233,7 +246,7 @@ class VideoInfo:
     as the video file but with a `.csv` suffix
 
     Attributes:
-        name: Video name (without the start datetime)
+        name: Video name (string)
         time: Video start time
         path: Video path
         timestamp_path: Timestamps csv path
@@ -280,7 +293,7 @@ class VideoInfo:
         else:
             self.src_id = split[
                 -1
-            ]  # NOTE: what happens when both src_id and name has underscores?
+            ]  # NOTE: what happens when both src_id and name have underscores?
 
     def __repr__(self):
         return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count},\n\tduration: {self.duration})"

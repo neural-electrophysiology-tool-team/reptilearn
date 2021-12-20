@@ -5,6 +5,10 @@ import logging
 # Logging level of process and main loggers.
 log_level = logging.INFO
 
+# Port number for a REST and socketio api server. If changed, edit ui/src/config.js with
+# a matching value.
+api_port = 5000
+
 # Where experiment python modules can be found.
 experiment_modules_dir: Path = Path("./experiments/")
 
@@ -14,7 +18,7 @@ tasks_modules_dir: Path = Path("./tasks/")
 # Session data (videos, images, csv files, etc.) will be stored here.
 session_data_root: Path = Path("/data/reptilearn/sessions/")
 
-# Videos and images that were collected when not running an experiment are stored here.
+# Videos and images that were collected without an open session are stored here.
 media_dir: Path = Path("/data/reptilearn/media/")
 
 # Path to the video configuration file
@@ -77,13 +81,13 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
-    "data_log": {  # requires a database connection
-        "table_name": "arena",
-        "columns": [
-            ("Temp_0", "double precision"),
-            ("Temp_1", "double precision"),
-        ],
-    },
+    # "data_log": {  # requires a database connection
+    #     "table_name": "arena",
+    #     "columns": [
+    #         ("Temp_0", "double precision"),
+    #         ("Temp_1", "double precision"),
+    #     ],
+    # },
     "command_topic": "arena_command",
     "receive_topic": "arena",
 }
@@ -109,7 +113,7 @@ event_log = {
         ("state", ("video", "record", "is_recording")),
     ],
     # Whether to log events to the database.
-    "log_to_db": True,
+    "log_to_db": False,
     # Whether to log events to csv files.
     "log_to_csv": True,
     # The database table where events will be stored.

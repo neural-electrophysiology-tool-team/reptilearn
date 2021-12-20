@@ -252,5 +252,6 @@ def shutdown():
     mqtt.client.unsubscribe_callback(f"{topic}/all_values")
     mqtt.client.unsubscribe_callback(f"{topic}/info/#")
     mqtt.client.unsubscribe_callback(f"{topic}/error/#")
-    _arena_log.stop()
-    _arena_log.join()
+    if _arena_log:
+        _arena_log.stop()
+        _arena_log.join()

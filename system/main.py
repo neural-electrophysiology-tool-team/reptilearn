@@ -29,6 +29,7 @@ import state as state_mod
 import experiment
 import task
 import video_system
+import multiprocessing as mp
 from json_convert import json_convert
 
 # Load environment variables from .env file.
@@ -49,6 +50,8 @@ try:
 except Exception:
     traceback.print_exc()
     sys.exit(1)
+
+mp.set_start_method('fork')
 
 # Initialize state module
 state_mod.init()
@@ -525,7 +528,7 @@ def root():
 
 # Run Flask server
 try:
-    socketio.run(app, use_reloader=False, host="0.0.0.0")
+    socketio.run(app, use_reloader=False, host="0.0.0.0", port=config.api_port)
 except KeyboardInterrupt:
     log.info("KeyboardInterrupt")
 

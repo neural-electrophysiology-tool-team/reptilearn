@@ -2,7 +2,6 @@ import csv
 from pathlib import Path
 import multiprocessing as mp
 
-import database as db
 import rl_logging
 
 
@@ -26,6 +25,7 @@ class DataLogger(mp.Process):
         self.logger.debug("Initializing data logger...")
 
         if self.log_to_db:
+            import database as db
             self.con = db.make_connection()
             if self.table_name is not None:
                 db.with_commit(

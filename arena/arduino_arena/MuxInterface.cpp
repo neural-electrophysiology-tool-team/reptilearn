@@ -115,9 +115,13 @@ void MuxInterface::run(JsonArray cmd) {
 void MuxInterface::set_channel(int channel) {
   JsonArray pins = control_pins.as<JsonArray>();
   int shift = 0;
+  char schan[5];
+  itoa(channel, schan, 10);
+
   for (JsonVariant v : pins) {
     int pin = v.as<int>();
-    digitalWrite(pin, channel & (1 << shift) > 0 ? HIGH : LOW);
+    char sval[5];
+    digitalWrite(pin, (channel & (1 << shift)) > 0 ? HIGH : LOW);
     shift += 1;
   }
 }
