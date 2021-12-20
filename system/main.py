@@ -507,7 +507,7 @@ def route_arena_switch_display(on, display=None):
 
 @app.route("/save_image/<src_id>")
 def route_save_image(src_id):
-    video_write.save_image([src_id])
+    video_system.capture_images([src_id])
     return flask.Response("ok")
 
 

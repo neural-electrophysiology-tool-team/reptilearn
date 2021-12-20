@@ -3,7 +3,7 @@ import ReactJson from 'react-json-view';
 import { api_url } from './config.js';
 import { ReflexContainer, ReflexSplitter, ReflexElement } from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
-import { Icon } from 'semantic-ui-react';
+import { Icon, Dropdown, Button } from 'semantic-ui-react';
 import { ActionsView } from './actions_view.js';
 
 /*
@@ -25,8 +25,8 @@ const assign_keep_old = (o, n) => {
 
 export const ExperimentView = ({ctrl_state}) => {
     const [ctrlStatePath, setCtrlStatePath] = React.useState();
-
-    const path_input_ref = React.useRef();
+    const [statePath, setStatePath] = React.useState([]);
+    
     /*
     const update_defaults = (override_blocks) => {
 	fetch(exp_url + "/default_params")
@@ -129,23 +129,17 @@ export const ExperimentView = ({ctrl_state}) => {
     };
 
     const update_ctrl_state_path = () => {
-        if (!path_input_ref.current) {
+        if (!statePath || statePath.length == 0) {
             setCtrlStatePath(ctrl_state);
             return;
         }
         
-        const path = path_input_ref.current.value;
-        if (path.trim().length === 0) {
-            setCtrlStatePath(ctrl_state);
-            return;
-        }
-        
-        const path_terms = path.split('.');
+        //
 
         let cur = ctrl_state;
-        for (const term of path_terms) {
-            if (cur[term]) {
-                cur = cur[term];
+        for (const key of statePath) {
+            if (cur[key]) {
+                cur = cur[key];
             }
             else {
                 setCtrlStatePath({});
@@ -156,7 +150,26 @@ export const ExperimentView = ({ctrl_state}) => {
         setCtrlStatePath(cur);
     };
 
-    React.useEffect(update_ctrl_state_path, [ctrl_state]);
+    const keys_for_path = (i) => {
+        let cur = ctrl_state;
+        for (const key of statePath) {
+            if (i === 0)
+                break;
+            
+            if (cur[key]) {
+                cur = cur[key];
+                i--;
+            }
+            else {
+                return [];
+            }
+        }
+
+        return Object.keys(cur)
+            .filter(k => cur[k] instanceof Array || cur[k] instanceof Object);
+    };
+    
+    React.useEffect(update_ctrl_state_path, [ctrl_state, statePath]);
     
     if (!ctrl_state)
 	return null;
@@ -171,7 +184,7 @@ export const ExperimentView = ({ctrl_state}) => {
         const st = new Date(session.start_time);
         const start_time_format = st.getDate()  + "-" + (st.getMonth()+1) + "-" + st.getFullYear() + " " +
               st.getHours() + ":" + st.getMinutes();
-        return `Session ${session.id} (${start_time_format})`;
+        return `Session ${session.id} (${ctrl_state.session.experiment} ${start_time_format})`;
     })();
     
     
@@ -225,6 +238,38 @@ export const ExperimentView = ({ctrl_state}) => {
                       cur_block={cur_block}/>
         </div>        
     ) : null;
+
+    const state_path_select = (i) => {
+        const on_change = (e, { value }) => {
+            const state_path = [...statePath];
+
+            if (!value) {
+                setStatePath(statePath.slice(0, i));
+                return;
+            }
+            
+            state_path[i] = value;
+            setStatePath(state_path);
+        };
+
+        const opts = keys_for_path(i).map(k => ({
+            key: k, text: k, value: k
+        }));
+
+        if (opts.length === 0)
+            return null;
+        
+        return (
+            <Dropdown placeholder="..."
+                      className="tiny"
+                      selection
+                      clearable
+                      compact
+                      options={opts}
+                      value={statePath[i]}
+                      onChange={on_change}/>
+        );
+    };
     
     return (
         <ReflexContainer orientation="horizontal" className="controls-view">
@@ -239,10 +284,9 @@ export const ExperimentView = ({ctrl_state}) => {
           <ReflexElement minSize={26} style={{overflow: "hidden"}}>
             <div className="section_header">
               <span className="title">State</span>
-              <input type="search"
-                     placeholder="path"
-                     ref={path_input_ref}
-                     onChange={update_ctrl_state_path}/>
+              {[...statePath.map((p, idx) => state_path_select(idx)),
+                state_path_select(statePath.length)
+               ]}
             </div>
             <div style={{overflow: "scroll", height: "calc(100% - 18px)"}}>
               <ReactJson src={ctrlStatePath}

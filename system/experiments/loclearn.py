@@ -94,7 +94,6 @@ class LocationExperiment(exp.Experiment):
             "radius": 200,
             "use_aruco": True,  # Bypass the location value with Aruco marker coordinates
         },
-        "reward_radius": 200,
         "reward_delay": 5,  # seconds
         "stochastic_delay": 15,  # seconds, use this delay on some trials
         "stochastic_delay_prob": 0.0,  # probability of delaying reward by "stochastic delay"

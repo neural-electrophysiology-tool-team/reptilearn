@@ -5,7 +5,6 @@ from video_stream import ImageObserver, ImageSource
 import imageio
 import queue
 import threading
-import cv2
 
 
 def get_write_path(src_id, file_ext, timestamp=datetime.now()):
@@ -20,9 +19,11 @@ def get_write_path(src_id, file_ext, timestamp=datetime.now()):
     return write_dir / (base + file_ext)
 
 
-def save_image(image_source: ImageSource, timestamp: datetime):
-    path = get_write_path(image_source.src_id, "jps", timestamp)
-    imageio.imwrite(str(path), image_source.get_image())
+def save_image(image, timestamp, prefix):
+    dt = datetime.fromtimestamp(timestamp)
+    path = get_write_path(prefix, "jpg", dt)
+    imageio.imwrite(str(path), image)
+    return path
 
 
 class VideoWriter(ImageObserver):
