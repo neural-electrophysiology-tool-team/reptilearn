@@ -31,7 +31,7 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
         if (Object.keys(obs_conf).length > 0) {
             setSelectedObserver(Object.keys(obs_conf)[0]);
         }
-    }, [open]);
+    }, [open, video_config]);
 
     if (!video_config) {
         return null;

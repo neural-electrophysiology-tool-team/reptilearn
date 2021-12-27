@@ -3,7 +3,7 @@ import ReactJson from 'react-json-view';
 import { api_url } from './config.js';
 import { ReflexContainer, ReflexSplitter, ReflexElement } from 'react-reflex';
 import { BlocksView } from './blocks_view.js';
-import { Icon, Dropdown, Button } from 'semantic-ui-react';
+import { Icon, Dropdown } from 'semantic-ui-react';
 import { ActionsView } from './actions_view.js';
 
 /*
@@ -129,7 +129,7 @@ export const ExperimentView = ({ctrl_state}) => {
     };
 
     const update_ctrl_state_path = () => {
-        if (!statePath || statePath.length == 0) {
+        if (!statePath || statePath.length === 0) {
             setCtrlStatePath(ctrl_state);
             return;
         }
@@ -199,7 +199,7 @@ export const ExperimentView = ({ctrl_state}) => {
     
     const phase_toolbar = !session ? null :
           <div className="subsection_header">
-            { run_end_btn }
+            {run_end_btn}
             <label>block:</label>
             <input type="text" readOnly value={session.cur_block+1} size="3"/>
             <button onClick={next_block}>+</button>
@@ -265,6 +265,7 @@ export const ExperimentView = ({ctrl_state}) => {
                       selection
                       clearable
                       compact
+		      key={i}
                       options={opts}
                       value={statePath[i]}
                       onChange={on_change}/>

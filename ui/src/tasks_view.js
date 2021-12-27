@@ -6,10 +6,10 @@ import "react-datepicker/dist/react-datepicker.css";
 
 export const TasksView = () => {
     const [taskList, setTaskList] = React.useState([]);
-    const [isLoading, setLoading] = React.useState(false);
+    // const [isLoading, setLoading] = React.useState(false);
 
     const [showTaskListModal, setShowTaskListModal] = React.useState(false);
-    const [isLoadingScheduledTasks, setLoadingScheduledTasks] = React.useState(false);
+    // const [isLoadingScheduledTasks, setLoadingScheduledTasks] = React.useState(false);
     const [scheduledTasks, setScheduledTasks] = React.useState([]);
     
     const [showScheduleModal, setShowScheduleModal] = React.useState(false);
@@ -21,12 +21,12 @@ export const TasksView = () => {
     const [activeTabIdx, setActiveTabIdx] = React.useState(0);
     
     const load_task_list = () => {
-        setLoading(true);
+        // setLoading(true);
         fetch(api_url + "/task/list")
             .then(res => res.json())
             .then(tasks => {
                 setTaskList(tasks);
-                setLoading(false);
+                // setLoading(false);
             });
     };
 
@@ -79,7 +79,7 @@ export const TasksView = () => {
     };
 
     const open_task_list_modal = () => {
-        setLoadingScheduledTasks(true);
+        // setLoadingScheduledTasks(true);
         fetch(api_url + '/task/scheduled_tasks')
             .then(res => res.json())
             .then(tasks => {
@@ -87,7 +87,7 @@ export const TasksView = () => {
                     task.checked = false;
                 }
                 setScheduledTasks(tasks);
-                setLoadingScheduledTasks(false);
+                // setLoadingScheduledTasks(false);
                 setShowTaskListModal(true);
             });
     };

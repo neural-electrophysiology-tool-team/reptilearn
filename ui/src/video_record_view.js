@@ -95,25 +95,25 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
 
     return (
         <React.Fragment>
-          <Input type="text"
-                 name="prefix_input"
-                 placeholder="recording name"
-                 ref={prefix_input_ref}
-                 disabled={is_recording}
-          />
-          <Popup content={is_recording ? "Stop recording" : "Start recording"}
-                 trigger={
-                     <Menu.Item onClick={toggle_recording} icon>
-                       <Icon fitted name={is_recording ? "stop circle" : "circle"}/>
-                     </Menu.Item>
-                 }/>
-          <Popup content={ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
-                 trigger={
-                     <Menu.Item onClick={toggle_ttl_trigger}>
-                       <Icon fitted name={ttl_trigger_state ? "clock" : "clock outline"}/>
-                     </Menu.Item>
-                 }/>
-          {video_menu}
+            <Input type="text"
+                   name="prefix_input"
+                   placeholder="recording name"
+                   ref={prefix_input_ref}
+                   disabled={is_recording}
+            />
+            <Popup content={is_recording ? "Stop recording" : "Start recording"}
+                   trigger={
+                       <Menu.Item fitted="vertically" onClick={toggle_recording} icon>
+			   <Icon fitted name={is_recording ? "stop circle" : "circle"}/>
+                       </Menu.Item>
+                   }/>
+            <Popup content={ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
+                   trigger={
+                       <Menu.Item onClick={toggle_ttl_trigger}>
+			   <Icon fitted name={ttl_trigger_state ? "clock" : "clock outline"}/>
+                       </Menu.Item>
+                   }/>
+            {video_menu}
         </React.Fragment>
     );
 };

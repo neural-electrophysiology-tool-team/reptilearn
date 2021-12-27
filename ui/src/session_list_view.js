@@ -49,7 +49,7 @@ export const SessionListView = ({onSelect, setOpen, open, selectable, manageable
               ) : null }
               <Table.Cell>
                 {selectable ?
-                 <a onClick={() => onSelect(s[2])} href="#">{s[0]}</a>
+                 <a onClick={() => onSelect(s[2])}>{s[0]}</a>
                  : s[0]
                 }
               </Table.Cell>
