@@ -1,5 +1,4 @@
 import './App.css';
-import 'semantic-ui-css/semantic.min.css';
 import 'react-reflex/styles.css';
 
 import React from 'react';
@@ -19,7 +18,8 @@ const App = () => {
 
     const handle_disconnect = React.useCallback(() => setCtrlState(null), []);
 
-    window.onbeforeunload = () => true;    
+    // Display confirmation dialog before unloading page.
+    // window.onbeforeunload = () => true;    
 
     React.useEffect(() => {
 	socket.on("state", handle_new_state);
@@ -46,7 +46,7 @@ const App = () => {
 	);
     
     return (
-        <div className="App">
+        <div className="app">
           <MainPanelView ctrl_state={ctrlState} video_config={videoConfig} fetch_video_config={fetch_video_config}/>
         </div>
     );   
