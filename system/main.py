@@ -44,6 +44,8 @@ arg_parser.add_argument(
 )
 args = arg_parser.parse_args()
 
+print("🦎 Loading Reptilearn")
+
 # Import configuration module
 try:
     config = importlib.import_module(f"config.{args.config}")
@@ -57,7 +59,7 @@ mp.set_start_method('fork')
 state_mod.init()
 
 # Initialize Flask REST app
-app = flask.Flask("API")
+app = flask.Flask("Reptilearn API")
 flask_cors.CORS(app)
 app.config["SECRET_KEY"] = "reptilearn"
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -103,7 +105,6 @@ state_emitter_process.start()
 
 @socketio.on("connect")
 def handle_connect():
-    log.info("New SocketIO connection. Emitting state")
     blob = json.dumps(state.get_self(), default=json_convert)
     emit("state", blob)
 
@@ -207,6 +208,22 @@ def route_stop_stream(src_id):
     return flask.Response("ok")
 
 
+@app.route("/save_image/<src_id>")
+def route_save_image(src_id):
+    video_system.capture_images([src_id])
+    return flask.Response("ok")
+
+
+@app.route("/run_action/<label>")
+def route_run_action(label):
+    try:
+        experiment.run_action(label)
+        return flask.Response("ok")
+    except Exception as e:
+        log.exception(f"Exception while running action {label}:")
+        flask.abort(500, e)
+
+
 @app.route("/state")
 def route_state():
     return flask.Response(
@@ -221,6 +238,7 @@ def route_experiment_list():
 
 
 # Session Routes
+
 @app.route("/session/create", methods=["POST"])
 def route_session_start():
     try:
@@ -364,6 +382,8 @@ def sessions_delete():
         flask.abort(500, e)
 
 
+# Tasks Routes
+
 @app.route("/task/list")
 def route_task_list():
     return flask.jsonify(task.all_tasks())
@@ -403,6 +423,8 @@ def route_task_cancel(task_idx):
         log.exception("Exception while cancelling task.")
         flask.abort(500, e)
 
+
+# Video Routes
 
 @app.route("/video/update_config", methods=["POST"])
 def route_update_config():
@@ -464,6 +486,8 @@ def route_set_prefix(prefix=""):
     return flask.Response("ok")
 
 
+# Arena Routes
+
 @app.route("/arena/config")
 def route_arena_config():
     return flask.jsonify(arena.get_interfaces_config())
@@ -503,22 +527,6 @@ def route_arena_list_displays():
 def route_arena_switch_display(on, display=None):
     arena.switch_display(on != 0, display)
     return flask.Response("ok")
-
-
-@app.route("/save_image/<src_id>")
-def route_save_image(src_id):
-    video_system.capture_images([src_id])
-    return flask.Response("ok")
-
-
-@app.route("/run_action/<label>")
-def route_run_action(label):
-    try:
-        experiment.run_action(label)
-        return flask.Response("ok")
-    except Exception as e:
-        log.exception(f"Exception while running action {label}:")
-        flask.abort(500, e)
 
 
 @app.route("/")

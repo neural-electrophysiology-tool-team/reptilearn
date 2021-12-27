@@ -241,11 +241,11 @@ def start():
     for w in video_writers.values():
         w.start()
 
-    _log.info(f"Starting image observers: {', '.join(list(image_observers.keys()))}")
+    _log.info(f"Starting {len(image_observers)} image observers: {', '.join(list(image_observers.keys()))}")
     for img_obs in image_observers.values():
         img_obs.start()
 
-    _log.info(f"Starting image sources: {', '.join(list(image_sources.keys()))}")
+    _log.info(f"Starting {len(image_sources)} image sources: {', '.join(list(image_sources.keys()))}")
     for src_id, img_src in image_sources.items():
         img_src.start()
         update_acquire_callback(src_id)
