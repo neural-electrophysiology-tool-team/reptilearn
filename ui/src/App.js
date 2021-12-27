@@ -5,6 +5,7 @@ import React from 'react';
 import { MainPanelView } from './main_panel_view.js';
 import { SocketContext } from './socket.js';
 import { api_url } from './config.js';
+import 'semantic-ui-css/semantic.min.css';
 
 const App = () => {
     const [ctrlState, setCtrlState] = React.useState(null);
