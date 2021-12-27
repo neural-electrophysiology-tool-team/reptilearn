@@ -81,13 +81,13 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
-    # "data_log": {  # requires a database connection
-    #     "table_name": "arena",
-    #     "columns": [
-    #         ("Temp_0", "double precision"),
-    #         ("Temp_1", "double precision"),
-    #     ],
-    # },
+    "data_log": {  # requires a database connection
+        "table_name": "arena",
+        "columns": [
+            ("Temp_0", "double precision"),
+            ("Temp_1", "double precision"),
+        ],
+    },
     "command_topic": "arena_command",
     "receive_topic": "arena",
 }
@@ -106,8 +106,7 @@ event_log = {
     # can be defined in custom experiment modules. Either MQTT or state update
     # events can be used. See event_log.py for more information.
     "default_events": [
-        ("mqtt", "arena/dispense_reward"),
-        ("mqtt", "arena/day_lights"),
+        ("mqtt", "arena_command"),
         ("state", ("session", "cur_block")),
         ("state", ("session", "cur_trial")),
         ("state", ("video", "record", "is_recording")),

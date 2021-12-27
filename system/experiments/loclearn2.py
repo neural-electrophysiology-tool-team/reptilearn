@@ -12,10 +12,6 @@ import datetime
 import bbox
 import random
 
-# TODO:
-# - more event_log?
-# - aruco stuff
-
 
 def detect_aruco(src_id):
     test_image, _ = image_sources[src_id].get_image()
@@ -97,8 +93,8 @@ class BBoxDataCollector:
 class LocationExperiment(exp.Experiment):
     default_params = {
         "reinforced_area": {
-            # "location": [0, 0],  # or
-            "aruco_id": 0,
+            "location": [0, 0],  # or
+            # "aruco_id": 0,
             "radius": 200,
         },
         "area_stay_duration": 2,  # seconds
@@ -122,7 +118,8 @@ class LocationExperiment(exp.Experiment):
                 "Feeder 2": 15,
             },
         },
-        "record_video": False,
+        "day_start": [7, 0],
+        "day_end": [19, 0],
         "image_source_id": "top",
     }
 
@@ -148,34 +145,81 @@ class LocationExperiment(exp.Experiment):
 
     def simulate_leave_area(self):
         self.in_out_time = time.time()
-        session_state["is_in_area"] = False
+        session_state.update(
+            (),
+            {
+                "is_in_area": False,
+                "cooldown_dist": False,
+            },
+        )
+
+    def reset_rewards_count(self):
+        session_state.update(
+            (),
+            {
+                "rewards_count": 0,
+                "out_of_rewards": False,
+            },
+        )
+
+    def on_day_start(self):
+        self.bbox_collector.run(self.on_bbox_detection)
+        arena.start_trigger()
+        video_system.start_record()
+        arena.run_command("set", "AC Line 2", [1])
+        arena.run_command("set", "AC Line 1", [1])
+
+    def on_day_end(self):
+        arena.run_command("set", "AC Line 2", [0])
+        arena.run_command("set", "AC Line 1", [0])
+        video_system.stop_record()
+        arena.stop_trigger()
+        self.bbox_collector.end()
 
     def setup(self):
         self.actions["Find aruco markers"] = {"run": self.find_aruco}
         self.actions["Log next detection"] = {"run": self.log_next_detection}
         self.actions["Simulate enter area"] = {"run": self.simulate_enter_area}
         self.actions["Simulate leave area"] = {"run": self.simulate_leave_area}
+        self.actions["Simulate day start"] = {"run": self.on_day_start}
+        self.actions["Simulate day end"] = {"run": self.on_day_end}
+        self.actions["Reset available rewards"] = {"run": self.reset_rewards_count}
+
+        self.cancel_day_start_sched = schedule.timeofday(
+            self.on_day_start, [7, 0], repeats=True
+        )
+        self.cancel_day_end_sched = schedule.timeofday(
+            self.on_day_end, [19, 0], repeats=True
+        )
 
         self.find_aruco()
         self.bbox_collector = BBoxDataCollector(self.log)
         self.print_next_detection = False
 
+        self.reset_rewards_count()
+
+    def release(self):
+        #self.cancel_day_end_sched()
+        #self.cancel_day_start_sched()
+        pass
+
     def run(self):
-        self.bbox_collector.run(self.on_bbox_detection)
         session_state["is_in_area"] = False
         session_state.add_callback("is_in_area", self.is_in_area_changed)
-        self.rewards_count = 0
-
-        if exp.get_params()["record_video"]:
-            video_system.start_record()
 
     def run_block(self):
         self.find_reinforced_location()
         self.in_out_time = None
-        session_state["cooldown_time"] = False
-        session_state["cooldown_dist"] = False
-        session_state["reward_scheduled"] = False
-        self.cancel_cooldown_time = None        
+        session_state.update(
+            (),
+            {
+                "cooldown_time": False,
+                "cooldown_dist": False,
+                "reward_scheduled": False,
+            },
+        )
+
+        self.cancel_cooldown_time = None
         self.cancel_reward_delay = None
         self.using_stochastic_delay = None
 
@@ -186,7 +230,6 @@ class LocationExperiment(exp.Experiment):
         )
 
     def end(self):
-        self.bbox_collector.end()
         session_state.remove_callback("is_in_area")
         if exp.get_params()["record_video"]:
             video_system.stop_record()
@@ -261,7 +304,9 @@ class LocationExperiment(exp.Experiment):
         dist_to_location = (centroid[0] - loc[0]) ** 2 + (centroid[1] - loc[1]) ** 2
         if session_state["cooldown_dist"] is True:
             if dist_to_location >= exp.get_params()["cooldown_radius"] ** 2:
-                self.log.info("Distance cooldown off. Animal is far enough from reinforced area.")
+                self.log.info(
+                    "Distance cooldown off. Animal is far enough from reinforced area."
+                )
                 session_state["cooldown_dist"] = False
 
         is_in_area = (
@@ -277,28 +322,42 @@ class LocationExperiment(exp.Experiment):
         params = exp.get_params()
         if (
             session_state["is_in_area"]
+            and self.in_out_time is not None
             and time.time() - self.in_out_time > params["area_stay_duration"]
         ):
-            session_state["reward_scheduled"] = True
-            session_state["cooldown_time"] = True
-            session_state["cooldown_dist"] = True
+            self.log.info("Trial successful!")
+            session_state.update(
+                (),
+                {
+                    "reward_scheduled": True,
+                    "cooldown_time": True,
+                    "cooldown_dist": True,
+                },
+            )
+
             self.cancel_cooldown = schedule.once(
                 self.end_time_cooldown, exp.get_params()["cooldown_duration"]
             )
+
+            if session_state["out_of_rewards"] is True:
+                self.log.warning("Out of rewards. Can't reward successful trial.")
+                return
 
             interface = params["cue"]["interface"]
             led_dur = params["cue"]["led_duration"]
             num_blinks = params["cue"]["num_blinks"]
             period_time = 1000 * led_dur / num_blinks // 2
-            self.log.info(f"Starting blinking {interface}. {num_blinks} blinks in {led_dur}s (period {period_time}ms)")
+            self.log.info(
+                f"Starting blinking {interface}. {num_blinks} blinks in {led_dur}s (period {period_time}ms)"
+            )
             start_blink(
                 interface,
                 period_time,
             )
 
             def stop():
-                self.log.info("Stop blinking.")
                 stop_blink(interface)
+                self.log.info("Stopped blinking.")
 
             schedule.once(stop, led_dur)
 
@@ -318,10 +377,11 @@ class LocationExperiment(exp.Experiment):
         # TODO: make sure area changed continuously
         if not old and new:
             exp.event_logger.log(
-                "loclearn/entered_area", {
+                "loclearn/entered_area",
+                {
                     "cooldown_time": session_state["cooldown_time"],
                     "cooldown_dist": session_state["cooldown_dist"],
-                }
+                },
             )
             if session_state["cooldown_time"] or session_state["cooldown_dist"]:
                 self.log.info("Animal entered the reinforced area during cooldown.")
@@ -339,13 +399,13 @@ class LocationExperiment(exp.Experiment):
         if random.random() <= exp.get_params()["reward"]["dispense_prob"]:
             self.log.info("Trial ended. Dispensing reward.")
         else:
-            self.log.info("Trial ended.")
+            self.log.info("Trial ended. NOT dispensing reward (stochastic reward).")
             exp.next_trial()
             return
 
-        session_state["reward_scheduled"] = False
+        rewards_count = session_state["rewards_count"] + 1
 
-        self.rewards_count += 1
+        session_state["reward_scheduled"] = False
 
         feeders = exp.get_params()["reward"]["feeders"]
         max_reward = sum(feeders.values())
@@ -354,21 +414,28 @@ class LocationExperiment(exp.Experiment):
         for interface, rewards in feeders.items():
             rewards_sum += rewards
 
-            if self.rewards_count <= rewards_sum:
+            if rewards_count <= rewards_sum:
                 exp.event_logger.log(
                     "dispensing_reward",
                     {
-                        "num": self.rewards_count,
+                        "num": rewards_count,
                         "stochastic_delay": self.using_stochastic_delay,
                     },
                 )
 
                 self.log.info(
-                    f"Dispensing reward #{self.rewards_count} from feeder {interface} (stochastic_delay={self.using_stochastic_delay})"
+                    f"Dispensing reward #{rewards_count} from feeder {interface} (stochastic_delay={self.using_stochastic_delay})"
                 )
                 arena.run_command("dispense", interface, None, False)
-                if self.rewards_count >= max_reward:
-                    exp.stop_experiment()
-
-                exp.next_trial()
                 break
+
+        if rewards_count >= max_reward:
+            session_state["out_of_rewards"] = True
+            self.log.info("Out of rewards!")
+
+        session_state["rewards_count"] = rewards_count
+        exp.next_trial()
+
+
+# TODO:
+# - better events for the log
