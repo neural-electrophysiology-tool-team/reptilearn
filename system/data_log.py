@@ -50,6 +50,7 @@ class DataLogger(mp.Process):
 
     def _write(self, data):
         if self.log_to_db and self.table_name is not None:
+            import database as db
             try:
                 db.with_commit(
                     self.con,

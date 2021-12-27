@@ -664,6 +664,7 @@ def process_video(
     correction_fn=None,
     start_frame=0,
     num_frames=None,
+    frame_counter_offset=0,
     frame_rate=None,
     speed=1,
     resize_to_width=None,
@@ -690,6 +691,7 @@ def process_video(
     :param correction_fn: a function responsible for undistorting and transforming the image
     :param start_frame: the first frame to be processed.
     :param num_frames: number of frames to process or None to process the whole video.
+    :param frame_counter_offset: An offset to the frame_counter argument when calling process functions.
     :param frame_rate: the framerate of the processed video or None to use the original framerate.
     :param speed: the speed of the output video relative to the original video. Use an integer value k greater than 1 to process each kth frame of the input video.
     :param resize_to_width: when not None, the output is resized after processing each frame.
@@ -702,6 +704,8 @@ def process_video(
     if start_frame != 0:
         vcap.set(cv.CAP_PROP_POS_FRAMES, start_frame)
 
+    print(vcap.get(cv.CAP_PROP_FRAME_COUNT))
+    
     if num_frames is None:
         num_frames = int(vcap.get(cv.CAP_PROP_FRAME_COUNT)) - start_frame
 
@@ -741,7 +745,7 @@ def process_video(
 
         # process the frame with each function in the list
         for fn in process_fns:
-            fn(orig_frame, write_frame, frame_counter)
+            fn(orig_frame, write_frame, frame_counter + frame_counter_offset)
 
         if output_path is not None:
             if resize_to_width is not None:
@@ -789,7 +793,7 @@ def gen_trial_video(
     out_dir="../labelled",
     out_path_prefix="data",
 ):
-    """ Convenience function to generate videos by trial name """
+    """Convenience function to generate videos by trial name"""
     vid_path = dataset.get_trial_video_path(trial)
     out_path = os.path.join(out_dir, f'{trial.replace("/", "_")}_{out_path_prefix}.mp4')
     homography, _ = dataset.find_last_homography(dataset.get_trial_path(trial).parent)

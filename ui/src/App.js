@@ -31,7 +31,8 @@ const App = () => {
     const fetch_video_config = () => {
         return fetch(api_url + '/video/get_config')
             .then((res) => res.json())
-            .then((config) => setVideoConfig(config));        
+            .then((config) => setVideoConfig(config))
+            .catch(err => console.log(`Error while fetching video config: ${err}`));
     };
     
     React.useEffect(() => {

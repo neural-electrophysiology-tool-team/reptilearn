@@ -255,7 +255,7 @@ def close_session():
             log.exception("While releasing experiment:")
 
         try:
-            schedule.cancel_all(pool="experiment")
+            schedule.cancel_all(pool="experiment", wait=False)
         except ValueError:
             pass
         except Exception:
@@ -348,8 +348,6 @@ def run_experiment():
 
     log.info(f"Running experiment {session_state['experiment']}.")
 
-    event_logger.log("session/run", session_state.get_self())
-
     cached_params = None
     cached_params_block = None
 
@@ -362,6 +360,7 @@ def run_experiment():
         log.exception("Exception while running experiment:")
         session_state["is_running"] = False
 
+    event_logger.log("session/run", session_state.get_self())
     _update_state_file()
 
 
