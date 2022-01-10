@@ -46,7 +46,7 @@ export const DeleteSessionModal = ({ session, sessions, open, setOpen, close_ses
           <Modal.Content>
             <p>The following data directories will be deleted:</p>
             <ul>
-              { sessions.map((s) => <li>{dataRoot + '/' + s[2]}</li>) }
+              { sessions.map((s) => <li key='s'>{dataRoot + '/' + s[2]}</li>) }
             </ul>
           </Modal.Content>
           <Modal.Actions>
