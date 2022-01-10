@@ -29,21 +29,33 @@ const App = () => {
         });
     }, [handle_disconnect, handle_new_state, socket]);
 
-    const fetch_video_config = () => {
+    const fetch_video_config = React.useCallback(() => {
         return fetch(api_url + '/video/get_config')
             .then((res) => res.json())
             .then((config) => setVideoConfig(config))
-            .catch(err => console.log(`Error while fetching video config: ${err}`));
-    };
+            .catch(err => {
+		console.log(`Error while fetching video config: ${err}`);
+		setTimeout(fetch_video_config, 5000);
+	    });
+    }, [setVideoConfig]);
     
     React.useEffect(() => {
         fetch_video_config();
-    }, []);
+    }, [fetch_video_config]);
     
     if (ctrlState === null || videoConfig === null)
 	return (
 	    <div className="App">
-		<p>Loading...</p>
+		<div style={{
+			 position: 'absolute',
+			 top: '50%',
+			 left: '50%',
+			 transform: 'translate(-50%, -50%)',
+			 textAlign: 'center',
+		     }}>
+		    <div style={{ fontSize: '5rem', marginBottom: '2rem', display: 'inline-block'}}>ReptiLearn</div>
+		    <div>Waiting for connection...</div>
+		</div>
 	    </div>
 	);
     

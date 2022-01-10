@@ -81,13 +81,13 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
-    "data_log": {  # requires a database connection
-        "table_name": "arena",
-        "columns": [
-            ("Temp_0", "double precision"),
-            ("Temp_1", "double precision"),
-        ],
-    },
+    # "data_log": {  # requires a database connection
+    #     "table_name": "arena",
+    #     "columns": [
+    #         ("Temp_0", "double precision"),
+    #         ("Temp_1", "double precision"),
+    #     ],
+    # },
     "command_topic": "arena_command",
     "receive_topic": "arena",
 }

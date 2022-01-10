@@ -107,7 +107,7 @@ state_emitter_process.start()
 def handle_connect():
     blob = json.dumps(state.get_self(), default=json_convert)
     emit("state", blob)
-
+    # TODO: emit("log", all_past_log_or_session_log?)
 
 # Flask REST API
 @app.route("/config/<attribute>")
@@ -445,6 +445,18 @@ def route_video_get_config():
         flask.abort(500, e)
 
 
+@app.route("/video/list_image_classes")
+def route_video_list_classes():
+    try:
+        return flask.jsonify({
+            "image_sources": video_system.source_classes,
+            "image_observers": video_system.observer_classes,
+        })
+    except Exception as e:
+        log.exception("Exception while getting video classes list:")
+        flask.abort(500, e)
+
+
 @app.route("/video_record/select_source/<src_id>")
 def route_select_source(src_id):
     video_system.select_source(src_id)
@@ -526,6 +538,12 @@ def route_arena_list_displays():
 @app.route("/arena/switch_display/<int:on>/<display>")
 def route_arena_switch_display(on, display=None):
     arena.switch_display(on != 0, display)
+    return flask.Response("ok")
+
+
+@app.route("/arena/poll")
+def route_arena_poll():
+    arena.poll()
     return flask.Response("ok")
 
 

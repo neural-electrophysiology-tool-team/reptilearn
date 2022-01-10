@@ -1,4 +1,8 @@
-import PySpin
+try:
+    import PySpin
+except:
+    pass
+
 from video_stream import ImageSource
 import re
 import time
@@ -118,7 +122,7 @@ def get_device_id(cam) -> str:
     return m[0][4:]
 
 
-def filter_cameras(cam_list: PySpin.CameraList, cameras_string: str) -> None:
+def filter_cameras(cam_list, cameras_string: str) -> None:
     """Filter cameras according to camera_label, which can be a name or last digits of device ID"""
     current_devices = [get_device_id(cam) for cam in cam_list]
     chosen_devices = []
