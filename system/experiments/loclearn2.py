@@ -118,8 +118,6 @@ class LocationExperiment(exp.Experiment):
                 "Feeder 2": 15,
             },
         },
-        "day_start": [7, 0],
-        "day_end": [19, 0],
         "image_source_id": "top",
     }
 
@@ -231,8 +229,6 @@ class LocationExperiment(exp.Experiment):
 
     def end(self):
         session_state.remove_callback("is_in_area")
-        if exp.get_params()["record_video"]:
-            video_system.stop_record()
 
     def find_reinforced_location(self):
         params = exp.get_params()
