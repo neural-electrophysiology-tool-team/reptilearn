@@ -31,16 +31,22 @@ def find_subclass(module, parent):
     return None
 
 
+def find_subclasses(module, cls):
+    def filter_subclass(name_cls):
+        return issubclass(name_cls[1], cls) and name_cls[1] is not cls
+
+    return list(filter(filter_subclass, inspect.getmembers(module, inspect.isclass)))
+
+
 def load_modules(modules_dir, logger=None):
     modules = {}
     module_pys = modules_dir.glob("*.py")
-
     for py in module_pys:
         try:
             module, spec = load_module(py, package=modules_dir.stem)
             modules[py.stem] = module, spec
         except Exception:
             if logger:
-                logger.exception("While loading modules:")
+                logger.exception(f"While loading module {py}:")
 
     return modules

@@ -3,9 +3,7 @@ import threading
 from video_stream import ImageObserver, ImageSource
 import time
 import logging
-
 # import mqtt
-from image_observers.YOLOv4.detector import YOLOv4Detector
 
 
 class YOLOv4ImageObserver(ImageObserver):
@@ -15,7 +13,10 @@ class YOLOv4ImageObserver(ImageObserver):
             config,
             state_cursor
     ):
+        from image_observers.YOLOv4.detector import YOLOv4Detector
+
         super().__init__(img_src, config, state_cursor)
+
         if "buffer_size" in config:
             self.buffer_size = config["buffer_size"]
             self.detection_buffer = []

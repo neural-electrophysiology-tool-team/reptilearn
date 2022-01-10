@@ -5,14 +5,21 @@ import ReactJson from 'react-json-view';
 
 export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, open}) => {
     const [openAddModal, setOpenAddModal] = React.useState(false);
-    const [addIdInput, setAddIdInput] = React.useState(undefined);
-    const [addClassInput, setAddClassInput] = React.useState(undefined);
+    const [addIdInput, setAddIdInput] = React.useState(null);
+    const [addClassInput, setAddClassInput] = React.useState(null);
     const [activeTabIdx, setActiveTabIdx] = React.useState(0);
     const [sourcesConfig, setSourcesConfig] = React.useState({});
     const [observersConfig, setObserversConfig] = React.useState({});
+    const [imageClasses, setImageClasses] = React.useState(null);
     const [selectedSource, setSelectedSource] = React.useState(null);
     const [selectedObserver, setSelectedObserver] = React.useState(null);
     const [isApplying, setApplying] = React.useState(false);
+
+    React.useEffect(() => {
+	fetch(api_url + '/video/list_image_classes')
+	    .then((res) => res.json())
+	    .then(setImageClasses);
+    }, [setImageClasses]);
     
     React.useEffect(() => {
         if (!open) {
@@ -33,11 +40,12 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
         }
     }, [open, video_config]);
 
-    if (!video_config) {
+    if (!video_config || !imageClasses) {
         return null;
     }
 
     const cur_object = activeTabIdx === 0 ? "source" : "observer";
+    const cur_class_parent = activeTabIdx === 0 ? "image_sources" : "image_observers";
     
     const apply = () => {
         setApplying(true);
@@ -70,13 +78,12 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
     };
 
     const open_add_modal = () => {
-        if (cur_object === 'source') {
-            setAddClassInput("image_sources.flir_cameras.FLIRImageSource");
+	const classes = imageClasses[cur_class_parent];
+	if (classes && classes.length > 0) {
+            setAddClassInput(imageClasses[cur_class_parent][0]);
         }
-        else {
-            setAddClassInput(undefined);
-        }
-        setAddIdInput(undefined);
+
+        setAddIdInput('');
         setOpenAddModal(true);
     };
     
@@ -237,8 +244,13 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
               <Grid columns={2} verticalAlign='middle'>
                 <Grid.Row>
                   <Grid.Column width={4}>Class</Grid.Column>
-                  <Grid.Column width={12}><Input fluid value={addClassInput}
-                                      onChange={(e, { value }) => setAddClassInput(value)}/></Grid.Column>
+                    <Grid.Column width={12}>
+			<Dropdown selection
+				  fluid
+				  onChange={(e, opt) => setAddClassInput(opt.value)}
+				  value={addClassInput}
+				  options={imageClasses[cur_class_parent].map((c) => ({text: c.split('.').slice(1).join('.'), key: c, value: c}))}/>
+		    </Grid.Column>
                 </Grid.Row>
                 <Grid.Row>
                   <Grid.Column width={4}>Id:</Grid.Column>
@@ -254,8 +266,8 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
             </Modal.Content>
             <Modal.Actions>
               <Button onClick={() => setOpenAddModal(false)}>Cancel</Button>
-              <Button onClick={add_object}
-                      disabled={add_object_exists()}>Add</Button>
+              <Button positive onClick={add_object}
+                      disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>Add</Button>
             </Modal.Actions>
           </Modal>
           <Modal

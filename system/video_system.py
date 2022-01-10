@@ -1,21 +1,27 @@
 from state import state
-from dynamic_loading import instantiate_class
-import json
+from dynamic_loading import instantiate_class, load_modules, find_subclasses
 import video_write
 from arena import start_trigger, stop_trigger
+from video_stream import ImageSource, ImageObserver
+
 from datetime import datetime
 from threading import Timer
+from pathlib import Path
+import json
 
 
 video_config = None
 image_sources = {}
 image_observers = {}
 video_writers = {}
+source_classes = []
+observer_classes = []
+
 _log = None
 _config = None
 _rec_state = None
 _do_restore_trigger = False
-
+    
 
 def load_source(src_id, config):
     image_sources[src_id] = instantiate_class(
@@ -169,12 +175,33 @@ def capture_images(src_ids=None):
         _log.info(f"Saved image from image_source '{src.src_id}' in {p}")
 
 
+
+def _find_image_classes():
+    global source_classes, observer_classes
+
+    src_mods = load_modules(Path("./image_sources"), _log)
+    obs_mods = load_modules(Path("./image_observers"), _log)
+
+    def cls2str(name_cls):
+        return mod.__name__ + "." + name_cls[1].__name__
+        
+    for mod, spec in src_mods.values():
+        clss = find_subclasses(mod, ImageSource)
+        source_classes += map(cls2str, clss)
+
+    for mod, spec in obs_mods.values():
+        clss = find_subclasses(mod, ImageObserver)
+        observer_classes += map(cls2str, clss)
+
+
 def init(log, config):
     global _log, _config, video_config, _rec_state
     _log = log
     _config = config
     config_path = config.video_config_path
 
+    _find_image_classes()
+    
     if "video" not in state:
         state["video"] = {
             "image_sources": {},
@@ -254,19 +281,30 @@ def start():
 
 def shutdown_video():
     for w in video_writers.values():
-        w.stop_observing()
-        w.shutdown()
-        w.join()
+        try:
+            w.stop_observing()
+            w.shutdown()
+            w.join()
+        except Exception:
+            _log.exception("Error while closing video writers:")
 
     for obs in image_observers.values():
-        obs.stop_observing()
-        obs.shutdown()
-        obs.join()
+        try:
+            obs.stop_observing()
+            obs.shutdown()
+            obs.join()
+        except Exception:
+            _log.exception("Error while closing image observers:")
+
 
     start_trigger()
     for img_src in image_sources.values():
-        img_src.stop_event.set()
-        img_src.join()
+        try:
+            img_src.stop_event.set()
+            img_src.join()
+        except Exception:
+            _log.exception("Error while closing image sources:")
+            
 
     for src_id in image_sources.keys():
         state.remove_callback(("video", "image_sources", src_id, "acquiring"))
