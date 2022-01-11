@@ -6,7 +6,7 @@ import { VideoSettingsView } from './video_settings_view.js';
 export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) => {
     const [openSettingsModal, setOpenSettingsModal] = React.useState(false);
     const [isLoadingConfig, setLoadingConfig] = React.useState(false);
-    const [filePrefix, setFilePrefix] = React.useState(null);
+    const [filePrefix, setFilePrefix] = React.useState('');
 
     if (ctrl_state == null)
 	return null;

@@ -219,3 +219,7 @@ input[type="search"]::-webkit-search-cancel-button {
     margin-right: 2px;
     margin-left: 2px;
 }
+
+.dropdown .menu, .visible {
+    z-index: 200;
+}
