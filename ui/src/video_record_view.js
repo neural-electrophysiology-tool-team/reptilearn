@@ -6,14 +6,8 @@ import { VideoSettingsView } from './video_settings_view.js';
 export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) => {
     const [openSettingsModal, setOpenSettingsModal] = React.useState(false);
     const [isLoadingConfig, setLoadingConfig] = React.useState(false);
-    const prefix_input_ref = React.useRef();
+    const [filePrefix, setFilePrefix] = React.useState(null);
 
-    React.useEffect(() => {
-        if (ctrl_state.video.record.filename_prefix && prefix_input_ref.current) {
-            prefix_input_ref.current.value = ctrl_state.video.record.filename_prefix;
-        }
-    }, [ctrl_state]);
-		    
     if (ctrl_state == null)
 	return null;
 
@@ -26,14 +20,8 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
             fetch(api_url + "/video_record/stop");
         }
         else {
-            const prefix = prefix_input_ref.current.value;
-            if (prefix) {
-                fetch(api_url + `/video_record/set_prefix/${prefix}`)
-                    .then(res => fetch(api_url + "/video_record/start"));
-            }
-            else {
-                fetch(api_url + "/video_record/start");
-            }
+            fetch(api_url + `/video_record/set_prefix/${filePrefix}`)
+                .then(res => fetch(api_url + "/video_record/start"));
         }
     };
 
@@ -98,7 +86,8 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
             <Input type="text"
                    name="prefix_input"
                    placeholder="recording name"
-                   ref={prefix_input_ref}
+		   value={filePrefix}
+		   onChange={(e, data) => setFilePrefix(data.value)}
                    disabled={is_recording}
             />
             <Popup content={is_recording ? "Stop recording" : "Start recording"}

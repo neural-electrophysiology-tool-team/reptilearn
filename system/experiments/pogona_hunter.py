@@ -14,10 +14,10 @@ class PogonaHunter(exp.Experiment):
         "trialDuration": 10,
         "iti": 5,
         # bugTypes: [] of cockroach | worm | red_beetle | black_beetle | green_beetle |
-        # ant | centipede | spider
+        # ant | centipede | spider | leaf
         "bugTypes": ["cockroach"],
         "rewardBugs": "cockroach",
-        # movementType: circle | random | random_drift | low_horizontal | low_horizontal_noise
+        # movementType: circle | random | random_drift | low_horizontal | low_horizontal_noise | static
         "movementType": "circle",
         "speed": 0,
         "bugSize": 0,  # int
