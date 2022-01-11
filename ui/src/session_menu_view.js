@@ -72,7 +72,8 @@ export const SessionMenuView = ({ctrl_state}) => {
     };        
     
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
-
+    const is_recording = ctrl_state.video ? ctrl_state.video.is_recording : false;
+    
     const experiment_options = experimentList.map((e, i) => {return {text: e, key: e, value: i};});
     const new_session_modal = (
         <Modal
@@ -140,14 +141,14 @@ export const SessionMenuView = ({ctrl_state}) => {
                              onClick={() => open_session_list_modal(true)}/>
               <Dropdown.Divider/>
               <Dropdown.Item text='Close session'
-                             disabled={!session || is_running}
+                             disabled={!session || is_running || is_recording}
                              onClick={close_session}/>
               <Dropdown.Item text='Reload session'
-                             disabled={!session || is_running}
+                             disabled={!session || is_running || is_recording}
                              onClick={reload_session}/>
               <Dropdown.Item text='Delete session...'
                              onClick={() => setOpenDeleteModal(true)}
-                             disabled={!session || is_running}/>
+                             disabled={!session || is_running || is_recording}/>
               
             </Dropdown.Menu>
           </Dropdown>          
