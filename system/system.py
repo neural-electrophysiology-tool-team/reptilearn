@@ -46,7 +46,7 @@ except Exception:
     traceback.print_exc()
     sys.exit(1)
 
-mp.set_start_method('fork')
+# mp.set_start_method('fork')
 
 # Initialize state module
 state_mod.init()
