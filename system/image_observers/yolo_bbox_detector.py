@@ -7,28 +7,34 @@ import logging
 
 
 class YOLOv4ImageObserver(ImageObserver):
-    def __init__(
-        self,
-        img_src: ImageSource,
-            config,
-            state_cursor
-    ):
+    default_params = {
+        **ImageObserver.default_params,
+        "buffer_size": None,
+        "cfg_path": None,
+        "weights_path": None,
+        "meta_path": None,
+        "conf_thres": 0.9,
+        "nms_thres": 0.6,
+        "return_neareast_detection": False,
+    }
+
+    def _init(self):        
         from image_observers.YOLOv4.detector import YOLOv4Detector
 
-        super().__init__(img_src, config, state_cursor)
-
-        if "buffer_size" in config:
-            self.buffer_size = config["buffer_size"]
-            self.detection_buffer = []
-            yolo_config = dict(config)
-            del yolo_config["buffer_size"]
+        super()._init()
+        yolo_config = dict(self.config)
+        
+        if self.get_config("buffer_size") is not None:
+            self.buffer_size = self.get_config["buffer_size"]
+            self.detection_buffer = []            
         else:
             self.buffer_size = None
             self.detection_buffer = None
-            yolo_config = config
 
+        del yolo_config["buffer_size"]
         del yolo_config["src_id"]
         del yolo_config["class"]
+
         self.detector = YOLOv4Detector(**yolo_config)
 
         self.det_pipe_parent, self.det_pipe_child = mp.Pipe()
