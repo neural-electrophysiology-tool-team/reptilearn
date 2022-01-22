@@ -16,28 +16,29 @@ image_observers = {}
 video_writers = {}
 source_classes = []
 observer_classes = []
+image_class_params = {}
 
 _log = None
 _config = None
 _rec_state = None
 _do_restore_trigger = False
-    
 
-def load_source(src_id, config):
-    image_sources[src_id] = instantiate_class(
+
+def load_source(id, config):
+    image_sources[id] = instantiate_class(
         config["class"],
-        src_id,
+        id,
         config,
-        state_cursor=state.get_cursor(("video", "image_sources", src_id)),
+        state_cursor=state.get_cursor(("video", "image_sources", id)),
     )
 
 
-def load_observer(obs_id, config):
-    image_observers[obs_id] = instantiate_class(
+def load_observer(id, config):
+    image_observers[id] = instantiate_class(
         config["class"],
-        image_sources[config["src_id"]],
+        id,
         config,
-        state_cursor=state.get_cursor(("video", "image_observers", obs_id)),
+        state_cursor=state.get_cursor(("video", "image_observers", id)),
     )
 
 
@@ -62,15 +63,14 @@ def load_video_writers():
     video_writers = {}
 
     for src_id in image_sources.keys():
-        src = image_sources[src_id]
-
         video_writers[src_id] = video_write.VideoWriter(
-            src,
-            frame_rate=_config.video_record["video_frame_rate"],
-            encoding_params=_config.video_record["encoding_configs"][
-                src.config["encoding_config"]
-            ],
-            queue_max_size=_config.video_record["max_write_queue_size"],
+            src_id + ".writer",
+            {
+                "src_id": src_id,
+                "frame_rate": _config.video_record["video_frame_rate"],
+                "queue_max_size": _config.video_record["max_write_queue_size"],
+            },
+            state_cursor=None
         )
 
 
@@ -80,15 +80,16 @@ def update_video_config(config: dict):
 
     image_sources = {}
     image_observers = {}
-    
+
     load_video_config(config)
     load_video_writers()
 
     start()
 
     _log.info(f"Saving video config to '{_config.video_config_path.resolve()}'...")
+
     with open(_config.video_config_path, "w") as f:
-        json.dump(video_config, f, indent=4)
+        json.dump(config, f, indent=4)
 
     video_config = config
 
@@ -131,7 +132,7 @@ def start_record(src_ids=None):
         for src_id in src_ids:
             video_writers[src_id].start_observing()
 
-    if _rec_state["ttl_trigger"]:
+    if "ttl_trigger" in _rec_state and _rec_state["ttl_trigger"]:
         _do_restore_trigger = True
         stop_trigger(update_state=False)
         Timer(1, start_trigger, kwargs={"update_state": False}).start()
@@ -175,23 +176,29 @@ def capture_images(src_ids=None):
         _log.info(f"Saved image from image_source '{src.src_id}' in {p}")
 
 
-
 def _find_image_classes():
-    global source_classes, observer_classes
+    global source_classes, source_params, observer_classes, observer_params
 
     src_mods = load_modules(Path("./image_sources"), _log)
     obs_mods = load_modules(Path("./image_observers"), _log)
 
     def cls2str(name_cls):
         return mod.__name__ + "." + name_cls[1].__name__
-        
+
     for mod, spec in src_mods.values():
         clss = find_subclasses(mod, ImageSource)
-        source_classes += map(cls2str, clss)
+        cls_names = list(map(cls2str, clss))
+
+        source_classes += cls_names
+        for name, (_, cls) in zip(cls_names, clss):
+            image_class_params[name] = cls.default_params
 
     for mod, spec in obs_mods.values():
         clss = find_subclasses(mod, ImageObserver)
-        observer_classes += map(cls2str, clss)
+        cls_names = list(map(cls2str, clss))
+        observer_classes += cls_names
+        for name, (_, cls) in zip(cls_names, clss):
+            image_class_params[name] = cls.default_params
 
 
 def init(log, config):
@@ -201,7 +208,7 @@ def init(log, config):
     config_path = config.video_config_path
 
     _find_image_classes()
-    
+
     if "video" not in state:
         state["video"] = {
             "image_sources": {},
@@ -220,8 +227,8 @@ def init(log, config):
 
     if not config_path.exists():
         video_config = {
-                    "image_sources": {},
-                    "image_observers": {},
+            "image_sources": {},
+            "image_observers": {},
         }
 
         try:
@@ -269,11 +276,15 @@ def start():
     for w in video_writers.values():
         w.start()
 
-    _log.info(f"Starting {len(image_observers)} image observers: {', '.join(list(image_observers.keys()))}")
+    _log.info(
+        f"Starting {len(image_observers)} image observers: {', '.join(list(image_observers.keys()))}"
+    )
     for img_obs in image_observers.values():
         img_obs.start()
 
-    _log.info(f"Starting {len(image_sources)} image sources: {', '.join(list(image_sources.keys()))}")
+    _log.info(
+        f"Starting {len(image_sources)} image sources: {', '.join(list(image_sources.keys()))}"
+    )
     for src_id, img_src in image_sources.items():
         img_src.start()
         update_acquire_callback(src_id)
@@ -296,7 +307,6 @@ def shutdown_video():
         except Exception:
             _log.exception("Error while closing image observers:")
 
-
     start_trigger()
     for img_src in image_sources.values():
         try:
@@ -304,7 +314,6 @@ def shutdown_video():
             img_src.join()
         except Exception:
             _log.exception("Error while closing image sources:")
-            
 
     for src_id in image_sources.keys():
         state.remove_callback(("video", "image_sources", src_id, "acquiring"))

@@ -1,6 +1,6 @@
 try:
     import PySpin
-except:
+except Exception:
     pass
 
 from video_stream import ImageSource
@@ -9,48 +9,62 @@ import time
 
 
 class FLIRImageSource(ImageSource):
+    default_params = {
+        **ImageSource.default_params,
+        "exposure": 8000,
+        "trigger": True,
+        "frame_rate": None,
+        "pyspin": [],
+        "cam_id": None,
+    }
+
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
         try:
             self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-            self.cam.ExposureTime.SetValue(self.config["exposure"])
+            self.cam.ExposureTime.SetValue(self.get_config("exposure"))
 
-            if "trigger" in self.config and self.config["trigger"] is True:
+            if self.get_config("trigger") is True:
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-                self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_FallingEdge)
-            elif "frame_rate" in self.config:
+                self.cam.TriggerActivation.SetValue(
+                    PySpin.TriggerActivation_FallingEdge
+                )
+            elif self.get_config("frame_rate") is not None:
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
-                self.cam.AcquisitionFrameRate.SetValue(self.config["frame_rate"])
+                self.cam.AcquisitionFrameRate.SetValue(self.get_config("frame_rate"))
             else:
-                self.log.error("Configuriation error: Expecting either a 'trigger' or 'frame_rate' properties")
+                self.log.error(
+                    "Configuriation error: Expecting either a 'trigger' or 'frame_rate' properties"
+                )
                 return
-            
-            self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
-                
-            if "pyspin" in self.config:
-                for prop_value in self.config["pyspin"]:
-                    if len(prop_value) != 2:
-                        self.log.error(f"Configuration error: Expecting 2 elements: property, value, but got: {prop_value}")
-                        continue
 
-                    prop, value = prop_value
-                    if hasattr(self.cam, prop):
-                        if isinstance(value, str):
-                            if hasattr(PySpin, value):
-                                getattr(self.cam, prop).SetValue(getattr(PySpin, value))
-                            else:
-                                self.log.error(f"Unknown PySpin constant: {value}")
+            self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
+
+            for prop_value in self.get_config("pyspin"):
+                if len(prop_value) != 2:
+                    self.log.error(
+                        f"Configuration error: Expecting 2 elements: property, value, but got: {prop_value}"
+                    )
+                    continue
+
+                prop, value = prop_value
+                if hasattr(self.cam, prop):
+                    if isinstance(value, str):
+                        if hasattr(PySpin, value):
+                            getattr(self.cam, prop).SetValue(getattr(PySpin, value))
                         else:
-                            getattr(self.cam, prop).SetValue(value)
+                            self.log.error(f"Unknown PySpin constant: {value}")
                     else:
-                        self.log.error(f"Unknown PySpin camera property: {prop}")
-                        return
+                        getattr(self.cam, prop).SetValue(value)
+                else:
+                    self.log.error(f"Unknown PySpin camera property: {prop}")
+                    return
         except Exception:
             self.log.exception("Exception while configuring camera:")
 
@@ -64,9 +78,9 @@ class FLIRImageSource(ImageSource):
     def on_begin(self):
         self.system = PySpin.System_GetInstance()
         self.cam_list = self.system.GetCameras()
-        filtered = filter_cameras(self.cam_list, self.config["cam_id"])
+        filtered = filter_cameras(self.cam_list, self.get_config("cam_id"))
         if len(filtered) < 1:
-            self.log.error(f"Camera {self.config['cam_id']} was not found.")
+            self.log.error(f"Camera {self.get_config('cam_id')} was not found.")
             return False
 
         self.cam: PySpin.CameraPtr = filtered[0]

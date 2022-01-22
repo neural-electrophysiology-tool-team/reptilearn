@@ -1,7 +1,8 @@
 import time
 from datetime import datetime
 from state import state
-from video_stream import ImageObserver, ImageSource
+from video_stream import ImageObserver
+import video_system
 import imageio
 import queue
 import threading
@@ -27,19 +28,20 @@ def save_image(image, timestamp, prefix):
 
 
 class VideoWriter(ImageObserver):
-    def __init__(
-        self,
-        img_src: ImageSource,
-        frame_rate,
-        file_ext="mp4",
-        encoding_params={},
-        queue_max_size=0,
-    ):
-        super().__init__(img_src)
+    default_params = {
+        **ImageObserver.default_params,
+        "frame_rate": 60,
+        "file_ext": "mp4",
+        "encoding_params": {},
+        "queue_max_size": 0,
+    }
 
-        self.frame_rate = frame_rate
-        self.file_ext = file_ext
-        self.encoding_params = encoding_params
+    def _init(self):
+        super()._init()
+        self.frame_rate = self.get_config("frame_rate")
+        self.file_ext = self.get_config("file_ext")
+        self.encoding_params = video_system._config.video_record["encoding_configs"][self.img_src.get_config("encoding_config")]
+        self.queue_max_size = self.get_config("queue_max_size")
 
         self.img_src.state["writing"] = False
 
@@ -49,9 +51,7 @@ class VideoWriter(ImageObserver):
             self.convert_bgr = False
 
         self.prev_timestamp = None  # for missing frames alert
-
         self.q = None
-        self.queue_max_size = queue_max_size
 
     def on_start(self):
         if not self.img_src.state["acquiring"]:
@@ -59,8 +59,8 @@ class VideoWriter(ImageObserver):
             return
 
         timestamp = datetime.now()
-        vid_path = get_write_path(self.img_src.src_id, self.file_ext, timestamp)
-        ts_path = get_write_path(self.img_src.src_id, "csv", timestamp)
+        vid_path = get_write_path(self.img_src.id, self.file_ext, timestamp)
+        ts_path = get_write_path(self.img_src.id, "csv", timestamp)
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(

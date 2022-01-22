@@ -159,9 +159,6 @@ def continue_session(session_name):
     Load the session experiment module, load latest session state from the session_state.json file,
     and call init_session().
     """
-    # add session vars for local stuff
-    # if is running delete session vars and change to not running
-
     if session_state.exists(()):
         close_session()
 

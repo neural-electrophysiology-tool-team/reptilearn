@@ -1,27 +1,62 @@
+from debugpy import configure
+from flask import Config
 import numpy as np
 import multiprocessing as mp
 import cv2
 import time
 import rl_logging
-
-# TODO
-# - consider using imageio for VideoImageSource
+import state
+import video_system
 
 
 class AcquireException(Exception):
     pass
 
 
-class ImageSource(mp.Process):
-    def __init__(self, src_id, config, state_cursor):
-        super().__init__()
-        self.image_shape = config["image_shape"]
-        self.buf_len = config.get("buf_len", 1)
-        self.src_id = src_id
+class ConfigurableProcess(mp.Process):
+    default_params = {
+        "class": None,
+    }
 
+    def __init__(self, id: str, config: dict, state_cursor: state.Cursor):
+        super().__init__()
+        self.id = id
         self.state = state_cursor
-        self.state.set_self({"acquiring": False})
         self.config = config
+
+        self._init()
+
+    def get_config(self, key):
+        if key in self.config:
+            return self.config[key]
+        elif key in self.__class__.default_params:
+            return self.__class__.default_params[key]
+        else:
+            raise ValueError(f"Unknown config key: {key}")
+
+    def run(self):
+        self.log = rl_logging.logger_configurer(self.name)
+
+    def _init(self):
+        pass
+
+
+class ImageSource(ConfigurableProcess):
+    """
+    ImageSource - a multiprocessing.Process that writes image data to a shared memory buffer.
+    """
+
+    default_params = {
+        **ConfigurableProcess.default_params,
+        "buf_len": 1,
+        "image_shape": None,
+        "encoding_config": None,
+    }
+
+    def _init(self):
+        self.image_shape = self.get_config("image_shape")
+        self.buf_len = self.get_config("buf_len")
+        self.state.set_self({"acquiring": False})
 
         self.buf_shape = (
             self.image_shape
@@ -39,7 +74,7 @@ class ImageSource(mp.Process):
         self.stream_obs_event = mp.Event()
         self.stop_streaming_events = []
         self.add_observer_event(self.stream_obs_event)
-        self.name = f"{type(self).__name__}:{self.src_id}"
+        self.name = f"{type(self).__name__}:{self.id}"
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
@@ -60,7 +95,7 @@ class ImageSource(mp.Process):
         text_size = cv2.getTextSize(text, font, 5, 10)[0]
         pos = ((im_w - text_size[0]) // 2, (im_h + text_size[1]) // 2)
         img = np.zeros(shape)
-        
+
         cv2.putText(
             img,
             text,
@@ -102,7 +137,7 @@ class ImageSource(mp.Process):
                 time.sleep(max(1 / frame_rate - dt, 0))
 
     def run(self):
-        self.log = rl_logging.logger_configurer(self.name)
+        super().run()
 
         if not self.on_begin():
             return
@@ -166,20 +201,24 @@ class ImageSource(mp.Process):
         pass
 
 
-class ImageObserver(mp.Process):
-    def __init__(self, img_src: ImageSource, config: dict = None, state_cursor=None):
-        super().__init__()
-        self.img_src = img_src
-        self.state = state_cursor
-        if self.state is not None and config is not None:
-            self.config = config
+class ImageObserver(ConfigurableProcess):
+    """
+    ImageObserver - a multiprocessing.Process that can receive a stream of images from ImageSource objects.
+    """
 
+    default_params = {
+        **ConfigurableProcess.default_params,
+        "src_id": None,
+    }
+
+    def _init(self):
+        self.img_src = video_system.image_sources[self.get_config("src_id")]
         self.update_event = mp.Event()
-        img_src.add_observer_event(self.update_event)
+        self.img_src.add_observer_event(self.update_event)
 
         self.parent_pipe, self.child_pipe = mp.Pipe()
 
-        self.name = f"{type(self).__name__}:{self.img_src.src_id}"
+        self.name = f"{type(self).__name__}:{self.img_src.id}"
 
     def start_observing(self, num_frames=None):
         self.parent_pipe.send("start")
@@ -191,7 +230,7 @@ class ImageObserver(mp.Process):
         self.parent_pipe.send("shutdown")
 
     def run(self):
-        self.log = rl_logging.logger_configurer(self.name)
+        super().run()
 
         self.setup()
         cmd = None

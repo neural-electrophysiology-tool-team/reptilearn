@@ -10,6 +10,8 @@ import argparse
 import importlib
 import traceback
 from dotenv import load_dotenv
+import multiprocessing as mp
+import platform
 
 import rl_logging
 import mqtt
@@ -22,7 +24,6 @@ import state as state_mod
 import experiment
 import task
 import video_system
-import multiprocessing as mp
 from json_convert import json_convert
 
 # Load environment variables from .env file.
@@ -46,7 +47,8 @@ except Exception:
     traceback.print_exc()
     sys.exit(1)
 
-# mp.set_start_method('fork')
+if platform.system() == 'Darwin':
+    mp.set_start_method('fork')
 
 # Initialize state module
 state_mod.init()
@@ -101,6 +103,7 @@ def handle_connect():
     blob = json.dumps(state.get_self(), default=json_convert)
     emit("state", blob)
     # TODO: emit("log", all_past_log_or_session_log?)
+
 
 # Flask REST API
 @app.route("/config/<attribute>")
@@ -231,6 +234,7 @@ def route_experiment_list():
 
 
 # Session Routes
+
 
 @app.route("/session/create", methods=["POST"])
 def route_session_start():
@@ -377,6 +381,7 @@ def sessions_delete():
 
 # Tasks Routes
 
+
 @app.route("/task/list")
 def route_task_list():
     return flask.jsonify(task.all_tasks())
@@ -419,6 +424,7 @@ def route_task_cancel(task_idx):
 
 # Video Routes
 
+
 @app.route("/video/update_config", methods=["POST"])
 def route_update_config():
     try:
@@ -441,12 +447,23 @@ def route_video_get_config():
 @app.route("/video/list_image_classes")
 def route_video_list_classes():
     try:
-        return flask.jsonify({
-            "image_sources": video_system.source_classes,
-            "image_observers": video_system.observer_classes,
-        })
+        return flask.jsonify(
+            {
+                "image_sources": video_system.source_classes,
+                "image_observers": video_system.observer_classes,
+            }
+        )
     except Exception as e:
-        log.exception("Exception while getting video classes list:")
+        log.exception("Exception while getting image classes list:")
+        flask.abort(500, e)
+
+
+@app.route("/video/image_class_params/<cls>")
+def route_video_image_class_params(cls):
+    try:
+        return flask.jsonify(video_system.image_class_params[cls])
+    except Exception as e:
+        log.exception("Exception while getting image classes params:")
         flask.abort(500, e)
 
 
@@ -492,6 +509,7 @@ def route_set_prefix(prefix=""):
 
 
 # Arena Routes
+
 
 @app.route("/arena/config")
 def route_arena_config():
