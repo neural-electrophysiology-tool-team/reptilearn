@@ -1,34 +1,47 @@
-from video_stream import ImageSource
+from video_stream import ConfigurableProcess, ImageSource, AcquireException
 import cv2
 import time
 
 
 class VideoImageSource(ImageSource):
-    def __init__(self, src_id, config, state_cursor=None):
-        self.video_path = config["video_path"]
-        self.frame_rate = config.get("frame_rate", 60)
-        self.start_frame = config.get("start_frame", 0)
-        self.end_frame = config.get("end_frame", None)
-        self.repeat = config.get("repeat", False)
-        self.is_color = config.get("is_color", False)
-        self.src_id = src_id
+    """
+    VideoImageSource - an image source that reads images from a video file.
+    """
+
+    default_params = {
+        **ImageSource.default_params,
+        "video_path": None,
+        "frame_rate": 60,
+        "start_frame": 0,
+        "end_frame": None,
+        "repeat": False,
+        "is_color": False,
+    }
+
+    def _init(self):
+
+        self.video_path = self.get_config("video_path")
+        self.frame_rate = self.get_config("frame_rate")
+        self.start_frame = self.get_config("start_frame")
+        self.end_frame = self.get_config("end_frame")
+        self.repeat = self.get_config("repeat")
+        self.is_color = self.get_config("is_color")
 
         vcap = cv2.VideoCapture(str(self.video_path))
         if self.is_color:
-            config["image_shape"] = (
+            self.config["image_shape"] = (
                 int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
                 int(vcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
                 3,
             )
         else:
-            config["image_shape"] = (
+            self.config["image_shape"] = (
                 int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
                 int(vcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             )
 
         vcap.release()
-
-        super().__init__(src_id, config, state_cursor)
+        super()._init()
 
     def on_begin(self):
         self.vcap = cv2.VideoCapture(str(self.video_path))

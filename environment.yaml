@@ -5,7 +5,7 @@ channels:
 dependencies:
   - pip
   - python=3.8
-  - tk=8.6.11=he1e0b03_1
+  - tk=8.6.11
   - pip:
     - flask
     - flask-cors
