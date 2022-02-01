@@ -1,6 +1,7 @@
 import experiment as exp
 import mqtt
 from data_log import QueuedDataLogger
+import video_system
 
 # ToDo:
 # - use event log (for climbing for ex.)
@@ -9,8 +10,8 @@ from data_log import QueuedDataLogger
 
 class PogonaHunter(exp.Experiment):
     default_params = {
-        "numOfBugs": 0,
-        "numTrials": None,
+        "numOfBugs": 1,
+        "numTrials": 1,
         "trialDuration": 10,
         "iti": 5,
         # bugTypes: [] of cockroach | worm | red_beetle | black_beetle | green_beetle |
@@ -33,6 +34,7 @@ class PogonaHunter(exp.Experiment):
         "targetDrift": "leftBottom",
         "bugHeight": 100,
         "isLogTrajectory": True,
+        "record_video": False,
     }
 
     def setup(self):
@@ -57,10 +59,16 @@ class PogonaHunter(exp.Experiment):
         self.trajectory_logger.start()
 
     def run_block(self):
+        if exp.get_params()["record_video"]:
+            video_system.start_record()
+
         mqtt.client.publish_json("event/command/init_bugs", exp.get_params())
 
     def end_block(self):
         mqtt.client.publish_json("event/command/hide_bugs", {})
+
+        if exp.get_params()["record_video"]:
+            video_system.stop_record()
 
     def release(self):
         mqtt.client.unsubscribe_callback("event/log/touch")
