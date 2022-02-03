@@ -29,7 +29,7 @@ class VisualStimuli(exp.Experiment):
         self.log.info("Clearing screen.")
         monitor.set_color(color)
         monitor.clear()
-        
+
     def run(self):
         self.paths = list(Path(exp.get_params()["stimuli_path"]).rglob("*.jpg")) + list(
             Path(exp.get_params()["stimuli_path"]).rglob("*.JPG")

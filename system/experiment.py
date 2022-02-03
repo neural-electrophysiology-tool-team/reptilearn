@@ -375,10 +375,14 @@ def stop_experiment():
     except Exception:
         log.exception("Exception while ending session:")
     finally:
+        try:
+            schedule.cancel_all(pool="experiment_phases", wait=False)
+        except ValueError:
+            pass
+
         session_state["is_running"] = False
 
         event_logger.log("session/stop", session_state.get_self())
-
         set_phase(session_state.get("cur_block", 0), session_state.get("cur_trial", 0))
         _update_state_file()
 
@@ -413,19 +417,39 @@ def set_phase(block, trial, force_run=False):
         if cur_block != block:
             cur_experiment.end_block()
 
-        session_state.update((), {"cur_block": block, "cur_trial": trial})
-
-        num_trials = get_params().get("num_trials", None)
+        num_trials = get_params().get("$num_trials", None)
         if num_trials is not None and trial >= num_trials:
             raise ExperimentException(
                 f"Trial {trial} is out of range for block {block}."
             )
 
-        if cur_block != block or force_run:
-            cur_experiment.run_block()
+        def start_trial():
+            session_state.update((), {"cur_block": block, "cur_trial": trial})
 
-        if cur_trial != trial or cur_block != block or force_run:
-            cur_experiment.run_trial()
+            if cur_block != block or force_run:
+                cur_experiment.run_block()
+
+            if cur_trial != trial or cur_block != block or force_run:
+                cur_experiment.run_trial()
+
+            block_duration = get_params().get("$block_duration", None)
+            if block_duration is not None:
+                schedule.once(next_block, block_duration, pool="experiment_phases")
+
+            trial_duration = get_params().get("$trial_duration", None)
+            if trial_duration is not None:
+                schedule.once(next_trial, trial_duration, pool="experiment_phases")
+
+        try:
+            schedule.cancel_all(pool="experiment_phases", wait=False)
+        except ValueError:
+            pass
+
+        iti = get_params().get("$inter_trial_interval", None)
+        if iti is not None and cur_block != block or cur_trial != trial:
+            schedule.once(start_trial, iti)
+        else:
+            start_trial()
 
 
 def next_trial():
@@ -436,7 +460,7 @@ def next_trial():
     cur_trial = session_state["cur_trial"]
     cur_block = session_state["cur_block"]
 
-    num_trials = get_params().get("num_trials", None)
+    num_trials = get_params().get("$num_trials", None)
 
     if num_trials is not None and cur_trial + 1 >= num_trials:
         next_block()

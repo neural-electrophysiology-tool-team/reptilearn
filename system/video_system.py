@@ -51,11 +51,17 @@ def load_video_config(config: dict):
 
     if "image_sources" in config:
         for src_id, conf in config["image_sources"].items():
-            load_source(src_id, conf)
+            try:
+                load_source(src_id, conf)
+            except Exception:
+                _log.exception(f"Exception while loading image source {src_id}:")
 
     if "image_observers" in config:
         for obs_id, conf in config["image_observers"].items():
-            load_observer(obs_id, conf)
+            try:
+                load_observer(obs_id, conf)
+            except Exception:
+                _log.exception(f"Exception while loading image observer {obs_id}:")
 
 
 def load_video_writers():
@@ -70,13 +76,17 @@ def load_video_writers():
                 "frame_rate": _config.video_record["video_frame_rate"],
                 "queue_max_size": _config.video_record["max_write_queue_size"],
             },
-            state_cursor=None
+            state_cursor=None,
         )
 
 
 def update_video_config(config: dict):
     global image_sources, image_observers, video_config
-    shutdown_video()
+
+    try:
+        shutdown_video()
+    except Exception:
+        _log.exception("Exception while shutting down video:")
 
     image_sources = {}
     image_observers = {}
@@ -177,7 +187,7 @@ def capture_images(src_ids=None):
 
 
 def _find_image_classes():
-    global source_classes, source_params, observer_classes, observer_params
+    global source_classes, source_params, observer_classes
 
     src_mods = load_modules(Path("./image_sources"), _log)
     obs_mods = load_modules(Path("./image_observers"), _log)

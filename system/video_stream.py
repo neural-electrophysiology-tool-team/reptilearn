@@ -1,4 +1,4 @@
-from flask import Config
+import uuid
 import numpy as np
 import multiprocessing as mp
 import cv2
@@ -6,6 +6,7 @@ import time
 import rl_logging
 import state
 import video_system
+import threading
 
 
 class AcquireException(Exception):
@@ -186,9 +187,7 @@ class ImageSource(ConfigurableProcess):
         self.end_event.set()
 
     def get_image(self):
-        img = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(self.buf_shape)
-        timestamp = self.timestamp.value
-        return img, timestamp
+        return self.buf_np, self.timestamp.value
 
     def acquire_image(self):
         pass
@@ -211,25 +210,80 @@ class ImageObserver(ConfigurableProcess):
     }
 
     def _init(self):
+        """
+        Initialize the observer. Called by ConfigurableProcess.__init__()
+        """
         self.img_src = video_system.image_sources[self.get_config("src_id")]
         self.update_event = mp.Event()
         self.img_src.add_observer_event(self.update_event)
+
+        if self.state is not None:
+            self.state.set_self({"observing": False})
+
+        atype, asize, shape, dtype = self.get_buffer_opts()
+        self.output_buf = mp.Array(atype, asize)
+        self.output_shape = shape
+        self.output_dtype = dtype
+        self.output = np.frombuffer(self.output_buf.get_obj(), dtype=dtype).reshape(
+            self.output_shape
+        )
+        self.output_timestamp = mp.Value("d")  # a double
 
         self.parent_pipe, self.child_pipe = mp.Pipe()
 
         self.name = f"{type(self).__name__}:{self.img_src.id}"
 
-    def start_observing(self, num_frames=None):
+    def add_listener(self, fn):
+        """Can only be called from the main process"""
+        print("Adding listener")
+        listener_uuid = uuid.uuid4()
+        update_event = state._mgr.Event()
+        kill_event = threading.Event()
+        self.parent_pipe.send(["add", update_event, listener_uuid])
+
+        def listener():
+            print("Starting listener")
+            while True:
+                if update_event.wait(1):
+                    print("Received update notification")
+                    fn(self.output, self.output_timestamp.value)
+                    update_event.clear()
+
+                if kill_event.is_set():
+                    print("Killing listener")
+                    break
+
+        threading.Thread(target=listener, args=()).start()
+
+        def remove_listener():
+            print("Removing listener")
+            self.parent_pipe.send(["remove", listener_uuid])
+
+        return remove_listener
+
+    def get_output(self):
+        return self.output, self.output_timestamp.value
+        
+    def start_observing(self):
+        """Can only be called from the main process"""
         self.parent_pipe.send("start")
 
     def stop_observing(self):
+        """Can only be called from the main process"""
         self.parent_pipe.send("stop")
 
     def shutdown(self):
+        """Can only be called from the main process"""
         self.parent_pipe.send("shutdown")
 
     def run(self):
         super().run()
+
+        self.output = np.frombuffer(self.output_buf.get_obj(), dtype=self.output_dtype).reshape(
+            self.output_shape
+        )
+
+        self.output_update_events = {}
 
         self.setup()
         cmd = None
@@ -243,6 +297,14 @@ class ImageObserver(ConfigurableProcess):
             if self.img_src.end_event.is_set():
                 break
 
+            if isinstance(cmd, list):
+                if cmd[0] == 'add':
+                    self.log.info(f"Added update event: {cmd[2]}")
+                    self.output_update_events[cmd[2]] = cmd[1]
+                elif cmd[0] == 'remove':
+                    self.log.info(f"Removing update event: {cmd[1]}")
+                    del self.output_update_events[cmd[1]]
+
             if cmd == "shutdown":
                 self.log.info("Shutting down")
                 break
@@ -251,6 +313,8 @@ class ImageObserver(ConfigurableProcess):
                 self.avg_proc_time = 0
                 self.frame_count = 0
 
+                if self.state is not None:
+                    self.state["observing"] = True
                 self.on_start()
                 self.update_event.clear()
 
@@ -259,13 +323,25 @@ class ImageObserver(ConfigurableProcess):
                         if self.img_src.end_event.is_set():
                             break
 
-                        if self.child_pipe.poll() and self.child_pipe.recv() == "stop":
-                            break
+                        if self.child_pipe.poll():
+                            cmd = self.child_pipe.recv()
+                            if cmd == "stop":
+                                break
+                            elif isinstance(cmd, list):
+                                if cmd[0] == 'add':
+                                    self.log.info(f"Added update event: {cmd[2]}")
+                                    self.output_update_events[cmd[2]] = cmd[1]
+                                elif cmd[0] == 'remove':
+                                    self.log.info(f"Removing update event: {cmd[1]}")
+                                    del self.output_update_events[cmd[1]]
+
                         if self.update_event.wait(1):
                             self.update_event.clear()
 
                             t0 = time.time()
-                            self.on_image_update(*self.img_src.get_image())
+                            img, timestamp = self.img_src.get_image()
+                            self.output_timestamp.value = timestamp
+                            self.on_image_update(img, timestamp)
                             dt = time.time() - t0
                             self.frame_count += 1
                             if self.frame_count == 1:
@@ -278,9 +354,15 @@ class ImageObserver(ConfigurableProcess):
                     self.log.exception("Exception while observing:")
                 finally:
                     try:
+                        if self.state is not None:
+                            self.state["observing"] = False
                         self.on_stop()
                     except Exception:
                         self.log.exception("Exception while stopping observer:")
+
+    def notify_listeners(self):
+        for evt in self.output_update_events.values():
+            evt.set()
 
     def on_start(self):
         pass
@@ -296,3 +378,6 @@ class ImageObserver(ConfigurableProcess):
 
     def release(self):
         pass
+
+    def get_buffer_opts(self):
+        return "B", 0, 0, "uint8"

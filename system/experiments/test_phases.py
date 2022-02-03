@@ -1,5 +1,4 @@
 import experiment as exp
-import arena
 
 
 class TestPhasesExperiment(exp.Experiment):
@@ -8,26 +7,23 @@ class TestPhasesExperiment(exp.Experiment):
         "end_msg": "TestExperiment has ended",
     }
 
-    default_blocks = [
-        {"run_msg": f"block {i}", "end_msg": f"end block {i}"} for i in range(5)
-    ]
-
     def setup(self):
-        self.actions["run block 3"] = {"run": lambda: exp.set_phase(3, 0)}
-        self.actions["stop experiment"] = {"run": exp.stop_experiment}
+        pass
 
     def run_trial(self):
-        self.log.info("new trial")
-        arena.run_command("toggle", "Signal LED")
+        self.log.info(f"new trial {exp.session_state['cur_trial']}")
 
     def run_block(self):
-        self.log.info(exp.get_params()["run_msg"])
+        self.log.info(f"run block: {exp.get_params()['run_msg']}")
 
     def run(self):
-        self.log.info(exp.get_params()["run_msg"])
-
-    def end_block(self):
-        self.log.info(exp.get_params()["end_msg"])
+        self.log.info(f"run: {exp.get_params()['run_msg']}")
 
     def end(self):
-        self.log.info(exp.get_params()["end_msg"])
+        self.log.info(f"end: {exp.get_params()['end_msg']}")
+
+    def end_block(self):
+        self.log.info(f"end block: {exp.get_params()['end_msg']}")
+
+    def end_trial(self):
+        self.log.info(f"trial {exp.session_state['cur_trial']} ended")

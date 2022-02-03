@@ -74,9 +74,15 @@ export const BlocksView = ({is_running, cur_block, params, blocks, set_blocks}) 
             key => block[key] === undefined
         )];
 	
-        if (!options.includes("num_trials"))
-            options.push("num_trials");
-        
+        if (!options.includes("$num_trials"))
+            options.push("$num_trials");
+        if (!options.includes("$block_duration"))
+            options.push("$block_duration")
+        if (!options.includes("$trial_duration"))
+            options.push("$trial_duration")
+            if (!options.includes("$inter_trial_interval"))
+            options.push("$inter_trial_interval")
+
         return <Selector options={options}
                          selected={options[0]}
                          disabled={is_running}

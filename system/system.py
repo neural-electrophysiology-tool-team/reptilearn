@@ -24,6 +24,7 @@ import state as state_mod
 import experiment
 import task
 import video_system
+import transform
 from json_convert import json_convert
 
 # Load environment variables from .env file.
@@ -84,6 +85,7 @@ arena.init(log, config)
 video_system.init(log, config)
 experiment.init(log, config)
 
+# Load image sources and observers
 video_system.start()
 
 
@@ -177,7 +179,8 @@ def route_image_sources_stream(src_id):
         try:
             while True:
                 try:
-                    img, _ = next(gen)
+                    img, timestamp = next(gen)
+                    img = transform.apply_transforms(img, timestamp, src_id)
                     enc_img = encode_image_for_response(img, *enc_args)
                     yield (
                         b"--frame\r\n"

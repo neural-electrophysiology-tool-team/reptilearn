@@ -96,7 +96,7 @@ class DiscriminationExperiment(exp.Experiment):
         "shaping_mode": True,
         "min_idle_time": 30,  # seconds
         "max_idle_time": 180,  # seconds
-        "num_trials": 15,
+        "$num_trials": 15,
     }
 
     def find_aruco(self):

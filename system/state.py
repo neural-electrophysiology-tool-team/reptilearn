@@ -364,7 +364,7 @@ class Cursor:
         return self.setitem(path, v)
 
     def __str__(self):
-        return str(self.get_self())
+        return f"Cursor({self.path})"
 
     def __contains__(self, k):
         if type(k) is tuple:

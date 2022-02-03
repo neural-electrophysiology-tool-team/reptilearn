@@ -10,9 +10,9 @@ class TimerExperiment(exp.Experiment):
     }
 
     default_blocks = [
-        {"num_trials": 2},
-        {"num_trials": 3, "interval": 2},
-        {"num_trials": 6, "interval": 0.5},
+        {"$num_trials": 2},
+        {"$num_trials": 3, "interval": 2},
+        {"$num_trials": 6, "interval": 0.5},
         {"interval": 2},
     ]
 
@@ -27,7 +27,7 @@ class TimerExperiment(exp.Experiment):
         interval = exp.get_params()["interval"]
 
         self.cancel_timer = schedule.repeat(
-            self.timer_fn, interval, exp.get_params().get("num_trials", True)
+            self.timer_fn, interval, exp.get_params().get("$num_trials", True)
         )
 
     def run_trial(self):

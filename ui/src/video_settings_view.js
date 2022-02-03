@@ -91,7 +91,7 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
         const cfg = (activeTabIdx === 0) ? {...sourcesConfig} : {...observersConfig};
         
         const default_params = await fetch(`${api_url}/video/image_class_params/${addClassInput}`).then((resp) => resp.json())
-        console.log(default_params);
+        
         cfg[addIdInput] = {
             ...default_params,
             class: addClassInput            

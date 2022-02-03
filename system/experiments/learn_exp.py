@@ -39,7 +39,7 @@ class LearnExp(exp.Experiment):
         "stimulus": "led",
         "continuous": False,
         "consecutive": True,
-        "num_trials": 7,
+        "$num_trials": 7,
     }
 
     def setup(self):
@@ -73,7 +73,7 @@ class LearnExp(exp.Experiment):
         self.consq_end = False
 
         self.data_dir = session_state["data_dir"]
-        self.cur_trial = params["num_trials"]
+        self.cur_trial = params["$num_trials"]
         self.consecutive = params["consecutive"]
         # determining the experiment type
         self.ex_type = (
@@ -128,7 +128,7 @@ class LearnExp(exp.Experiment):
 
         self.log.info(
             "Trial "
-            + str(params["num_trials"] - self.cur_trial)
+            + str(params["$num_trials"] - self.cur_trial)
             + " started "
             + str(datetime.datetime.now())
         )

@@ -16,7 +16,7 @@ class SimpleLearnExp(exp.Experiment):
         "monitor_color": "yellow",
         "monitor_duration": 20,
         "stimulus": "led",
-        "num_trials": 7,
+        "$num_trials": 7,
     }
 
     def setup(self):
@@ -27,7 +27,7 @@ class SimpleLearnExp(exp.Experiment):
         pass
 
     def run(self):
-        self.cur_trial = exp.get_params()["num_trials"]
+        self.cur_trial = exp.get_params()["$num_trials"]
 
         if exp.get_params()["record_exp"]:  # record start at init
             video_system.start_record()

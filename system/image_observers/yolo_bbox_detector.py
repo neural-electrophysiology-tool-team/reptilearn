@@ -1,8 +1,9 @@
 import multiprocessing as mp
 import threading
-from video_stream import ImageObserver, ImageSource
+from video_stream import ImageObserver
 import time
 import logging
+
 # import mqtt
 
 
@@ -18,15 +19,15 @@ class YOLOv4ImageObserver(ImageObserver):
         "return_neareast_detection": False,
     }
 
-    def _init(self):        
+    def _init(self):
         from image_observers.YOLOv4.detector import YOLOv4Detector
 
         super()._init()
         yolo_config = dict(self.config)
-        
+
         if self.get_config("buffer_size") is not None:
             self.buffer_size = self.get_config["buffer_size"]
-            self.detection_buffer = []            
+            self.detection_buffer = []
         else:
             self.buffer_size = None
             self.detection_buffer = None

@@ -69,7 +69,7 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
                                  fetch_video_config={fetch_video_config}/>
               <Dropdown item text='Video' disabled={is_recording}>
                 <Dropdown.Menu>
-                  <Dropdown.Header>Record Sources</Dropdown.Header>
+                  <Dropdown.Header>Select sources</Dropdown.Header>
                   {src_items}
                   <Dropdown.Divider/>
                   <Dropdown.Item text="Video settings"
