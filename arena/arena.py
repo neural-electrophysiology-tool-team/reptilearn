@@ -15,36 +15,36 @@ Run `python main.py --help` for more information.
 """
 
 
-def run_shell_command(logger, cmd):
+def run_shell_command(log, cmd):
     ret = subprocess.call(
         cmd,
         stdout=sys.stdout,
         stderr=sys.stderr,
     )
     if ret != 0:
-        logger.error(f"Nonzero exit code while running {' '.join(cmd)}")
+        log.error(f"Nonzero exit code while running {' '.join(cmd)}")
     return ret
 
 
-def upload_program(logger, serial_ports_config):
+def upload_program(log, serial_ports_config):
     for port_name, port_conf in serial_ports_config.items():
         pid = port_conf["id"]
 
         if "fqbn" not in port_conf:
-            logger.error(f"Missing 'fqbn' key in port '{port_name}' config.")
+            log.error(f"Missing 'fqbn' key in port '{port_name}' config.")
             return False
 
         try:
             file_flag = "-f" if platform.system() == "Darwin" else "-F"
 
             port = serial_port_by_id(pid)
-            logger.info(f"Uploading arena program to port '{port_name}' ({port}).")
-            ret = run_shell_command(logger, ["stty", file_flag, port.device, "1200"])
+            log.info(f"Uploading arena program to port '{port_name}' ({port}).")
+            ret = run_shell_command(log, ["stty", file_flag, port.device, "1200"])
             if ret != 0:
                 return False
 
             ret = run_shell_command(
-                logger,
+                log,
                 [
                     "arduino-cli",
                     "compile",
@@ -57,7 +57,7 @@ def upload_program(logger, serial_ports_config):
                 return False
 
             ret = run_shell_command(
-                logger,
+                log,
                 [
                     "arduino-cli",
                     "upload",
@@ -72,10 +72,10 @@ def upload_program(logger, serial_ports_config):
                 return False
 
         except Exception:
-            logger.exception("Exception while uploading program:")
+            log.exception("Exception while uploading program:")
             return False
 
-    logger.info("Done uploading!")
+    log.info("Done uploading!")
     return True
 
 
@@ -110,8 +110,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.upload:
-        ret = upload_program(logger, config.serial["ports"])
-        if ret is True:
+        upload_ret = upload_program(logger, config.serial["ports"])
+        if upload_ret is True:
             sys.exit(0)
         else:
             sys.exit(1)
