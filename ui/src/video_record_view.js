@@ -9,11 +9,11 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
     const [filePrefix, setFilePrefix] = React.useState('');
 
     if (ctrl_state == null)
-	return null;
+	    return null;
 
-    const image_sources = Object.keys(ctrl_state.video.image_sources);
-    const is_recording = ctrl_state.video.record.is_recording;
-    const ttl_trigger_state = ctrl_state.video.record.ttl_trigger;
+    const image_sources = ctrl_state.video?.image_sources ? Object.keys(ctrl_state.video.image_sources) : null;
+    const is_recording = ctrl_state.video?.record?.is_recording;
+    const ttl_trigger_state = ctrl_state.video?.record?.ttl_trigger;
     
     const toggle_recording = (e) => {
         if (is_recording) {
@@ -51,14 +51,14 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
     };
           
     const video_menu = (() => {
-        const src_items = image_sources.map(src_id => {
-            const selected = ctrl_state.video.record.selected_sources.indexOf(src_id) !== -1;
+        const src_items = image_sources ? image_sources.map(src_id => {
+            const selected = ctrl_state.video?.record?.selected_sources ? (ctrl_state.video.record.selected_sources.indexOf(src_id) !== -1) : false;
             return <Dropdown.Item text={src_id}
                                   icon={selected ? "check circle outline" : "circle outline"}
                                   onClick={() => src_changed(src_id)}
                                   disabled={!ctrl_state.video.image_sources[src_id].acquiring}
                                   key={src_id}/>;
-        });
+        }) : null;
         
         return (
             <React.Fragment>
@@ -66,7 +66,8 @@ export const VideoRecordView = ({ctrl_state, video_config, fetch_video_config}) 
                                  setOpen={setOpenSettingsModal}
                                  video_config={video_config}
                                  loading={isLoadingConfig}
-                                 fetch_video_config={fetch_video_config}/>
+                                 fetch_video_config={fetch_video_config}
+                                 ctrl_state={ctrl_state}/>
               <Dropdown item text='Video' disabled={is_recording}>
                 <Dropdown.Menu>
                   <Dropdown.Header>Select sources</Dropdown.Header>

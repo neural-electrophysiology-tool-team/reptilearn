@@ -27,7 +27,7 @@ def add_routes(app, config, log):
         sheight = flask.request.args.get("height")
         height = None if sheight is None else int(sheight)
 
-        if src_id in state["video", "image_sources"]:
+        if state.get(("video", "image_sources", src_id), None) is not None:
             src_config = video_system.video_config["image_sources"][src_id]
         else:
             src_config = None
@@ -344,6 +344,15 @@ def add_routes(app, config, log):
             return flask.jsonify(video_system.image_class_params[cls])
         except Exception as e:
             log.exception("Exception while getting image classes params:")
+            flask.abort(500, e)
+
+    @app.route("/video/shutdown")
+    def route_video_shutdown():
+        try:
+            video_system.shutdown_video()
+            return flask.Response("ok")
+        except Exception as e:
+            log.exception("Exception while shutting down video system:")
             flask.abort(500, e)
 
     @app.route("/video_record/select_source/<src_id>")

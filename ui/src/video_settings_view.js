@@ -1,9 +1,9 @@
 import React from 'react';
-import {api_url } from './config.js';
+import { api_url } from './config.js';
 import { Input, Grid, Divider, Dropdown, Modal, Button, Icon, Tab } from 'semantic-ui-react';
 import ReactJson from 'react-json-view';
 
-export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, open}) => {
+export const VideoSettingsView = ({ video_config, fetch_video_config, setOpen, open, ctrl_state }) => {
     const [openAddModal, setOpenAddModal] = React.useState(false);
     const [addIdInput, setAddIdInput] = React.useState(null);
     const [addClassInput, setAddClassInput] = React.useState(null);
@@ -13,14 +13,13 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
     const [imageClasses, setImageClasses] = React.useState(null);
     const [selectedSource, setSelectedSource] = React.useState(null);
     const [selectedObserver, setSelectedObserver] = React.useState(null);
-    const [isApplying, setApplying] = React.useState(false);
 
     React.useEffect(() => {
-	fetch(api_url + '/video/list_image_classes')
-	    .then((res) => res.json())
-	    .then(setImageClasses);
+        fetch(api_url + '/video/list_image_classes')
+            .then((res) => res.json())
+            .then(setImageClasses);
     }, [setImageClasses]);
-    
+
     React.useEffect(() => {
         if (!open) {
             return;
@@ -31,7 +30,7 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
 
         setSourcesConfig(srcs_conf);
         setObserversConfig(obs_conf);
-        
+
         if (Object.keys(srcs_conf).length > 0) {
             setSelectedSource(Object.keys(srcs_conf)[0]);
         }
@@ -46,9 +45,19 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
 
     const cur_object = activeTabIdx === 0 ? "source" : "observer";
     const cur_class_parent = activeTabIdx === 0 ? "image_sources" : "image_observers";
-    
+
+    const shutdown = () => {
+        setOpen(false)
+
+        fetch(api_url + '/video/shutdown')
+            .catch((e) => {
+                console.log('Error while shutting down video system:', e);
+            })
+
+    }
     const apply = () => {
-        setApplying(true);
+        setOpen(false);
+
         fetch(api_url + '/video/update_config', {
             method: "POST",
             headers: {
@@ -58,7 +67,8 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
             body: JSON.stringify({
                 "image_sources": sourcesConfig,
                 "image_observers": observersConfig
-            })})
+            })
+        })
             .then((resp) => {
                 if (fetch_video_config) {
                     return fetch_video_config();
@@ -67,35 +77,30 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
                     return resp;
                 }
             })
-            .then(() => {
-                setOpen(false);
-                setApplying(false);
-            })        
             .catch((e) => {
                 console.log("Error while updating config:", e);
-                setApplying(false);
             });
     };
 
     const open_add_modal = () => {
-	const classes = imageClasses[cur_class_parent];
-	if (classes && classes.length > 0) {
+        const classes = imageClasses[cur_class_parent];
+        if (classes && classes.length > 0) {
             setAddClassInput(imageClasses[cur_class_parent][0]);
         }
 
         setAddIdInput('');
         setOpenAddModal(true);
     };
-    
+
     const add_object = async () => {
-        const cfg = (activeTabIdx === 0) ? {...sourcesConfig} : {...observersConfig};
-        
+        const cfg = (activeTabIdx === 0) ? { ...sourcesConfig } : { ...observersConfig };
+
         const default_params = await fetch(`${api_url}/video/image_class_params/${addClassInput}`).then((resp) => resp.json())
-        
+
         cfg[addIdInput] = {
             ...default_params,
-            class: addClassInput            
-        };            
+            class: addClassInput
+        };
 
         if (activeTabIdx === 0) {
             setSourcesConfig(cfg);
@@ -105,12 +110,12 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
             setObserversConfig(cfg);
             setSelectedObserver(addIdInput);
         }
-        
+
         setOpenAddModal(false);
     };
 
     const remove_object = () => {
-        const cfg = (activeTabIdx === 0) ? {...sourcesConfig} : {...observersConfig};
+        const cfg = (activeTabIdx === 0) ? { ...sourcesConfig } : { ...observersConfig };
 
         delete cfg[(activeTabIdx === 0) ? selectedSource : selectedObserver];
 
@@ -123,11 +128,11 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
             setSelectedObserver(Object.keys(cfg)[0]);
         }
     };
-    
-    const reset_object = () => {
-        const cfg = (activeTabIdx === 0) ? {...sourcesConfig} : {...observersConfig};
 
-	const obj_id = (activeTabIdx === 0) ? selectedSource : selectedObserver;
+    const reset_object = () => {
+        const cfg = (activeTabIdx === 0) ? { ...sourcesConfig } : { ...observersConfig };
+
+        const obj_id = (activeTabIdx === 0) ? selectedSource : selectedObserver;
 
         if (activeTabIdx === 0) {
             cfg[obj_id] = video_config.image_sources[obj_id];
@@ -150,15 +155,15 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
 
     const on_selected_src_changed = (e, { value }) => setSelectedSource(value);
     const on_selected_obs_changed = (e, { value }) => setSelectedObserver(value);
-    
+
     const on_source_changed = (config, src_id) => {
-        const c = {...sourcesConfig};
+        const c = { ...sourcesConfig };
         c[src_id] = config;
         setSourcesConfig(c);
     };
 
     const on_observer_changed = (config, src_id) => {
-        const c = {...observersConfig};
+        const c = { ...observersConfig };
         c[src_id] = config;
         setObserversConfig(c);
     };
@@ -167,54 +172,58 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
         text: src_id,
         value: src_id
     }));
-    
+
     const obs_options = Object.keys(observersConfig).map(obs_id => ({
         key: obs_id,
         text: obs_id,
         value: obs_id
     }));
-    
+
     const panes = [
-        { menuItem: 'Sources', render: () => (
-            <Tab.Pane>
-              <Dropdown placeholder='Select image source'
+        {
+            menuItem: 'Sources', render: () => (
+                <Tab.Pane>
+                    <Dropdown placeholder='Select image source'
                         selection
                         options={srcs_options}
                         value={selectedSource}
-                        onChange={on_selected_src_changed}/>
-              <Button icon size="tiny" onClick={open_add_modal}><Icon name="add"/></Button>
-              <Button icon size="tiny" onClick={remove_object}><Icon name="delete"/></Button>
-              <Button icon size="tiny" onClick={reset_object}><Icon name="undo"/></Button>
-              <Divider/>
-              <ReactJson src={sourcesConfig[selectedSource]}
-                         name={null}
-                         onEdit={(e) => on_source_changed(e.updated_src, selectedSource)}
-                         onAdd={(e) => on_source_changed(e.updated_src, selectedSource)}
-                         onDelete={(e) => on_source_changed(e.updated_src, selectedSource)}/>
-            </Tab.Pane>
-        ) },
-        { menuItem: 'Observers', render: () => (
-            <Tab.Pane>
-              <Dropdown placeholder='Select image observer'
+                        onChange={on_selected_src_changed} />
+                    <Button icon size="tiny" onClick={open_add_modal}><Icon name="add" /></Button>
+                    <Button icon size="tiny" onClick={remove_object}><Icon name="delete" /></Button>
+                    <Button icon size="tiny" onClick={reset_object}><Icon name="undo" /></Button>
+                    <Divider />
+                    <ReactJson src={sourcesConfig[selectedSource]}
+                        name={null}
+                        onEdit={(e) => on_source_changed(e.updated_src, selectedSource)}
+                        onAdd={(e) => on_source_changed(e.updated_src, selectedSource)}
+                        onDelete={(e) => on_source_changed(e.updated_src, selectedSource)} />
+                </Tab.Pane>
+            )
+        },
+        {
+            menuItem: 'Observers', render: () => (
+                <Tab.Pane>
+                    <Dropdown placeholder='Select image observer'
                         selection
                         options={obs_options}
                         value={selectedObserver}
-                        onChange={on_selected_obs_changed}/>
-              <Button icon size="tiny" onClick={open_add_modal}><Icon name="add"/></Button>
-              <Button icon size="tiny" onClick={remove_object}><Icon name="delete"/></Button>
-              <Button icon size="tiny" onClick={reset_object}><Icon name="undo"/></Button>
-              <Divider/>
-              <ReactJson src={observersConfig[selectedObserver]}
-                         name={null}
-                         onEdit={(e) => on_observer_changed(e.updated_src, selectedObserver)}
-                         onAdd={(e) => on_observer_changed(e.updated_src, selectedObserver)}
-                         onDelete={(e) => on_observer_changed(e.updated_src, selectedObserver)}/>
-            </Tab.Pane>
-        )}
-    ];    
+                        onChange={on_selected_obs_changed} />
+                    <Button icon size="tiny" onClick={open_add_modal}><Icon name="add" /></Button>
+                    <Button icon size="tiny" onClick={remove_object}><Icon name="delete" /></Button>
+                    <Button icon size="tiny" onClick={reset_object}><Icon name="undo" /></Button>
+                    <Divider />
+                    <ReactJson src={observersConfig[selectedObserver]}
+                        name={null}
+                        onEdit={(e) => on_observer_changed(e.updated_src, selectedObserver)}
+                        onAdd={(e) => on_observer_changed(e.updated_src, selectedObserver)}
+                        onDelete={(e) => on_observer_changed(e.updated_src, selectedObserver)} />
+                </Tab.Pane>
+            )
+        }
+    ];
 
-    const is_obj = (obj) => obj != null && typeof(obj) === 'object';
-    
+    const is_obj = (obj) => obj != null && typeof (obj) === 'object';
+
     const deep_equals = (o1, o2) => {
         const ks1 = Object.keys(o1);
         const ks2 = Object.keys(o2);
@@ -235,59 +244,65 @@ export const VideoSettingsView = ({video_config, fetch_video_config, setOpen, op
     };
 
     const dirty = !deep_equals(sourcesConfig, video_config.image_sources) ||
-          !deep_equals(observersConfig, video_config.image_observers);
-    
+        !deep_equals(observersConfig, video_config.image_observers);
+
+    const video_is_running = !!ctrl_state.video;
+    const restart_label = dirty ?
+        (video_is_running ? "Apply & restart" : "Apply & start")
+        : (video_is_running ? "Restart" : "Start");
+
     return (
         <React.Fragment>
-          <Modal onClose={() => setOpenAddModal(false)}
-                 open={openAddModal}
-                 size='tiny'>
-            <Modal.Header>Add {cur_object}</Modal.Header>
-            <Modal.Content>
-              <Grid columns={2} verticalAlign='middle'>
-                <Grid.Row>
-                  <Grid.Column width={4}>Class</Grid.Column>
-                    <Grid.Column width={12}>
-			<Dropdown selection
-				  fluid
-				  onChange={(e, opt) => setAddClassInput(opt.value)}
-				  value={addClassInput}
-				  options={imageClasses[cur_class_parent].map((c) => ({text: c.split('.').slice(1).join('.'), key: c, value: c}))}/>
-		    </Grid.Column>
-                </Grid.Row>
-                <Grid.Row>
-                  <Grid.Column width={4}>Id:</Grid.Column>
-                  <Grid.Column width={12}>
-                    <Input placeholder={cur_object + " id"}
-                           value={addIdInput}
-                           onChange={(e, { value }) => setAddIdInput(value)}
-                           fluid
-                           error={add_object_exists()}/>
-                  </Grid.Column>
-                </Grid.Row>                
-              </Grid>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button onClick={() => setOpenAddModal(false)}>Cancel</Button>
-              <Button positive onClick={add_object}
-                      disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>Add</Button>
-            </Modal.Actions>
-          </Modal>
-          <Modal
-            onClose={() => setOpen(false)}
-            open={open}
-            size='small'>
-            <Modal.Header>Video settings</Modal.Header>
-            <Modal.Content scrolling>
-              <Tab panes={panes} activeIndex={activeTabIdx}
-                   onTabChange={(e, { activeIndex }) => setActiveTabIdx(activeIndex)}/>
-            </Modal.Content>
-              <Modal.Actions>
-		<Button negative loading={isApplying} onClick={apply}>{dirty ? "Apply" : "Restart"}</Button>
-		<Button onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</Button>
-            </Modal.Actions>
-          </Modal>
+            <Modal onClose={() => setOpenAddModal(false)}
+                open={openAddModal}
+                size='tiny'>
+                <Modal.Header>Add {cur_object}</Modal.Header>
+                <Modal.Content>
+                    <Grid columns={2} verticalAlign='middle'>
+                        <Grid.Row>
+                            <Grid.Column width={4}>Class</Grid.Column>
+                            <Grid.Column width={12}>
+                                <Dropdown selection
+                                    fluid
+                                    onChange={(e, opt) => setAddClassInput(opt.value)}
+                                    value={addClassInput}
+                                    options={imageClasses[cur_class_parent].map((c) => ({ text: c.split('.').slice(1).join('.'), key: c, value: c }))} />
+                            </Grid.Column>
+                        </Grid.Row>
+                        <Grid.Row>
+                            <Grid.Column width={4}>Id:</Grid.Column>
+                            <Grid.Column width={12}>
+                                <Input placeholder={cur_object + " id"}
+                                    value={addIdInput}
+                                    onChange={(e, { value }) => setAddIdInput(value)}
+                                    fluid
+                                    error={add_object_exists()} />
+                            </Grid.Column>
+                        </Grid.Row>
+                    </Grid>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button onClick={() => setOpenAddModal(false)}>Cancel</Button>
+                    <Button positive onClick={add_object}
+                        disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>Add</Button>
+                </Modal.Actions>
+            </Modal>
+            <Modal
+                onClose={() => setOpen(false)}
+                open={open}
+                size='small'>
+                <Modal.Header>Video settings</Modal.Header>
+                <Modal.Content scrolling>
+                    <Tab panes={panes} activeIndex={activeTabIdx}
+                        onTabChange={(e, { activeIndex }) => setActiveTabIdx(activeIndex)} />
+                </Modal.Content>
+                <Modal.Actions>
+                    {video_is_running ? <Button negative onClick={shutdown}>{"Shutdown"}</Button> : null}
+                    <Button positive onClick={apply}>{restart_label}</Button>
+                    <Button onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</Button>
+                </Modal.Actions>
+            </Modal>
         </React.Fragment>
     );
-        
+
 };

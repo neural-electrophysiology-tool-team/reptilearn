@@ -72,7 +72,7 @@ export const SessionMenuView = ({ctrl_state}) => {
     };        
     
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
-    const is_recording = ctrl_state.video ? ctrl_state.video.record.is_recording : false;
+    const is_recording = !!ctrl_state.video?.record?.is_recording;
     
     const experiment_options = experimentList.map((e, i) => {return {text: e, key: e, value: i};});
     const new_session_modal = (

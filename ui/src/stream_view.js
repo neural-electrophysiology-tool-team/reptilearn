@@ -191,7 +191,7 @@ export class StreamGroupView extends React.Component {
     }
         
     render() {
-        if (!this.props.video_config) {
+        if (!this.props.ctrl_state?.video || !this.props.video_config) {
             return null;
         }
         
