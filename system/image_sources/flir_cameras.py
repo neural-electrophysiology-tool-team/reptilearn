@@ -16,6 +16,7 @@ class FLIRImageSource(ImageSource):
         "frame_rate": None,
         "pyspin": [],
         "cam_id": None,
+        "trigger_source": "Line3",
     }
 
     def configure_camera(self):
@@ -29,7 +30,7 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
-                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
+                self.cam.TriggerSource.SetValue(getattr(PySpin, "TriggerSource_" + self.get_config("trigger_source")))
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 self.cam.TriggerActivation.SetValue(
                     PySpin.TriggerActivation_FallingEdge
