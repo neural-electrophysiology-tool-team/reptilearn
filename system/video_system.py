@@ -1,10 +1,9 @@
 from state import state
 from dynamic_loading import instantiate_class, load_modules, find_subclasses
 import video_write
-from arena import start_trigger, stop_trigger
+from arena import has_trigger, start_trigger, stop_trigger
 from video_stream import ImageSource, ImageObserver
-
-from datetime import datetime
+import overlay
 from threading import Timer
 from pathlib import Path
 import json
@@ -32,6 +31,8 @@ def load_source(id, config):
         state_cursor=state.get_cursor(("video", "image_sources", id)),
     )
 
+    overlay.overlays[id] = [overlay.TimestampVisualizer()]
+
 
 def load_observer(id, config):
     image_observers[id] = instantiate_class(
@@ -43,6 +44,8 @@ def load_observer(id, config):
 
 
 def load_video_config(config: dict):
+    overlay.overlays = {}
+
     if "video" not in state:
         state["video"] = {
             "image_sources": {},
@@ -182,7 +185,7 @@ def capture_images(src_ids=None):
 
     for src in selected_sources:
         img, ts = src.get_image()
-        p = video_write.save_image(img, ts, src.src_id)
+        p = video_write.save_image(img, ts, src.get_config("src_id"))
         _log.info(f"Saved image from image_source '{src.src_id}' in {p}")
 
 
@@ -317,7 +320,9 @@ def shutdown_video():
         except Exception:
             _log.exception("Error while closing image observers:")
 
-    start_trigger()
+    if "ttl_trigger" in _rec_state and not _rec_state["ttl_trigger"]:
+        start_trigger()
+
     for img_src in image_sources.values():
         try:
             img_src.stop_event.set()
@@ -331,4 +336,5 @@ def shutdown_video():
 
 def shutdown():
     shutdown_video()
-    stop_trigger()
+    if "ttl_trigger" in _rec_state and not _rec_state["ttl_trigger"]:
+        stop_trigger()

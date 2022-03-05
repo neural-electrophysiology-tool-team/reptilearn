@@ -27,3 +27,6 @@ class TestPhasesExperiment(exp.Experiment):
 
     def end_trial(self):
         self.log.info(f"trial {exp.session_state['cur_trial']} ended")
+
+    def release(self):
+        pass

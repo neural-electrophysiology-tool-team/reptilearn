@@ -109,9 +109,7 @@ class PogonaHunter(exp.Experiment):
 
     def on_touch(self, _, payload):
         exp.session_state["last_touch"] = payload
-        self.log.info(
-            "Screen touch detected. Touch info is stored under the session.last_touch state key."
-        )
+        exp.event_logger.log("screen_touch", payload)
 
     def on_done_trials(self, _, payload):
         exp.next_block()

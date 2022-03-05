@@ -40,7 +40,9 @@ class VideoWriter(ImageObserver):
         super()._init()
         self.frame_rate = self.get_config("frame_rate")
         self.file_ext = self.get_config("file_ext")
-        self.encoding_params = video_system._config.video_record["encoding_configs"][self.img_src.get_config("encoding_config")]
+        self.encoding_params = video_system._config.video_record["encoding_configs"][
+            self.img_src.get_config("encoding_config")
+        ]
         self.queue_max_size = self.get_config("queue_max_size")
 
         self.img_src.state["writing"] = False
@@ -81,6 +83,8 @@ class VideoWriter(ImageObserver):
         self.missed_frames_count = 0
         self.missed_frame_events = 0
         self.prev_timestamp = None
+        self.avg_frame_time = float("nan")
+        self.frame_count = 0
 
         self.write_thread = threading.Thread(target=self.write_queue)
         self.write_thread.start()
@@ -118,9 +122,6 @@ class VideoWriter(ImageObserver):
             self.q.task_done()
 
     def on_image_update(self, img, timestamp):
-        img, timestamp = self.img_src.get_image()
-
-        # missing frames alert
         if self.prev_timestamp is not None:
             delta = timestamp - self.prev_timestamp
             frame_dur = 1 / self.frame_rate
@@ -128,9 +129,16 @@ class VideoWriter(ImageObserver):
             if missed_frames > 1:
                 self.missed_frames_count += missed_frames
                 self.missed_frame_events += 1
-
+            
+            if self.frame_count == 1:
+                self.avg_frame_time = delta
+            else:
+                self.avg_frame_time = (
+                    self.avg_frame_time * (self.frame_count - 1) + delta
+                ) / self.frame_count
+        
         self.prev_timestamp = timestamp
-        # end missing frames
+
         self.q.put((img, timestamp))
 
     def on_stop(self):
@@ -147,12 +155,11 @@ class VideoWriter(ImageObserver):
         else:
             s_missed_frames = "."
 
-        time_ms = self.avg_write_time * 1000
-
         self.log.info(
             (
                 f"Finished writing {self.write_count} frames. "
-                + f"Avg. write time: {time_ms:.3f}ms, "
+                + f"Avg. write time: {self.avg_write_time * 1000:.3f}ms, "
+                + f"Avg. frame rate: {1 / self.avg_frame_time:.3f}fps, "
                 + f"Max queued frames: {self.max_queued_items}"
                 + s_missed_frames
             )

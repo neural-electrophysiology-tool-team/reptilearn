@@ -1,11 +1,11 @@
-from video_stream import ConfigurableProcess, ImageSource, AcquireException
+from video_stream import ImageSource, AcquireException
 import cv2
 import time
 
 
 class VideoImageSource(ImageSource):
     """
-    VideoImageSource - an image source that reads images from a video file.
+    VideoImageSource - an image source that reads images from a video file or a camera using openCV.
     """
 
     default_params = {
@@ -19,7 +19,6 @@ class VideoImageSource(ImageSource):
     }
 
     def _init(self):
-
         self.video_path = self.get_config("video_path")
         self.frame_rate = self.get_config("frame_rate")
         self.start_frame = self.get_config("start_frame")
@@ -27,7 +26,12 @@ class VideoImageSource(ImageSource):
         self.repeat = self.get_config("repeat")
         self.is_color = self.get_config("is_color")
 
-        vcap = cv2.VideoCapture(str(self.video_path))
+        if not isinstance(self.video_path, int):
+            src = str(self.video_path)
+        else:
+            src = self.video_path
+
+        vcap = cv2.VideoCapture(src)
         if self.is_color:
             self.config["image_shape"] = (
                 int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
@@ -43,8 +47,8 @@ class VideoImageSource(ImageSource):
         vcap.release()
         super()._init()
 
-    def on_begin(self):
-        self.vcap = cv2.VideoCapture(str(self.video_path))
+    def on_start(self):
+        self.vcap = cv2.VideoCapture(self.video_path)
         if self.end_frame is None:
             self.end_frame = self.vcap.get(cv2.CAP_PROP_FRAME_COUNT) - 1
         if self.start_frame != 0:
@@ -82,5 +86,5 @@ class VideoImageSource(ImageSource):
         self.last_acquire_time = time.time() - t
         return img, t
 
-    def on_finish(self):
+    def on_stop(self):
         self.vcap.release()
