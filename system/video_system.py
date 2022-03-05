@@ -52,6 +52,15 @@ def load_video_config(config: dict):
             "image_observers": {},
         }
 
+    _rec_state.set_self(
+        {
+            "selected_sources": [],
+            "is_recording": False,
+            "write_dir": _config.media_dir,
+            "filename_prefix": "",
+        }
+    )
+
     if "image_sources" in config:
         for src_id, conf in config["image_sources"].items():
             try:
@@ -86,10 +95,11 @@ def load_video_writers():
 def update_video_config(config: dict):
     global image_sources, image_observers, video_config
 
-    try:
-        shutdown_video()
-    except Exception:
-        _log.exception("Exception while shutting down video:")
+    if len(image_sources) != 0:
+        try:
+            shutdown_video()
+        except Exception:
+            _log.exception("Exception while shutting down video:")
 
     image_sources = {}
     image_observers = {}
@@ -145,7 +155,7 @@ def start_record(src_ids=None):
         for src_id in src_ids:
             video_writers[src_id].start_observing()
 
-    if "ttl_trigger" in _rec_state and _rec_state["ttl_trigger"]:
+    if has_trigger():
         _do_restore_trigger = True
         stop_trigger(update_state=False)
         Timer(1, start_trigger, kwargs={"update_state": False}).start()
@@ -222,21 +232,7 @@ def init(log, config):
 
     _find_image_classes()
 
-    if "video" not in state:
-        state["video"] = {
-            "image_sources": {},
-            "image_observers": {},
-        }
-
     _rec_state = state.get_cursor(("video", "record"))
-    _rec_state.set_self(
-        {
-            "selected_sources": [],
-            "is_recording": False,
-            "write_dir": _config.media_dir,
-            "filename_prefix": "",
-        }
-    )
 
     if not config_path.exists():
         video_config = {
@@ -320,7 +316,7 @@ def shutdown_video():
         except Exception:
             _log.exception("Error while closing image observers:")
 
-    if "ttl_trigger" in _rec_state and not _rec_state["ttl_trigger"]:
+    if has_trigger():
         start_trigger()
 
     for img_src in image_sources.values():
@@ -333,8 +329,12 @@ def shutdown_video():
     for src_id in image_sources.keys():
         state.remove_callback(("video", "image_sources", src_id, "acquiring"))
 
+    state.delete("video")
+    image_sources.clear()
+    image_observers.clear()
+
 
 def shutdown():
     shutdown_video()
-    if "ttl_trigger" in _rec_state and not _rec_state["ttl_trigger"]:
+    if has_trigger():
         stop_trigger()
