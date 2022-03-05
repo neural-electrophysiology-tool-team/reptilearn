@@ -3,18 +3,17 @@ import video_system
 import cv2
 
 # TODO:
-# - each image source needs own list of transforms
-# - transform params !important
-# - way to choose transforms
-# - maybe should be overlays because observers get the original frame and the overlays just get the transformed frame AND ARE NOT SUPPOSED TO LOOK AT THE IMAGE.
+# - overlay params !important
+# - way to choose overlays
 
 
-class ImageTransform:
+
+class ImageOverlay:
     def apply(self, img, timestamp):
         return img
 
 
-class BarPlot(ImageTransform):
+class BarPlot(ImageOverlay):
     def __init__(self, obs_id) -> None:
         self.obs_id = obs_id
 
@@ -40,7 +39,7 @@ class BarPlot(ImageTransform):
         return img
 
 
-class TimestampVisualizer(ImageTransform):
+class TimestampVisualizer(ImageOverlay):
     def apply(self, img, timestamp):
         stime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
 
@@ -57,16 +56,11 @@ class TimestampVisualizer(ImageTransform):
         return img
 
 
-transforms = {
-    # "top": [TimestampVisualizer()],
-    "right": [TimestampVisualizer()],
-    "left": [TimestampVisualizer()],
-    "back": [TimestampVisualizer()],
-}
+overlays = {}
 
 
-def apply_transforms(img, timestamp, src_id):
+def apply_overlays(img, timestamp, src_id):
     img = img.copy()
-    for transform in transforms[src_id]:
-        img = transform.apply(img, timestamp)
+    for overlay in overlays[src_id]:
+        img = overlay.apply(img, timestamp)
     return img

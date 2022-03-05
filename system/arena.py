@@ -75,9 +75,13 @@ def get_value(interface):
     return _arena_state["values", interface]
 
 
+def has_trigger():
+    return _trigger_interface is not None
+
+
 def start_trigger(update_state=True):
     if _trigger_interface is None:
-        _log.info("No trigger interface was found.")
+        _log.warn("No trigger interface was found.")
         return
 
     if update_state:
@@ -88,7 +92,7 @@ def start_trigger(update_state=True):
 
 def stop_trigger(update_state=True):
     if _trigger_interface is None:
-        _log.info("No trigger interface was found.")
+        _log.warn("No trigger interface was found.")
         return
 
     if update_state:
