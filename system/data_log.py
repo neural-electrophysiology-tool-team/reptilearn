@@ -5,6 +5,7 @@ import multiprocessing as mp
 
 import rl_logging
 import database as db
+from video_stream import ImageObserver
 
 
 class DataLogger(mp.Process):
@@ -13,6 +14,7 @@ class DataLogger(mp.Process):
 
     Manages writing to csv files and/or a database (see database.py) but doesn't handle data acquisition.
 
+    Override _get_data and optionally _on_start and _on_stop methods (see methods documentation).
     NOTE: The logger process is terminated once the logger receives a None (i.e. _get_data returns None)
     """
 
@@ -110,6 +112,7 @@ class DataLogger(mp.Process):
 
     def run(self):
         self._init_log()
+        self._on_start()
 
         self.logger.debug("Data logger started.")
 
@@ -122,6 +125,7 @@ class DataLogger(mp.Process):
             else:
                 self._write(data)
 
+        self._on_stop()
         self._close()
 
     def _close(self):
@@ -132,19 +136,44 @@ class DataLogger(mp.Process):
             self.con.close()
 
     def _get_data(self):
+        """
+        This method should handle getting data into the logger process. In case there's no new data to
+        return, it must block until data arrives. Returning None will call _on_stop() and stop the logger process.
+        """
         return None
+
+    def _on_start(self):
+        """
+        Called when the process starts.
+        """
+        pass
+
+    def _on_stop(self):
+        """
+        Called when the process stops after _get_data returns None.
+        """
+        pass
 
 
 class QueuedDataLogger(DataLogger):
     """
-    Data logger that receives data over a queue (multiprocessing.Queue)
+    Data logger that receives data over a queue (multiprocessing.Queue).
     Use the QueuedDataLogger to log data from the process that created it.
     """
-    def __init__(self, *args, **kwargs):
+
+    def __init__(
+        self,
+        columns,
+        csv_path: Path = None,
+        split_csv=False,
+        log_to_db=True,
+        table_name=None,
+    ):
         """
-        Initialize the data logger. Same arguments as in DataLogger's initalizer.
+        Initialize the data logger. See DataLogger.__init__ for more information.
         """
-        super().__init__(*args, **kwargs)
+
+        super().__init__(columns, csv_path, split_csv, log_to_db, table_name)
         self._log_q = mp.Queue()
 
     def log(self, record):
@@ -152,7 +181,7 @@ class QueuedDataLogger(DataLogger):
         Log a single record to csv or database.
 
         Args:
-        - record: any sequence that matches the number of columns defined in __init__ 
+        - record: any sequence that matches the number of columns defined in __init__
         """
         self._log_q.put(record)
 
@@ -167,3 +196,35 @@ class QueuedDataLogger(DataLogger):
             return self._log_q.get()
         except KeyboardInterrupt:
             return None
+
+
+class ObserverLogger(QueuedDataLogger):
+    def __init__(
+        self,
+        image_observer: ImageObserver,
+        columns,
+        csv_path: Path = None,
+        split_csv=False,
+        log_to_db=True,
+        table_name=None,
+    ):
+        super().__init__(columns, csv_path, split_csv, log_to_db, table_name)
+        self.observer = image_observer
+
+        for i, c in enumerate(columns):
+            if c is tuple:
+                c = c[0]
+            if c == "time":
+                self.time_index = i
+                break
+
+    def _on_start(self):
+        self.remove_listener = self.observer.add_listener(self.on_observer_update)
+
+    def _on_stop(self):
+        self.remove_listener()
+
+    def on_observer_update(self, output, timestamp):
+        out_list: list = output.tolist()
+        out_list.insert(self.time_index, timestamp)
+        self.log(out_list)

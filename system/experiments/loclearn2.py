@@ -1,5 +1,6 @@
 import experiment as exp
 from experiment import session_state
+from video_stream import ImageObserver
 from video_system import image_sources, image_observers
 import arena
 import schedule
@@ -53,13 +54,11 @@ def start_blink(interface, period_time=None):
 
 
 class BBoxDataCollector:
-    def __init__(self, logger):
-        self.log = logger
-
-    def run(self, callback):
-        self.callback = callback
-
-        self.bbox_log = data_log.QueuedDataLogger(
+    def start(self, listener):
+        self.obs: ImageObserver = image_observers["head_bbox"]
+        self.obs.add_listener(listener)
+        self.bbox_log = data_log.ObserverLogger(
+            self.obs,
             columns=[
                 ("time", "timestamptz not null"),
                 ("x1", "double precision"),
@@ -70,20 +69,14 @@ class BBoxDataCollector:
             ],
             csv_path=session_state["data_dir"] / "head_bbox.csv",
             table_name="bbox_position",
+            split_csv=True,
         )
         self.bbox_log.start()
-        self.obs = image_observers["head_bbox"]
-        self.remove_listener = self.obs.add_listener(self.on_detection)
         self.obs.start_observing()
 
-    def end(self):
-        self.remove_listener()
+    def stop(self):
         self.obs.stop_observing()
         self.bbox_log.stop()
-
-    def on_detection(self, det, timestamp):
-        self.bbox_log.log((timestamp, *det))
-        self.callback(det, timestamp)
 
 
 class LocationExperiment(exp.Experiment):
@@ -157,7 +150,7 @@ class LocationExperiment(exp.Experiment):
         )
 
     def on_day_start(self):
-        self.bbox_collector.run(self.on_bbox_detection)
+        self.bbox_collector.start(self.on_bbox_detection)
         arena.start_trigger()
         video_system.start_record()
         arena.run_command("set", "AC Line 2", [1])
@@ -168,7 +161,7 @@ class LocationExperiment(exp.Experiment):
         arena.run_command("set", "AC Line 1", [0])
         video_system.stop_record()
         arena.stop_trigger()
-        self.bbox_collector.end()
+        self.bbox_collector.stop()
 
     def setup(self):
         self.actions["Find aruco markers"] = {"run": self.find_aruco}
@@ -187,7 +180,7 @@ class LocationExperiment(exp.Experiment):
         )
 
         self.find_aruco()
-        self.bbox_collector = BBoxDataCollector(self.log)
+        self.bbox_collector = BBoxDataCollector()
         self.print_next_detection = False
 
         self.reset_rewards_count()
