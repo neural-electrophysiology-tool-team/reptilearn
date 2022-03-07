@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 from pathlib import Path
 import multiprocessing as mp
 
@@ -6,7 +7,14 @@ import rl_logging
 
 
 class DataLogger(mp.Process):
-    def __init__(self, columns, csv_path: Path = None, log_to_db=True, table_name=None):
+    def __init__(
+        self,
+        columns,
+        csv_path: Path = None,
+        split_csv=False,
+        log_to_db=True,
+        table_name=None,
+    ):
         self.table_name = table_name
         self.columns = columns
         self.col_names = [c[0] if type(c) is tuple else c for c in columns]
@@ -16,6 +24,7 @@ class DataLogger(mp.Process):
         else:
             self.csv_path = None
 
+        self.split_csv = split_csv
         self.logger = None
 
         super().__init__()
@@ -26,6 +35,7 @@ class DataLogger(mp.Process):
 
         if self.log_to_db:
             import database as db
+
             self.con = db.make_connection()
             if self.table_name is not None:
                 db.with_commit(
@@ -38,10 +48,23 @@ class DataLogger(mp.Process):
                 )
 
         if self.csv_path is not None:
-            ex = self.csv_path.exists()
-            self.csv_file = open(str(self.csv_path), "a")
+            if self.split_csv:
+                timestamp = datetime.now()
+                csv_dir = self.csv_path.parent
+                csv_name = self.csv_path.stem
+                csv_path = Path(
+                    csv_dir
+                    / (csv_name + "_" + timestamp.strftime("%Y%m%d-%H%M%S") + ".csv")
+                )
+            else:
+                csv_path = self.csv_path
+
+            appending = csv_path.exists()
+
+            self.csv_file = open(str(csv_path), "a")
             self.csv_writer = csv.writer(self.csv_file, delimiter=",")
-            if not ex:
+
+            if not appending:
                 self.csv_writer.writerow(self.col_names)
                 self.csv_file.flush()
         else:
@@ -51,6 +74,7 @@ class DataLogger(mp.Process):
     def _write(self, data):
         if self.log_to_db and self.table_name is not None:
             import database as db
+
             try:
                 db.with_commit(
                     self.con,
@@ -110,4 +134,3 @@ class QueuedDataLogger(DataLogger):
             return self._log_q.get()
         except KeyboardInterrupt:
             return None
-        
