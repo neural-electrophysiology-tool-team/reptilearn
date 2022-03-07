@@ -47,3 +47,6 @@ class YOLOv4ImageObserver(ImageObserver):
 
     def release(self):
         pass
+
+    def get_buffer_opts(self):
+        return "d", 5, 5, "float"
