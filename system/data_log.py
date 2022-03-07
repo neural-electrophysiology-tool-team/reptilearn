@@ -4,9 +4,18 @@ from pathlib import Path
 import multiprocessing as mp
 
 import rl_logging
+import database as db
 
 
 class DataLogger(mp.Process):
+    """
+    An abstract data logger process
+
+    Manages writing to csv files and/or a database (see database.py) but doesn't handle data acquisition.
+
+    NOTE: The logger process is terminated once the logger receives a None (i.e. _get_data returns None)
+    """
+
     def __init__(
         self,
         columns,
@@ -15,6 +24,16 @@ class DataLogger(mp.Process):
         log_to_db=True,
         table_name=None,
     ):
+        """
+        Initialize logger
+
+        Args:
+        - columns: a list of ordered column names or a list of tuples (column_name, data_type).
+        - csv_path: CSV file path. Set to None if you don't want to write to csv.
+        - split_csv: When True the logger will create a new csv file each time it starts
+        - log_to_db: Whether to add data to a database table. Requires a non-None table_name when set to True.
+        - table_name: The name of a TimescaleDB hypertable to write to. If the table does not exist a new one is created.
+        """
         self.table_name = table_name
         self.columns = columns
         self.col_names = [c[0] if type(c) is tuple else c for c in columns]
@@ -34,8 +53,6 @@ class DataLogger(mp.Process):
         self.logger.debug("Initializing data logger...")
 
         if self.log_to_db:
-            import database as db
-
             self.con = db.make_connection()
             if self.table_name is not None:
                 db.with_commit(
@@ -105,9 +122,9 @@ class DataLogger(mp.Process):
             else:
                 self._write(data)
 
-        self.close()
+        self._close()
 
-    def close(self):
+    def _close(self):
         if self.csv_file is not None:
             self.csv_file.close()
 
@@ -119,14 +136,30 @@ class DataLogger(mp.Process):
 
 
 class QueuedDataLogger(DataLogger):
+    """
+    Data logger that receives data over a queue (multiprocessing.Queue)
+    Use the QueuedDataLogger to log data from the process that created it.
+    """
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the data logger. Same arguments as in DataLogger's initalizer.
+        """
         super().__init__(*args, **kwargs)
         self._log_q = mp.Queue()
 
-    def log(self, item):
-        self._log_q.put(item)
+    def log(self, record):
+        """
+        Log a single record to csv or database.
+
+        Args:
+        - record: any sequence that matches the number of columns defined in __init__ 
+        """
+        self._log_q.put(record)
 
     def stop(self):
+        """
+        Stops the logger process by sending a None on the queue.
+        """
         self._log_q.put(None)
 
     def _get_data(self):
