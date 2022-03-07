@@ -73,21 +73,17 @@ class BBoxDataCollector:
         )
         self.bbox_log.start()
         self.obs = image_observers["head_bbox"]
-        self.obs.on_detection = self.on_detection
+        self.remove_listener = self.obs.add_listener(self.on_detection)
         self.obs.start_observing()
 
     def end(self):
+        self.remove_listener()
         self.obs.stop_observing()
         self.bbox_log.stop()
 
-    def on_detection(self, payload):
-        det = payload["detection"]
-        if det is not None and len(det) != 0:
-            self.bbox_log.log((payload["image_timestamp"], *det))
-        else:
-            self.bbox_log.log((payload["image_timestamp"], *((None,) * 5)))
-
-        self.callback(payload)
+    def on_detection(self, det, timestamp):
+        self.bbox_log.log((timestamp, *det))
+        self.callback(det, timestamp)
 
 
 class LocationExperiment(exp.Experiment):
@@ -280,8 +276,7 @@ class LocationExperiment(exp.Experiment):
         self.log.info(f"Saving area image to {area_image_path}")
         cv.imwrite(str(area_image_path), img)
 
-    def on_bbox_detection(self, payload):
-        det = payload["detection"]
+    def on_bbox_detection(self, det, timestamp):
         if self.print_next_detection:
             self.log.info(f"Head bbox: {det}")
             self.print_next_detection = False
