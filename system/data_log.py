@@ -211,12 +211,17 @@ class ObserverLogger(QueuedDataLogger):
         super().__init__(columns, csv_path, split_csv, log_to_db, table_name)
         self.observer = image_observer
 
+        self.time_index = None
         for i, c in enumerate(columns):
-            if c is tuple:
+            if type(c) is tuple:
                 c = c[0]
+
             if c == "time":
                 self.time_index = i
                 break
+
+        if self.time_index is None:
+            raise ValueError("Missing 'time' column in columns argument.")
 
     def _on_start(self):
         self.remove_listener = self.observer.add_listener(self.on_observer_update)
