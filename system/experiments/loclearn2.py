@@ -186,8 +186,8 @@ class LocationExperiment(exp.Experiment):
         self.reset_rewards_count()
 
     def release(self):
-        #self.cancel_day_end_sched()
-        #self.cancel_day_start_sched()
+        # self.cancel_day_end_sched()
+        # self.cancel_day_start_sched()
         pass
 
     def run(self):
