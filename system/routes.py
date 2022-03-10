@@ -6,7 +6,7 @@ import undistort
 import json
 from json_convert import json_convert
 import image_utils
-import overlay
+# import overlay
 import cv2
 import task
 import arena

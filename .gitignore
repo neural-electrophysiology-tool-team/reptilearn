@@ -5,3 +5,10 @@ venv
 package-lock.json
 analysis/videos
 analysis/figures
+media
+sessions
+*.sh
+.vscode
+*.pdf
+*.avi
+*.mp4

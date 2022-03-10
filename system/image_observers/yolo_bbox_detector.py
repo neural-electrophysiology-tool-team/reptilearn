@@ -45,5 +45,10 @@ class YOLOv4ImageObserver(ImageObserver):
         else:
             self.output[:] = self.nan_det
 
+        self.notify_listeners()
+
     def release(self):
         pass
+
+    def get_buffer_opts(self):
+        return "d", 5, 5, np.double

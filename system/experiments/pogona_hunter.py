@@ -18,7 +18,7 @@ class PogonaHunter(exp.Experiment):
         # ant | centipede | spider | leaf
         "bugTypes": ["cockroach"],
         "rewardBugs": ["cockroach"],
-        # movementType: circle | random | low_horizontal | low_horizontal_noise
+        # movementType: circle | random | static | low_horizontal | low_horizontal_noise
         "movementType": "circle",
         "targetDrift": "leftBottom",  # leftBottom | rightBottom
         "speed": 0,  # if 0 config default for bug will be used

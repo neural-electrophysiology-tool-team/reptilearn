@@ -447,10 +447,10 @@ class ImageObserver(ConfigurableProcess):
                                 break
                             elif isinstance(cmd, list):
                                 if cmd[0] == "add":
-                                    self.log.info(f"Added update event: {cmd[2]}")
+                                    self.log.info(f"Adding listener: {cmd[2]}")
                                     self.output_update_events[cmd[2]] = cmd[1]
                                 elif cmd[0] == "remove":
-                                    self.log.info(f"Removing update event: {cmd[1]}")
+                                    self.log.info(f"Removing listener: {cmd[1]}")
                                     del self.output_update_events[cmd[1]]
 
                         if self.update_event.wait(1):

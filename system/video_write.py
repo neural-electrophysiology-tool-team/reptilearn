@@ -124,19 +124,20 @@ class VideoWriter(ImageObserver):
     def on_image_update(self, img, timestamp):
         if self.prev_timestamp is not None:
             delta = timestamp - self.prev_timestamp
+
             frame_dur = 1 / self.frame_rate
             missed_frames = int(delta / frame_dur)
             if missed_frames > 1:
                 self.missed_frames_count += missed_frames
                 self.missed_frame_events += 1
-            
+
             if self.frame_count == 1:
                 self.avg_frame_time = delta
             else:
                 self.avg_frame_time = (
                     self.avg_frame_time * (self.frame_count - 1) + delta
                 ) / self.frame_count
-        
+
         self.prev_timestamp = timestamp
 
         self.q.put((img, timestamp))
