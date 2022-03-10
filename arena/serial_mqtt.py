@@ -136,13 +136,12 @@ class SerialMQTTBridge:
         self.mqtt_listen_thread = threading.Thread(target=self._mqtt_listen)
         self.serial_listen_threads = {}
 
-        for s, (port_name, port_conf), device_conf in zip(
+        for s, (port_name, port_conf) in zip(
             self.serials.values(),
             self.serial_config["ports"].items(),
-            self.arena_conf.values(),
         ):
             self.serial_listen_threads[s.name] = threading.Thread(
-                target=self._serial_listen, args=[s, port_name, port_conf, device_conf]
+                target=self._serial_listen, args=[s, port_name, port_conf, self.arena_conf[port_name]]
             )
 
         self.shutdown_event = threading.Event()
