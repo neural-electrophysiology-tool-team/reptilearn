@@ -1,7 +1,7 @@
 try:
     import psycopg2
 except Exception:
-    print("WARNING: Can't load psycopg2 library.")
+    print("WARNING: Can't load psycopg2 library. Database logging will not be available.")
 
 
 class DatabaseException(Exception):

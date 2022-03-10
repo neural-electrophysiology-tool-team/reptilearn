@@ -27,6 +27,8 @@ video_config_path: Path = Path("./config/video_config.json")
 # Path to the arena hardware controller configuration file
 arena_config_path: Path = Path("./config/arena_config.json")
 
+# Path to a folder containing static web assets. The url to access these assets will be: http://<api host>:<api_port>/<static folder name>/<filename> (e.g. http://localhost:5000/stimuli/x.mp4)
+static_web_path: Path = Path("../stimuli")
 
 # Available archive directories
 archive_dirs = {

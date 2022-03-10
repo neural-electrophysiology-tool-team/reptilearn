@@ -54,7 +54,7 @@ if platform.system() == "Darwin":
 state_mod.init()
 
 # Initialize Flask REST app
-app = flask.Flask("ReptiLearn API")
+app = flask.Flask("reptiLearnAPI", static_folder=config.static_web_path, static_url_path='/' + str(config.static_web_path.name))
 app.config["SECRET_KEY"] = "reptilearn"
 flask_cors.CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
