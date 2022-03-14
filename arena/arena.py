@@ -3,6 +3,7 @@ import sys
 import subprocess
 import argparse
 import platform
+import threading
 from serial.tools import list_ports
 from serial_mqtt import SerialMQTTBridge, serial_port_by_id
 import config
@@ -122,9 +123,9 @@ if __name__ == "__main__":
         logger.exception("Exception while initializing serial mqtt bridge:")
         sys.exit(1)
 
+    forever = threading.Event()
     try:
-        while True:
-            pass
+        forever.wait()
     except KeyboardInterrupt:
         logger.info("Shutting down...")
         bridge.shutdown()
