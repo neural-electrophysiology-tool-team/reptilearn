@@ -1,11 +1,9 @@
 import experiment as exp
+from image_observers.yolo_bbox_detector import BBoxDataCollector
 import mqtt
 from data_log import QueuedDataLogger
 import video_system
 import schedule
-
-# ToDo:
-# - use event log (for climbing for ex.)
 
 
 class PogonaHunter(exp.Experiment):
@@ -66,6 +64,15 @@ class PogonaHunter(exp.Experiment):
 
         self.actions["reload webapp"] = {"run": self.reload_app}
 
+        try:
+            self.head_bbox_logger = BBoxDataCollector()
+            self.head_bbox_logger.start()
+        except ValueError:
+            self.log.warn(
+                "Can't find head_bbox image observer. Head position data is not logged!"
+            )
+            self.head_bbox_logger = None
+
     def reload_app(self):
         mqtt.client.publish_json("event/command/reload_app", {})
 
@@ -106,6 +113,9 @@ class PogonaHunter(exp.Experiment):
         mqtt.client.unsubscribe_callback("event/command/end_app_wait")
 
         self.trajectory_logger.stop()
+
+        if self.head_bbox_logger is not None:
+            self.head_bbox_logger.stop()
 
     def on_touch(self, _, payload):
         exp.session_state["last_touch"] = payload

@@ -12,6 +12,7 @@ import data_log
 import datetime
 import bbox
 import random
+from image_observers.yolo_bbox_detector import BBoxDataCollector
 
 
 def detect_aruco(src_id):
@@ -51,32 +52,6 @@ def stop_blink(interface):
 
 def start_blink(interface, period_time=None):
     arena.run_command("periodic", interface, [1, int(period_time)], False)
-
-
-class BBoxDataCollector:
-    def start(self, listener):
-        self.obs: ImageObserver = image_observers["head_bbox"]
-        self.obs.add_listener(listener)
-        self.bbox_log = data_log.ObserverLogger(
-            self.obs,
-            columns=[
-                ("time", "timestamptz not null"),
-                ("x1", "double precision"),
-                ("y1", "double precision"),
-                ("x2", "double precision"),
-                ("y2", "double precision"),
-                ("confidence", "double precision"),
-            ],
-            csv_path=session_state["data_dir"] / "head_bbox.csv",
-            table_name="bbox_position",
-            split_csv=True,
-        )
-        self.bbox_log.start()
-        self.obs.start_observing()
-
-    def stop(self):
-        self.obs.stop_observing()
-        self.bbox_log.stop()
 
 
 class LocationExperiment(exp.Experiment):
