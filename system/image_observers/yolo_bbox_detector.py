@@ -2,7 +2,7 @@ from video_stream import ImageObserver
 import numpy as np
 import video_system
 import data_log
-from experiment import session_state
+import experiment as exp
 
 
 class YOLOv4ImageObserver(ImageObserver):
@@ -77,7 +77,7 @@ class BBoxDataCollector:
                 ("y2", "double precision"),
                 ("confidence", "double precision"),
             ],
-            csv_path=session_state["data_dir"] / "head_bbox.csv",
+            csv_path=exp.session_state["data_dir"] / "head_bbox.csv",
             table_name="bbox_position",
             split_csv=True,
         )
