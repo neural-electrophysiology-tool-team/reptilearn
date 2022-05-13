@@ -5,6 +5,7 @@ venv
 package-lock.json
 analysis/videos
 analysis/figures
+logs
 media
 sessions
 *.sh
