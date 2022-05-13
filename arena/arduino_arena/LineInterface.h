@@ -13,6 +13,7 @@ class LineInterface: public ToggleInterface {
   
  private:
   int pin;
+  bool reverse;  
 };
 
 #endif

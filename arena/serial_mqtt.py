@@ -11,6 +11,7 @@ Serial-MQTT Bridge
 author: Tal Eisenberg (2021)
 """
 
+
 def serial_port_by_id(id):
     """
     Return a port info (`serial.tools.list_ports.ListPortInfo`) matching the id.
@@ -71,7 +72,7 @@ class SerialMQTTBridge:
             with open(config.arena_config_path, "r") as f:
                 self.arena_conf = json.load(f)
         except json.JSONDecodeError as e:
-            self.log.exception(f"While decoding {config_path}:")
+            self.log.exception(f"While decoding {config.arena_config_path}:")
             raise e
 
         if type(self.arena_conf) is not dict:
@@ -141,7 +142,8 @@ class SerialMQTTBridge:
             self.serial_config["ports"].items(),
         ):
             self.serial_listen_threads[s.name] = threading.Thread(
-                target=self._serial_listen, args=[s, port_name, port_conf, self.arena_conf[port_name]]
+                target=self._serial_listen,
+                args=[s, port_name, port_conf, self.arena_conf[port_name]],
             )
 
         self.shutdown_event = threading.Event()
@@ -184,7 +186,9 @@ class SerialMQTTBridge:
                 try:
                     line_utf8 = line.decode("utf-8")
                 except Exception:
-                    self.log.exception(f"(SERIAL) [{port_name}]: Error while decoding incoming serial data:")
+                    self.log.exception(
+                        f"(SERIAL) [{port_name}]: Error while decoding incoming serial data:"
+                    )
                     continue
 
                 self.log.debug(f"(SERIAL) [{port_name}]: {line_utf8}".strip())
