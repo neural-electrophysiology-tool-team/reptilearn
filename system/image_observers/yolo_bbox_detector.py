@@ -58,6 +58,10 @@ class YOLOv4ImageObserver(ImageObserver):
 
 
 class BBoxDataCollector:
+    def __init__(self):
+        self.obs = None
+        self.bbox_log = None
+
     def start(self, listener=None, obs_id="head_bbox"):
         if obs_id not in video_system.image_observers:
             raise ValueError(f"Unknown image observer '{obs_id}'")
@@ -85,5 +89,7 @@ class BBoxDataCollector:
         self.obs.start_observing()
 
     def stop(self):
-        self.obs.stop_observing()
-        self.bbox_log.stop()
+        if self.obs:
+            self.obs.stop_observing()
+        if self.bbox_log:
+            self.bbox_log.stop()
