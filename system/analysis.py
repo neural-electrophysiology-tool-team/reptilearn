@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
+from typing import List
 import pandas as pd
 
 import re
@@ -349,10 +350,10 @@ class SessionInfo:
     name: str
     time: pd.Timestamp
     dir: Path
-    videos: [VideoInfo]
-    images: [Path]
+    videos: List[VideoInfo]
+    images: List[Path]
     event_log_path: Path
-    csvs: [Path]
+    csvs: List[Path]
     session_state_path: Path
     session_state: dict
 
@@ -418,7 +419,7 @@ class SessionInfo:
 
     def filter_videos(
         self, videos=None, src_id: str = None, ts: pd.Timestamp = None
-    ) -> [VideoInfo]:
+    ) -> List[VideoInfo]:
         """
         Filter videos according to image source id or start time.
 
@@ -440,7 +441,7 @@ class SessionInfo:
 
     def video_position_at_time(
         self, timestamp: pd.Timestamp, videos=None
-    ) -> [VideoPosition]:
+    ) -> List[VideoPosition]:
         """
         Find all video files and frame numbers matching the supplied timestamp.
         Return a list of VideoPosition objects, one for each video that was
@@ -506,12 +507,13 @@ class SessionInfo:
         if self._head_bbox is not None:
             return self._head_bbox
 
-        bbox_csvs = [p for p in self.csvs if p.name == "head_bbox.csv"]
+        bbox_csvs = sorted([p for p in self.csvs if "head_bbox" in p.name])
 
         if len(bbox_csvs) == 0:
             return None
 
-        self._head_bbox = read_timeseries_csv(bbox_csvs[0])
+        self._head_bbox = pd.concat([read_timeseries_csv(bbox_csv) for bbox_csv in bbox_csvs], axis=0)
+        self._head_bbox = self._head_bbox[~self._head_bbox.index.duplicated()]
         return self._head_bbox
 
     @property
