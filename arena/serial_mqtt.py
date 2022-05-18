@@ -8,7 +8,7 @@ import json
 
 """
 Serial-MQTT Bridge
-author: Tal Eisenberg (2021)
+author: Tal Eisenberg <eisental@gmail.com>
 """
 
 

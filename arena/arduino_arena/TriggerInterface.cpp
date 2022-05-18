@@ -1,3 +1,8 @@
+/* Interface for sending periodic pulses over a single digital pin
+ * ---------------------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #include "TriggerInterface.h"
 #include "send.h"
 

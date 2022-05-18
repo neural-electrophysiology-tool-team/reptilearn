@@ -1,4 +1,8 @@
-CD74HC4067
+/* Interface for controlling a multiplexer such as CD74HC4067 as an output
+ * -----------------------------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #include "MuxInterface.h"
 #include "send.h"
 
