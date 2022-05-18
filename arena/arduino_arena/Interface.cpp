@@ -1,3 +1,8 @@
+/* Abstract class for a hardware interface
+ * ---------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #include "Interface.h"
 #include "send.h"
 

@@ -10,7 +10,7 @@ import config
 
 """
 Serial-MQTT Bridge.
-author: Tal Eisenberg (2021)
+author: Tal Eisenberg <eisental@gmail.com>
 
 Run `python main.py --help` for more information.
 """

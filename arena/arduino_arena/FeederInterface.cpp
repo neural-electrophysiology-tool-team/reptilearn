@@ -1,3 +1,8 @@
+/* Interface for the fish feeder library
+ * -------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #include "FeederInterface.h"
 
 FeederInterface::FeederInterface(JsonObject conf)

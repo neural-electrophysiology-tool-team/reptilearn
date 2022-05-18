@@ -1,3 +1,8 @@
+/* Send JSON and string messages over the serial port
+ * --------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #ifndef send_h
 #define send_h
 

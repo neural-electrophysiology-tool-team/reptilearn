@@ -1,3 +1,8 @@
+/* Interface for Dallas Temperature devices such as DS18B20
+ * --------------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #ifndef DallasTemperatureInterface_h
 #define DallasTemperatureInterface_h
 

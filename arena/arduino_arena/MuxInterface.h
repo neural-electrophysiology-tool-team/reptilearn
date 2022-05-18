@@ -1,3 +1,8 @@
+/* Interface for controlling a multiplexer such as CD74HC4067 as an output
+ * -----------------------------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #ifndef MuxInterface_h
 #define MuxInterface_h
 

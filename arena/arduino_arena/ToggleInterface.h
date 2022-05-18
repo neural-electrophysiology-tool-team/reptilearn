@@ -1,3 +1,8 @@
+/* Abstract interface for a toggleable device
+ * ------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #ifndef ToggleInterface_h
 #define ToggleInterface_h
 

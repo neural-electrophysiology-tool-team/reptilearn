@@ -1,8 +1,8 @@
-/*
-  Feeder.h - Controls a fish feeder (insert model here).
-
-  by: Tal Eisenberg, Aug 2021
+/* Arduino library for controlling a fish feeder (insert model here).
+ * ------------------------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
  */
+
 #ifndef Feeder_h
 #define Feeder_h
 

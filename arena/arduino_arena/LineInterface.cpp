@@ -1,3 +1,8 @@
+/* Interface for a single digital output pin
+ * -----------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #include "LineInterface.h"
 #include "send.h"
 

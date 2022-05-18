@@ -1,3 +1,8 @@
+/* Interface for the fish feeder library
+ * -------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
 #ifndef FeederInterface_h
 #define FeederInterface_h
 

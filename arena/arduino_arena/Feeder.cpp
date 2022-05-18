@@ -1,3 +1,9 @@
+/* Arduino library for controlling a fish feeder (insert model here).
+ * ------------------------------------------------------------------
+ * @author Tal Eisenberg <eisental@gmail.com>
+ */
+
+
 #include "Arduino.h"
 #include "Feeder.h"
 
