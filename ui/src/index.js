@@ -1,17 +1,23 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { Provider } from 'react-redux';
+import store from './store/store';
+import { SocketContext, socket } from './socket.js';
+
 import './index.css';
 import App from './App';
-import {SocketContext, socket} from './socket.js';
+
 
 //import reportWebVitals from './reportWebVitals';
 
 ReactDOM.render(
-    <React.StrictMode>
+  <React.StrictMode>
+    <Provider store={store}>
       <SocketContext.Provider value={socket}>
-	<App />
+        <App />
       </SocketContext.Provider>
-    </React.StrictMode>,
+    </Provider>
+  </React.StrictMode>,
   document.getElementById('root')
 );
 

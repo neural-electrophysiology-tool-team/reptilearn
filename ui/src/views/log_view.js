@@ -1,5 +1,7 @@
 import React from 'react';
-import {SocketContext} from './socket.js';
+import {SocketContext} from '../socket.js';
+import RLButton from './ui/button.js';
+import { Bar } from './ui/bar.js';
 
 export const LogView = () => {
     const logContainer = React.useRef((localStorage.log || '')  +
@@ -47,15 +49,14 @@ export const LogView = () => {
     };
 
     return (
-	<React.Fragment>
-          <div className="section_header">
-            <span className="title">Log</span>
-            <button onClick={clear_log}>Clear</button>
-          </div>
+	<div className='flex flex-col h-full'>
+          <Bar title="Log" className="flex flex-0">
+            <RLButton.BarButton onClick={clear_log} text="Clear"/>
+          </Bar>
           <textarea value={logContainer.current}
                     readOnly
-                    className="log_view"
+                    className="whitespace-pre py-0 px-1 flex flex-1 w-full font-mono overflow-y-auto"
 		    ref={textarea_ref}/>
-        </React.Fragment>
+        </div>
     );
 };
