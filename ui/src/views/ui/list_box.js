@@ -12,7 +12,7 @@ const RLListbox = ({ value, onChange, multiple, children, header, className }) =
             styles.focusBorder
         )}>
             <span className="flex flex-1">{header}</span>
-            <FontAwesomeIcon icon="angle-down" className="pl-2"/>
+            <FontAwesomeIcon icon="caret-down" className="pl-2 h-[14px] w-[14px]"/>
         </Listbox.Button>
         <Transition
             as={React.Fragment}

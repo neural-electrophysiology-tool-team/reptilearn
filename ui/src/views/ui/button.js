@@ -13,7 +13,7 @@ const BarButton = ({ text, icon, className, iconClassName, ...props }) => (
         styles.focusBorder,
         className)
     }>
-        {icon && <FontAwesomeIcon className={classNames("my-auto", iconClassName || "h-4 w-4")} icon={icon} />}
+        {icon && <FontAwesomeIcon className={classNames("my-auto", iconClassName || "h-[12px] w-[12px]")} icon={icon}/>}
         {text}
     </RLButton>
 );
@@ -27,7 +27,7 @@ const TopBarButton = ({ text, icon, className, iconClassName, children, ...props
     }>
         {children || (
             <div className="flex flex-row items-center gap-1">
-                {icon && <FontAwesomeIcon className={classNames("my-auto", iconClassName || "h-4 w-4")} icon={icon} />}
+                {icon && <FontAwesomeIcon className={classNames("my-auto", iconClassName || "h-[12px] w-[12px]")} icon={icon}/>}
                 {text}
             </div>
         )}
@@ -45,7 +45,7 @@ const ModalButton = ({ children, text, icon, className, colorClasses, ...props }
         }>
             {children || (
                 <div className='flex flex-row items-center gap-1'>
-                    {icon && <RLIcon icon={icon} />}
+                    {icon && <RLIcon icon={icon}/>}
                     {text}
                 </div>
 

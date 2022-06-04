@@ -101,8 +101,7 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
                     onClick={(e) => remove_block(idx)}
                     disabled={is_running || blocks.length === 1}
                     title="Remove block"
-                    icon="x"
-                    iconClassName="h-[11px] w-[11px]"/>
+                    icon="xmark"/>
                 <div className="font-bold flex items-center px-1">Block {idx + 1}</div>
                 <RLButton.BarButton
                     onClick={(e) => shift_block_up(idx)}
@@ -121,7 +120,6 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
                     onClick={(e) => insert_block_after(idx)}
                     disabled={is_running}
                     title="Insert below"
-                    iconClassName="h-[11px] w-[11px]"
                     icon="add"/>
 
                 {block_override_selector(idx)}

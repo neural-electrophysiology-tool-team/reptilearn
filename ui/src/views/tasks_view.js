@@ -310,6 +310,7 @@ export const TasksView = () => {
             <RLMenu button={<RLMenu.TopBarMenuButton title="Schedule" />}>
                 <React.Fragment>
                     <RLMenu.ButtonItem onClick={open_schedule_modal}>Schedule task</RLMenu.ButtonItem>
+                    <RLMenu.SeparatorItem/>
                     <RLMenu.ButtonItem onClick={open_task_list_modal}>Show schedules</RLMenu.ButtonItem>
                 </React.Fragment>
             </RLMenu>

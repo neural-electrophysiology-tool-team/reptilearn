@@ -122,15 +122,17 @@ export const ArenaControlView = () => {
                     key={d}
                     onClick={() => toggle_display(d)}
                 >
-                    <RLIcon.MenuIcon icon={["fas", get_display_toggle_icon(d)]} />{d}
+                    <RLIcon.MenuIcon icon={["fas", get_display_toggle_icon(d)]}/>
+                    <span>{d}</span>
                 </RLMenu.ButtonItem>
             ))
         : null;
 
     return (
         <RLMenu button={<RLMenu.TopBarMenuButton title="Arena" />}>
-            {display_toggles}
             {items}
+            <RLMenu.HeaderItem>Displays</RLMenu.HeaderItem>
+            {display_toggles}
             <RLMenu.SeparatorItem />
             {!update_time
                 ? null
@@ -140,7 +142,7 @@ export const ArenaControlView = () => {
             }
             <RLMenu.ButtonItem onClick={poll_arena}>
                 <RLIcon.MenuIcon icon="stethoscope" />
-                Poll arena
+                <span>Poll arena</span>
             </RLMenu.ButtonItem>
         </RLMenu>
     )

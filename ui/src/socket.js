@@ -6,3 +6,4 @@ export const socket = io(socketio_url);
 export const SocketContext = React.createContext();
 
 socket.on('connect', () => { console.log("SocketIO connected."); });
+socket.on('disconnect', () => { console.log("SocketIO disconnected."); })

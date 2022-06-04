@@ -3,9 +3,9 @@ import { Menu, Transition } from '@headlessui/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { classNames, styles } from './common';
 
-const RLMenu = ({ children, align, title, button }) => {
+const RLMenu = ({ children, align, title, button, className }) => {
     return (
-        <Menu as="div" className="relative inline-block text-left overflow-visible">
+        <Menu as="div" className={classNames("relative inline-block text-left overflow-visible", className)}>
             {button || <BarMenuButton title={title} showDropIcon />}
             <Transition
                 as={React.Fragment}
@@ -30,7 +30,8 @@ const ButtonItem = ({ disabled, children, ...props }) => (
     <Menu.Item {...props} as="div">
         {({ active }) => (
             <div className={classNames(
-                active && "bg-gray-200", "px-2 py-1 cursor-pointer first:pt-2", 
+                "px-2 py-2 cursor-pointer",
+                active && "bg-gray-200",
                 disabled ? "text-gray-400" : "hover:bg-gray-200")}>
 
                 {children}
@@ -54,14 +55,14 @@ const StaticItem = ({ children, ...props }) => (
 const BarMenuButton = ({ title, showDropIcon }) => (
     <Menu.Button className={classNames("align-middle rounded-[4px] inline-flex justify-center w-full border border-gray-300 px-4  bg-white text-sm font-medium text-gray-700 hover:bg-gray-200", styles.focusBorder)}>
         {title}
-        {showDropIcon && <FontAwesomeIcon icon="angle-down" className='h-4 w-4 -mr-1 ml-2 my-auto' />}
+        {showDropIcon && <FontAwesomeIcon icon="caret-down" className='h-[14px] w-[14px] -mr-1 ml-2 my-auto' />}
     </Menu.Button>
 );
 
 const TopBarMenuButton = ({ title, ...props }) => (
-    <Menu.Button {...props} className={classNames("flex items-center border border-gray-300 px-4 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-100", styles.focusBorder)}>
+    <Menu.Button {...props} className={classNames("flex items-center border border-gray-300 px-4 py-1 bg-white text-sm text-gray-700 hover:bg-gray-100", styles.focusBorder)}>
         {title}
-        <FontAwesomeIcon icon="angle-down" className='h-4 w-4 -mr-1 ml-2 my-auto' />
+        <FontAwesomeIcon icon="caret-down" className='h-[14px] w-[14px] -mr-1 ml-2 my-auto' />
     </Menu.Button>
 );
 

@@ -112,10 +112,10 @@ const StreamView = ({ idx }) => {
                 onDrop={handle_drop} onDragOver={handle_dragover} onDragEnter={handle_dragenter} onDragLeave={handle_dragleave}
                 onDragStart={handle_dragstart} onDragEnd={() => setDrag(false)} onMouseDown={(e) => setMouseDownTarget(e.target)} onMouseUp={() => setMouseDownTarget(null)}>
                 <Bar>
-                    <RLButton.BarButton onClick={() => dispatch(removeStream({idx}))} icon="x" iconClassName="h-[11px] w-[11px]" />
+                    <RLButton.BarButton onClick={() => dispatch(removeStream({idx}))} icon="xmark"/>
                     <RLSimpleListbox header="Image source" options={RLListbox.simpleOptions(src_ids)} selected={src_id} setSelected={(new_src_id) => dispatch(updateStreamSources({stream_idx: idx, new_src_id, old_src_id: src_id}))} />
                     <RLButton.BarButton onClick={() => dispatch(toggleStream({idx}))} icon={stream_btn_icon} />
-                    <RLButton.BarButton onClick={save_image} title="Save image" icon="file-image" />
+                    <RLButton.BarButton onClick={save_image} title="Save image" icon="fa-solid fa-file-image" />
                     <div className={classNames("h-4 w-4 my-auto ml-auto mr-1 cursor-move", draggedOver && "pointer-events-none")} ref={dragHandle}>
                         <FontAwesomeIcon icon="bars" className="h-4 text-gray-600" transform="up-1"/>    
                     </div>                    

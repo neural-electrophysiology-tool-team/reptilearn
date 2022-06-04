@@ -173,10 +173,10 @@ export const ExperimentView = () => {
             }
             <div className='flex items-center px-1 h-[22px]'>Block:</div>
             <RLInput.Text readOnly value={session.cur_block + 1} size="3" className="h-[22px]"/>
-            <RLButton.BarButton onClick={next_block} icon="add" iconClassName="h-[11px] w-[11px]"/>
+            <RLButton.BarButton onClick={next_block} icon="add"/>
             <div className='flex items-center px-1 h-[22px]'>Trial:</div>
             <RLInput.Text readOnly value={session.cur_trial + 1} size="3" className="h-[22px]"/>
-            <RLButton.BarButton onClick={next_trial} icon="add" iconClassName="h-[11px] w-[11px]"/>
+            <RLButton.BarButton onClick={next_trial} icon="add"/>
             <RLButton.BarButton onClick={reset_phase} icon="undo" className="mr-auto"/>
             {actions_view}
         </Bar>;

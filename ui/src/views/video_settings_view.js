@@ -244,10 +244,10 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                     <RLSimpleListbox
                         options={type === 'sources' ? srcs_options : obs_options}
                         selected={type === 'sources' ? selectedSource : selectedObserver}
-                        setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver} />
-                    <RLButton.BarButton onClick={open_add_modal} icon="add" iconClassName="h-[11px] w-[11px]" />
-                    <RLButton.BarButton onClick={remove_object} icon="x" iconClassName="h-[11px] w-[11px]" />
-                    <RLButton.BarButton onClick={reset_object} icon="undo" />
+                        setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver}/>
+                    <RLButton.BarButton onClick={open_add_modal} icon="add"/>
+                    <RLButton.BarButton onClick={remove_object} icon="xmark"/>
+                    <RLButton.BarButton onClick={reset_object} icon="undo"/>
                 </Bar>
                 <div className="overflow-y-auto">
                     <RLJsonEdit
@@ -256,7 +256,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                         name={null}
                         onEdit={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}
                         onAdd={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}
-                        onDelete={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))} />
+                        onDelete={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}/>
                 </div>
             </div>
         )
@@ -265,7 +265,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
         <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-y-auto" actions={
             <React.Fragment>
                 {video_is_running ? <RLButton.ModalButton colorClasses="text-red-500" onClick={shutdown}>Shutdown</RLButton.ModalButton> : null}
-                <RLButton.ModalButton colorClasses={video_is_running && !dirty ? "text-red-500" : "text-green-600"} onClick={apply}>{restart_label}</RLButton.ModalButton>
+                <RLButton.ModalButton colorClasses="text-green-600" onClick={apply}>{restart_label}</RLButton.ModalButton>
                 <RLButton.ModalButton onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</RLButton.ModalButton>
             </React.Fragment>
         }>
