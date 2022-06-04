@@ -195,8 +195,8 @@ def capture_images(src_ids=None):
 
     for src in selected_sources:
         img, ts = src.get_image()
-        p = video_write.save_image(img, ts, src.get_config("src_id"))
-        _log.info(f"Saved image from image_source '{src.src_id}' in {p}")
+        p = video_write.save_image(img, ts, src.id)
+        _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
 
 def _find_image_classes():
