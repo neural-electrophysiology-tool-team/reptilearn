@@ -58,7 +58,7 @@ export const ArenaControlView = () => {
                     onClick={() => run_command("toggle", ifs.name, undefined, true)}
                     key={ifs.name}>
                     <RLIcon.MenuIcon icon={["fas", get_toggle_icon(ifs)]} />
-                    <span className='pr-1 align-middle'>{ifs.name}</span>
+                    <span className='pl-1 align-middle'>{ifs.name}</span>
                 </RLMenu.ButtonItem>
             );
         }
@@ -68,7 +68,7 @@ export const ArenaControlView = () => {
                     onClick={() => run_command(ifs["command"], ifs.name, undefined, false)}
                     key={ifs.name}>
                     <RLIcon.MenuIcon icon={ifs.icon} />
-                    <span className="pr-1 align-middle">{ifs.name}</span>
+                    <span className="pl-1 align-middle">{ifs.name}</span>
                 </RLMenu.ButtonItem>
             );
         }
@@ -82,7 +82,7 @@ export const ArenaControlView = () => {
                 return (
                     <RLMenu.StaticItem key={ifs.name + idx}>
                         <RLIcon.MenuIcon icon={ifs.icon}/>
-                        {text}
+                        <span className="pl-1 align-middle">{text}</span>
                     </RLMenu.StaticItem>
                 );
             };
