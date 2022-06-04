@@ -17,6 +17,7 @@ export const reptilearnSlice = createSlice({
         },
         setStreams: (state, action) => {            
             state.streams = action.payload;
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         },
         addStream: (state, action) => {
             const { src_id } = action.payload;
@@ -35,6 +36,7 @@ export const reptilearnSlice = createSlice({
             const new_streams = [...state.streams, new_stream];
 
             state.streams = new_streams;
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         },
         updateStreamSources: (state, action) => {
             const { stream_idx, old_src_id, new_src_id } = action.payload;
@@ -47,23 +49,27 @@ export const reptilearnSlice = createSlice({
             }
             ss[stream_idx].src_id = new_src_id;
             state.streams = ss;
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         },
         moveStream: (state, action) => {
             const { from, to } = action.payload;
             const from_stream = state.streams[from];
             state.streams.splice(from, 1);
             state.streams.splice(to, 0, from_stream);
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         },
         removeStream: (state, action) => {
             const { idx } = action.payload;
             state.streams = state.streams.slice(0, idx)
                 .concat(state.streams.slice(idx + 1, state.streams.length));
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         }, 
         updateStream: (state, action) => {
             const { idx, key, val } = action.payload;
             const s = state.streams.map(s => ({ ...s }));
             s[idx][key] = val;
             state.streams = s;
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         },
         toggleStream: (state, action) => {
             const { idx } = action.payload;
@@ -75,6 +81,7 @@ export const reptilearnSlice = createSlice({
             }                
 
             state.streams[idx].is_streaming = !is_streaming
+            localStorage.setItem('streams', JSON.stringify(state.streams));
         },
     
     },

@@ -15,7 +15,7 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
 
     React.useEffect(() => {
         if (!open) {
-            return false;
+            return;
         }
 
         setReload(false);
@@ -29,7 +29,7 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
 
     React.useEffect(() => {
         if (!reload) {
-            return false;
+            return;
         }
 
         setReload(false);

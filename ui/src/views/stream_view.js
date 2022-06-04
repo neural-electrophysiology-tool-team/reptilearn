@@ -134,14 +134,13 @@ export const StreamGroupView = () => {
     const dispatch = useDispatch();
 
     React.useEffect(() => {
-        if (localStorage.streams) {
-            dispatch(setStreams(JSON.parse(localStorage.streams)));
+        const ls_streams = localStorage.getItem('streams');
+
+        if (ls_streams) {
+            dispatch(setStreams(JSON.parse(ls_streams)));
         }
     }, [dispatch]);
 
-    React.useEffect(() => {
-        localStorage.streams = JSON.stringify(streams);
-    }, [streams]);
     const stream_views = ctrl_state.video ? streams.map((_, idx) => <StreamView idx={idx} key={idx}/>) : null;
 
     return (

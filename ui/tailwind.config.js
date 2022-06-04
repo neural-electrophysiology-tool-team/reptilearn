@@ -6,7 +6,7 @@ module.exports = {
   theme: {
     extend: {},
     fontFamily: {
-      'mono': ['Fira Mono', ...defaultTheme.fontFamily.mono],
+      'mono': ['Inconsolata', ...defaultTheme.fontFamily.mono],
     },
   },
   plugins: [],

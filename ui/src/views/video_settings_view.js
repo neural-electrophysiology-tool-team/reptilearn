@@ -6,7 +6,7 @@ import { setVideoConfig } from '../store/reptilearn_slice';
 import RLModal from './ui/modal.js';
 import RLTabs from './ui/tabs.js';
 import { RLSimpleListbox } from './ui/list_box.js';
-import { RLJsonEdit } from './ui/json_edit.js';
+import { RLJSONEditor } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
 import RLInput from './ui/input.js';
@@ -14,7 +14,7 @@ import { classNames } from './ui/common.js';
 
 export const VideoSettingsView = ({ setOpen, open }) => {
     const dispatch = useDispatch();
-    
+
     const [openAddModal, setOpenAddModal] = React.useState(false);
     const [addIdInput, setAddIdInput] = React.useState(null);
     const [addClassInput, setAddClassInput] = React.useState(null);
@@ -244,19 +244,18 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                     <RLSimpleListbox
                         options={type === 'sources' ? srcs_options : obs_options}
                         selected={type === 'sources' ? selectedSource : selectedObserver}
-                        setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver}/>
-                    <RLButton.BarButton onClick={open_add_modal} icon="add"/>
-                    <RLButton.BarButton onClick={remove_object} icon="xmark"/>
-                    <RLButton.BarButton onClick={reset_object} icon="undo"/>
+                        setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver} />
+                    <RLButton.BarButton onClick={open_add_modal} icon="add" />
+                    <RLButton.BarButton onClick={remove_object} icon="xmark" />
+                    <RLButton.BarButton onClick={reset_object} icon="undo" />
                 </Bar>
                 <div className="overflow-y-auto">
-                    <RLJsonEdit
+                    <RLJSONEditor
+                        mainMenuBar={false}
+                        navigationBar={false}
                         className="p-1"
-                        src={type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver]}
-                        name={null}
-                        onEdit={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}
-                        onAdd={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}
-                        onDelete={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}/>
+                        content={{ json: type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver] }}
+                        onChange={(updatedContent) => type === 'sources' ? on_source_changed(updatedContent.json, selectedSource) : on_observer_changed(updatedContent.json, selectedObserver)} />
                 </div>
             </div>
         )
@@ -278,7 +277,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                                 <RLButton.ModalButton onClick={add_object} disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>
                                     Add
                                 </RLButton.ModalButton>
-                                <RLButton.ModalButton onClick={() => setOpenAddModal(false)}>Cancel</RLButton.ModalButton>                                
+                                <RLButton.ModalButton onClick={() => setOpenAddModal(false)}>Cancel</RLButton.ModalButton>
                             </>
                         }>
                             <table className="border-separate [border-spacing:0.75rem] w-full">

@@ -1,5 +1,6 @@
 import React from 'react';
-import ReactJson from 'react-json-view';
+import { RLJSONEditor } from './ui/json_edit.js';
+
 import { api_url } from '../config.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
@@ -67,9 +68,9 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
     };
     */
 
-    const on_block_changed = (e, block_idx) => {
+    const on_block_changed = (updatedContent, block_idx) => {
         const bs = blocks.map(s => ({ ...s }));
-        bs[block_idx] = e.updated_src;
+        bs[block_idx] = updatedContent.json;
         set_blocks(bs);
     };
 
@@ -128,11 +129,12 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
                     title="Reset block" icon="undo"/>
             </Bar>
             <div className="pb-2  border-b-2 border-solid border-b-gray-200 h-fit">
-                <ReactJson src={blocks[idx]}
-                    name={null}
-                    onEdit={is_running ? undefined : (e) => on_block_changed(e, idx)}
-                    onAdd={is_running ? undefined : (e) => on_block_changed(e, idx)}
-                    onDelete={is_running ? undefined : (e) => on_block_changed(e, idx)} />
+                <RLJSONEditor 
+                    content={{json: blocks[idx]}}
+                    onChange={(updatedContent) => on_block_changed(updatedContent, idx)}
+                    readOnly={is_running}
+                    mainMenuBar={false}
+                    navigationBar={false}/>
             </div>
         </div>
     ));

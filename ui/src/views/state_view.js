@@ -2,7 +2,7 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { Bar } from "./ui/bar";
 
-import { RLJsonEdit } from "./ui/json_edit";
+import { RLJSONEditor } from "./ui/json_edit";
 import { RLListbox, RLSimpleListbox } from "./ui/list_box";
 
 export const StateView = () => {
@@ -89,11 +89,13 @@ export const StateView = () => {
                 ]}
             </Bar>
             <div className="overflow-y-scroll flex-grow">
-                <RLJsonEdit
-                    src={ctrlStatePath}
-                    name={null}
-                    style={{ height: "auto" }}
-                />
+                {ctrlStatePath &&
+                    <RLJSONEditor
+                        content={{ json: ctrlStatePath }}
+                        readOnly
+                        mainMenuBar={false}
+                        navigationBar={false} />}
+                    
             </div>
         </div>
     );

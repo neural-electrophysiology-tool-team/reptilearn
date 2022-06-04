@@ -27,10 +27,13 @@ export const LogView = () => {
             }            
             
             setLogUpdated(new Date());
-            if (textarea_ref.current) {
-                if (is_scrolled_to_bottom)
-                    textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
-            }
+            
+            setTimeout(() => {
+                if (textarea_ref.current) {
+                    if (is_scrolled_to_bottom)
+                        textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
+                }    
+            }, 0);
         }
     };
 
@@ -81,7 +84,7 @@ export const LogView = () => {
                 ? <div><FontAwesomeIcon icon="spinner" className="animate-spin mx-1" />Loading...</div>
                 : (<textarea value={log.current.join('\n')}
                     readOnly
-                    className="whitespace-pre py-0 px-1 flex flex-1 w-full font-mono overflow-y-auto"
+                    className="whitespace-pre py-0 px-1 flex flex-1 w-full font-mono overflow-y-auto text-[15px]"
                     ref={textarea_ref} />
                 )}
         </div>

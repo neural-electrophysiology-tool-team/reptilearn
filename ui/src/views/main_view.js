@@ -14,7 +14,7 @@ import { AddStreamButton } from './add_stream_button.js';
 export const TopBar = () => {
     return (
         <div className='border-b-2 border-b-gray-400 bg-gray-200 flex w-full overflow-visible text-sm'>
-            <span className='px-1 font-bold flex items-center'>ReptiLearn</span>
+            <span className='px-2 font-bold flex items-center'>ReptiLearn</span>
             <VideoRecordView/>
             <TasksView/>
             <ArenaControlView/>

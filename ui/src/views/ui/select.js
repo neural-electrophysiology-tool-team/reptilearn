@@ -1,3 +1,5 @@
+import { classNames } from "./common";
+
 export const RLSelect = ({ options, values, selected, setSelected, disabled, disabledOptions, name, className }) => {
     if (!disabledOptions)
         disabledOptions = [];
@@ -26,7 +28,9 @@ export const RLSelect = ({ options, values, selected, setSelected, disabled, dis
             disabled={disabled}
             value={selected}
             name={name}
-            className={className}>{option_items}
+            className={classNames(
+                className,
+                "rounded-[4px]")}>{option_items}
         </select>
     );
 };

@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { api_url } from '../config.js';
 import { BlocksView } from './blocks_view.js';
 import RLMenu from './ui/menu.js';
-import { RLJsonEdit } from './ui/json_edit.js';
+import { RLJSONEditor } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
 import { classNames } from './ui/common.js';
@@ -97,14 +97,14 @@ export const ExperimentView = () => {
         fetch(api_url + "/session/stop");
     };
 
-    const on_params_changed = (e) => {
+    const on_params_changed = (updatedContent, previousContent, patchResult) => {
         fetch(api_url + "/session/params/update", {
             method: "POST",
             headers: {
                 "Accept": "application/json",
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify(e.updated_src)
+            body: JSON.stringify(updatedContent.json)
         });
     };
 
@@ -181,19 +181,18 @@ export const ExperimentView = () => {
             {actions_view}
         </Bar>;
 
-    const exp_interaction = session ? (
+    const exp_interaction = session?.params ? (
         <div className="overflow-y-scroll">
             <Bar title="Parameters" colors="bg-gray-200 border-gray-300">
                 <RLButton.BarButton onClick={reset_params} disabled={is_running}text="Reset"/>
             </Bar>
             <div className="pb-2 border-b-2 border-solid border-b-gray-200 h-fit">
-                <RLJsonEdit
-                    src={ctrl_state.session.params}
-                    name={null}
-                    onEdit={is_running ? undefined : on_params_changed}
-                    onAdd={is_running ? undefined : on_params_changed}
-                    onDelete={is_running ? undefined : on_params_changed}
-                />
+                <RLJSONEditor
+                    content={{json: ctrl_state.session.params}}
+                    onChange={on_params_changed}
+                    readOnly={is_running}
+                    mainMenuBar={false}
+                    navigationBar={false}/>
             </div>
 
             <Bar title="Blocks" colors="bg-gray-200">
