@@ -126,7 +126,7 @@ export const ArenaControlView = () => {
                     onClick={() => toggle_display(d)}
                 >
                     <RLIcon.MenuIcon icon={["fas", get_display_toggle_icon(d)]}/>
-                    <span>{d}</span>
+                    <span className="pl-1 align-middle">{d}</span>
                 </RLMenu.ButtonItem>
             ))
         : null;
