@@ -30,7 +30,7 @@ const ButtonItem = ({ disabled, children, ...props }) => (
     <Menu.Item {...props} as="div">
         {({ active }) => (
             <div className={classNames(
-                "px-2 py-2 cursor-pointer",
+                "p-2 cursor-pointer",
                 active && "bg-gray-200",
                 disabled ? "text-gray-400" : "hover:bg-gray-200")}>
 
@@ -49,7 +49,7 @@ const HeaderItem = ({ children, ...props }) => (
 );
 
 const StaticItem = ({ children, ...props }) => (
-    <Menu.Item as="div" className="p-1" {...props}>{children}</Menu.Item>
+    <Menu.Item as="div" className="p-2" {...props}>{children}</Menu.Item>
 )
 
 const BarMenuButton = ({ title, showDropIcon }) => (
