@@ -273,7 +273,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                 ? (
                     <>
                         <RLTabs onChange={(index) => setActiveTabIdx(index)} tabs={[tabPanel('sources'), tabPanel('observers')]} className="mt-1"/>
-                        <RLModal open={openAddModal} setOpen={setOpenAddModal} className="w-2/6" header={<>Add {cur_object}</>} actions={
+                        <RLModal open={openAddModal} setOpen={setOpenAddModal} className="w-2/6 h-1/4" header={<>Add {cur_object}</>} actions={
                             <>
                                 <RLButton.ModalButton onClick={add_object} disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>
                                     Add
