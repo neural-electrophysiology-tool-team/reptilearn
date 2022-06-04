@@ -29,13 +29,21 @@ const RLModal = ({ header, children, actions, open, setOpen, initialFocus, class
                             leaveFrom="opacity-100 translate-y-0 sm:scale-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <Dialog.Panel className={classNames("flex flex-col relative rounded-lg text-left overflow-visible shadow-xl transform transition-all", className, sizeClasses || "h-4/6 w-512")}>
+                            <Dialog.Panel className={classNames(
+                                "flex flex-col relative rounded-lg text-left overflow-visible shadow-xl transform transition-all", 
+                                className, 
+                                sizeClasses || "h-4/6 w-512")}>
+
                                 {header ? (
                                     <div className="bg-white rounded-t-lg py-3 px-4 font-bold text-2xl">
                                         {header}
                                     </div>
                                 ) : null}
-                                <div className={classNames("bg-white px-4 pb-4 flex flex-grow", !header && "pt-5 rounded-t-lg", !contentOverflowClass && "overflow-y-auto")}>
+                                <div className={classNames(
+                                    "bg-white px-4 pb-4 w-full text-sm flex flex-col flex-grow", 
+                                    header ? "" : "pt-5 rounded-t-lg", 
+                                    contentOverflowClass ? contentOverflowClass : "overflow-y-auto")}>
+
                                     {children}
                                 </div>
                                 <div className="bg-gray-50 rounded-b-lg px-4 py-3 flex flex-row-reverse">
@@ -49,13 +57,5 @@ const RLModal = ({ header, children, actions, open, setOpen, initialFocus, class
         </Transition.Root>
     )
 };
-
-const ModalHeader = ({children}) => (
-    <>
-    {children}
-    </>
-);
-
-RLModal.ModalHeader = ModalHeader;
 
 export default RLModal;

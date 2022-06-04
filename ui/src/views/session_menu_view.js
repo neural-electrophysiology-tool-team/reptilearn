@@ -8,6 +8,7 @@ import RLMenu from './ui/menu.js';
 import RLModal from './ui/modal.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 import RLButton from './ui/button.js';
+import RLInput from './ui/input.js';
 
 export const SessionMenuView = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
@@ -17,7 +18,7 @@ export const SessionMenuView = () => {
     const [openSessionListModal, setOpenSessionListModal] = React.useState(false);
     const [manageSessions, setManageSessions] = React.useState(false);
 
-    const [selectedExperimentIdx, setSelectedExperimentIdx] = React.useState(null);
+    const [selectedExperiment, setSelectedExperiment] = React.useState(null);
     const [experimentIdInput, setExperimentIdInput] = React.useState('');
 
     const open_new_session_modal = () => {
@@ -26,7 +27,7 @@ export const SessionMenuView = () => {
             .then(
                 (res) => {
                     setExperimentList(res);
-                    setSelectedExperimentIdx(res[0])
+                    setSelectedExperiment(res[0])
                 }
             )
             .then(() => setOpenNewSessionModal(true));
@@ -39,7 +40,6 @@ export const SessionMenuView = () => {
 
     const create_session = () => {
         setOpenNewSessionModal(false);
-        const exp_name = experimentList[selectedExperimentIdx];
 
         fetch(api_url + "/session/create", {
             method: "POST",
@@ -48,8 +48,8 @@ export const SessionMenuView = () => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                "id": experimentIdInput || exp_name,
-                "experiment": exp_name
+                "id": experimentIdInput || selectedExperiment,
+                "experiment": selectedExperiment
             })
         });
 
@@ -87,27 +87,28 @@ export const SessionMenuView = () => {
                 <RLButton.ModalButton onClick={() => setOpenNewSessionModal(false)}>Cancel</RLButton.ModalButton>
             </React.Fragment>
         }>
-            <table>
+            <table className="border-separate [border-spacing:0.75rem]">
                 <tbody>
                     <tr>
-                        <th>Experiment:</th>
+                        <td>Experiment:</td>
                         <td>
                             {experimentList.length > 0
                                 ? (
                                     <RLSimpleListbox
                                         options={RLListbox.simpleOptions(experimentList)}
-                                        selected={selectedExperimentIdx}
-                                        setSelected={setSelectedExperimentIdx}/>
+                                        selected={selectedExperiment}
+                                        setSelected={setSelectedExperiment}
+                                        className="w-full"/>
                                 ) : <div>Loading...</div>}
                         </td>
                     </tr>
                     <tr>
-                        <th>Session id:</th>
+                        <td>Session id:</td>
                         <td>
-                            <input type="text"
+                            <RLInput.Text
                                 value={experimentIdInput}
                                 onChange={(e) => setExperimentIdInput(e.target.value)}
-                                placeholder={experimentList[selectedExperimentIdx]}
+                                placeholder={selectedExperiment}
                                 className="w-full"
                                 autoFocus />
                         </td>

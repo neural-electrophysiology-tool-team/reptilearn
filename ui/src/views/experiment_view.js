@@ -7,6 +7,8 @@ import RLMenu from './ui/menu.js';
 import { RLJsonEdit } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
+import { classNames } from './ui/common.js';
+import RLInput from './ui/input.js';
 
 /*
   assign object o to object n without overwriting existing properties of o.
@@ -144,7 +146,7 @@ export const ExperimentView = () => {
         if (!session) return "Session";
 
         const st = new Date(session.start_time);
-        return `Session ${session.id} (${ctrl_state.session.experiment} ${st.toLocaleString()})`;
+        return `${session.id} (${ctrl_state.session.experiment} ${st.toLocaleString()})`;
     })();
 
 
@@ -162,18 +164,18 @@ export const ExperimentView = () => {
         ) : null;
 
     const phase_toolbar = !session ? null :
-        <Bar colors="bg-gray-50 border-gray-300">
+        <Bar colors="bg-gray-50 border-gray-300" className={classNames("h-10 min-h-10")}>
             {session
                 ? (is_running
                     ? <RLButton.BarButton onClick={stop_experiment} icon="stop"/>
                     : <RLButton.BarButton onClick={run_experiment} icon="play"/>)
                 : null
             }
-            <div className='flex items-center px-1'>Block:</div>
-            <input type="text" readOnly value={session.cur_block + 1} size="3" />
+            <div className='flex items-center px-1 h-[22px]'>Block:</div>
+            <RLInput.Text readOnly value={session.cur_block + 1} size="3" className="h-[22px]"/>
             <RLButton.BarButton onClick={next_block} icon="add" iconClassName="h-[11px] w-[11px]"/>
-            <div className='flex items-center px-1'>Trial:</div>
-            <input type="text" readOnly value={session.cur_trial + 1} size="3" />
+            <div className='flex items-center px-1 h-[22px]'>Trial:</div>
+            <RLInput.Text readOnly value={session.cur_trial + 1} size="3" className="h-[22px]"/>
             <RLButton.BarButton onClick={next_trial} icon="add" iconClassName="h-[11px] w-[11px]"/>
             <RLButton.BarButton onClick={reset_phase} icon="undo" className="mr-auto"/>
             {actions_view}

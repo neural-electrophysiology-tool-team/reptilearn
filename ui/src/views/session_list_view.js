@@ -14,7 +14,7 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
     const [reload, setReload] = React.useState(true);
 
     React.useEffect(() => {
-        if (!open || !reload) {
+        if (!open) {
             return false;
         }
 
@@ -25,7 +25,21 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
             .then((res) => {
                 setSessionList(res);
             });
-    }, [open, reload]);
+    }, [open]);
+
+    React.useEffect(() => {
+        if (!reload) {
+            return false;
+        }
+
+        setReload(false);
+        setSelectedSessions([]);
+        fetch(api_url + "/session/list")
+            .then(res => res.json())
+            .then((res) => {
+                setSessionList(res);
+            });
+    }, [reload]);
 
     const toggle_session = (session) => {
         const ss = [...selectedSessions];
@@ -37,7 +51,7 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
         else {
             ss.push(session);
         }
-        console.log(ss);
+
         setSelectedSessions(ss);
     };
 
@@ -45,63 +59,57 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
         setOpenArchiveModal(true);
     };
 
-    // RENDER
-
-    const items = sessionList ? sessionList.map(s => {
-        return (
-            <tr key={s}>
-                {manageable ? (
-                    <td>
-                        <input type="checkbox" onChange={() => toggle_session(s)} />
-                    </td>
-                ) : null}
-                <td>
-                    {selectable ?
-                        <button onClick={() => onSelect(s[2])}>{s[0]}</button>
-                        : s[0]
-                    }
-                </td>
-                <td>
-                    {s[1]}
-                </td>
-            </tr>
-        );
-    }).reverse() : undefined;
-
-    const content = items ? (
-        <table>
+    const content = sessionList ? (
+        <table className="table w-full h-fit border-gray-300 border-hidden rounded-md shadow-md overflow-y-scroll flex-grow">
             <tbody>
-                {items}
+                {sessionList.map(s => {
+                    return (
+                        <tr key={s} className="border-gray-200 border border-y w-full">
+                            {manageable ? (
+                                <td className="px-2 py-2  ">
+                                    <input type="checkbox" onChange={() => toggle_session(s)} />
+                                </td>
+                            ) : null}
+                            <td className="px-2 py-2">
+                                {selectable ?
+                                    <button onClick={() => onSelect(s[2])} className="text-blue-700 hover:decoration-blue-700 hover:underline">{s[0]}</button>
+                                    : s[0]
+                                }
+                            </td>
+                            <td className="px-2 py-2">
+                                {s[1]}
+                            </td>
+                        </tr>
+                    );
+                }).reverse()}
             </tbody>
 
         </table>
     ) : "Loading...";
 
     return (
-        <RLModal sizeClasses="max-w-lg w-5/6" open={open} setOpen={setOpen} header={selectable ? 'Select session' : 'Sessions'} actions={
+        <RLModal sizeClasses="max-w-lg w-5/6 max-h-[75vh]" open={open} setOpen={setOpen} header={selectable ? 'Select session' : 'Sessions'} contentOverflowClass="overflow-hidden" actions={
             <React.Fragment>
                 {
                     manageable ? (
-                        <React.Fragment>
+                        <>
                             <RLButton.ModalButton
                                 onClick={open_archive_modal}
-                                disabled={selectedSessions.length === 0}>
-                                {/* <Icon name="archive" /> */}
-                                Archive
-                            </RLButton.ModalButton>
+                                disabled={selectedSessions.length === 0}
+                                colorClasses="text-green-600"
+                                icon="archive" text="Archive"/>
                             <RLButton.ModalButton
                                 onClick={() => setOpenDeleteModal(true)}
-                                disabled={selectedSessions.length === 0}>
-                                {/* <Icon name="delete" /> */}
-                                Delete
-                            </RLButton.ModalButton>
-                        </React.Fragment>
+                                disabled={selectedSessions.length === 0}
+                                colorClasses="text-red-600"
+                                icon="trash" text="Delete"/>
+                        </>
                     ) : null
                 }
                 <RLButton.ModalButton onClick={() => setOpen(false)}>{manageable ? 'Close' : 'Cancel'}</RLButton.ModalButton>
             </React.Fragment>
         }>
-            {content /*scrolling*/}
+            {content}
             <ArchiveView sessions={selectedSessions}
                 setOpen={setOpenArchiveModal}
                 open={openArchiveModal} />

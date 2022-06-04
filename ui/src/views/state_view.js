@@ -88,7 +88,7 @@ export const StateView = () => {
                     state_path_select(statePath.length)
                 ]}
             </Bar>
-            <div className="overflow-y-scroll">
+            <div className="overflow-y-scroll flex-grow">
                 <RLJsonEdit
                     src={ctrlStatePath}
                     name={null}

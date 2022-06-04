@@ -1,12 +1,12 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { api_url } from '../config.js';
 import { VideoSettingsView } from './video_settings_view.js';
 import RLMenu from './ui/menu.js';
 import RLButton from './ui/button.js';
 import RLIcon from './ui/icon.js';
+import RLInput from './ui/input.js';
 
 export const VideoRecordView = () => {
     const ctrlState = useSelector((state) => state.reptilearn.ctrlState);
@@ -84,8 +84,7 @@ export const VideoRecordView = () => {
     return (
         <React.Fragment>
             <VideoSettingsView open={openSettingsModal} setOpen={setOpenSettingsModal} />
-            <input
-                type="text"
+            <RLInput.TopBarText
                 name="prefix_input"
                 placeholder="optional recording id"
                 value={filePrefix}

@@ -1,6 +1,5 @@
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { api_url } from '../config.js';
 import { setVideoConfig } from '../store/reptilearn_slice';
@@ -10,9 +9,12 @@ import { RLSimpleListbox } from './ui/list_box.js';
 import { RLJsonEdit } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
+import RLInput from './ui/input.js';
+import { classNames } from './ui/common.js';
 
 export const VideoSettingsView = ({ setOpen, open }) => {
     const dispatch = useDispatch();
+    
     const [openAddModal, setOpenAddModal] = React.useState(false);
     const [addIdInput, setAddIdInput] = React.useState(null);
     const [addClassInput, setAddClassInput] = React.useState(null);
@@ -238,17 +240,18 @@ export const VideoSettingsView = ({ setOpen, open }) => {
         title: type === 'sources' ? 'Sources' : 'Observers',
         panel: (
             <div className='flex flex-col h-full'>
-                <Bar>
+                <Bar colors="bg-gray-100">
                     <RLSimpleListbox
                         options={type === 'sources' ? srcs_options : obs_options}
                         selected={type === 'sources' ? selectedSource : selectedObserver}
                         setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver} />
-                    <RLButton.BarButton onClick={open_add_modal} icon="add" />
-                    <RLButton.BarButton onClick={remove_object} icon="x" />
+                    <RLButton.BarButton onClick={open_add_modal} icon="add" iconClassName="h-[11px] w-[11px]" />
+                    <RLButton.BarButton onClick={remove_object} icon="x" iconClassName="h-[11px] w-[11px]" />
                     <RLButton.BarButton onClick={reset_object} icon="undo" />
                 </Bar>
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto">
                     <RLJsonEdit
+                        className="p-1"
                         src={type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver]}
                         name={null}
                         onEdit={(e) => (type === 'sources' ? on_source_changed(e.updated_src, selectedSource) : on_observer_changed(e.updated_src, selectedObserver))}
@@ -259,32 +262,32 @@ export const VideoSettingsView = ({ setOpen, open }) => {
         )
     });
     return (
-        <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-4/6 h-4/6" contentOverflowClass="overflow-hidden" actions={
+        <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-y-auto" actions={
             <React.Fragment>
-                {video_is_running ? <RLButton.ModalButton className="text-red-500" onClick={shutdown}>Shutdown</RLButton.ModalButton> : null}
-                <RLButton.ModalButton className="text-red-500" onClick={apply}>{restart_label}</RLButton.ModalButton>
+                {video_is_running ? <RLButton.ModalButton colorClasses="text-red-500" onClick={shutdown}>Shutdown</RLButton.ModalButton> : null}
+                <RLButton.ModalButton colorClasses={video_is_running && !dirty ? "text-red-500" : "text-green-600"} onClick={apply}>{restart_label}</RLButton.ModalButton>
                 <RLButton.ModalButton onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</RLButton.ModalButton>
             </React.Fragment>
         }>
             {!isLoadingConfig
                 ? (
                     <>
-                        <RLTabs onChange={(index) => setActiveTabIdx(index)} tabs={[tabPanel('sources'), tabPanel('observers')]} />
-                        <RLModal open={openAddModal} setOpen={setOpenAddModal} className="w-3/6" actions={
+                        <RLTabs onChange={(index) => setActiveTabIdx(index)} tabs={[tabPanel('sources'), tabPanel('observers')]} className="mt-1"/>
+                        <RLModal open={openAddModal} setOpen={setOpenAddModal} className="w-2/6" header={<>Add {cur_object}</>} actions={
                             <>
-                                <RLButton.ModalButton onClick={() => setOpenAddModal(false)}>Cancel</RLButton.ModalButton>
                                 <RLButton.ModalButton onClick={add_object} disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>
                                     Add
                                 </RLButton.ModalButton>
+                                <RLButton.ModalButton onClick={() => setOpenAddModal(false)}>Cancel</RLButton.ModalButton>                                
                             </>
                         }>
-                            <h1>Add {cur_object}</h1>
-                            <table>
+                            <table className="border-separate [border-spacing:0.75rem] w-full">
                                 <tbody>
                                     <tr>
-                                        <td>Class</td>
+                                        <td>Class:</td>
                                         <td>
                                             <RLSimpleListbox
+                                                className="w-full"
                                                 placeholder={`Select ${cur_object} class...`}
                                                 setSelected={setAddClassInput}
                                                 selected={addClassInput}
@@ -296,10 +299,11 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                                             Id:
                                         </td>
                                         <td>
-                                            <input placeholder={cur_object + " id"}
+                                            <RLInput.Text
+                                                placeholder={cur_object + " id"}
                                                 value={addIdInput}
                                                 onChange={(e) => setAddIdInput(e.target.value)}
-                                                className={add_object_exists() ? 'text-red-500' : ''} />
+                                                className={classNames(add_object_exists() ? 'text-red-500' : '', "w-full")} />
                                         </td>
                                     </tr>
                                 </tbody>

@@ -39,7 +39,7 @@ export const DeleteSessionModal = ({ session, sessions, open, setOpen, onDelete 
     return (
         <RLModal open={open} setOpen={setOpen} header="Are you sure?" sizeClasses="w-2/6" actions={
             <React.Fragment>
-                <RLButton.ModalButton onClick={delete_sessions}>Yes</RLButton.ModalButton>
+                <RLButton.ModalButton colorClasses="text-red-500" onClick={delete_sessions}>Yes</RLButton.ModalButton>
                 <RLButton.ModalButton onClick={() => setOpen(false)}>No</RLButton.ModalButton>
             </React.Fragment>
         }>

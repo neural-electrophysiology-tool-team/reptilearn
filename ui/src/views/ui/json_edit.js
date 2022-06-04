@@ -1,11 +1,11 @@
 import ReactJson from "react-json-view";
 
-const RLJsonEdit = (props) => (
-    props.className ? (
-        <div className={props.className}>
-            <ReactJson {...props} style={Object.assign({fontFamily: 'Fira Mono', overflow: 'auto'}, props.style || {})}/>
+const RLJsonEdit = ({ className, style, ...props }) => (
+    className ? (
+        <div className={className}>
+            <ReactJson {...props} style={Object.assign({fontFamily: 'Fira Mono', overflow: 'auto'}, style || {})}/>
         </div>
-    ) : <ReactJson {...props} style={Object.assign({fontFamily: 'Fira Mono', overflow: 'auto'}, props.style || {})}/>
+    ) : <ReactJson {...props} style={Object.assign({fontFamily: 'Fira Mono', overflow: 'auto'}, style || {})}/>
 );
 
 export { RLJsonEdit };
