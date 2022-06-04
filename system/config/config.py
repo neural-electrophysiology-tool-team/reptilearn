@@ -5,6 +5,9 @@ import logging
 # Logging level of process and main loggers.
 log_level = logging.INFO
 
+# Max number of recent log lines that will be stored in the log buffer.
+log_buffer_size = 1000
+
 # Port number for a REST and socketio api server. If changed, edit ui/src/config.js with
 # a matching value.
 api_port = 5000

@@ -1,13 +1,13 @@
-export const RLSelect = ({ options, values, selected, on_select, disabled, disabled_options, name, className }) => {
-    if (!disabled_options)
-        disabled_options = [];
+export const RLSelect = ({ options, values, selected, setSelected, disabled, disabledOptions, name, className }) => {
+    if (!disabledOptions)
+        disabledOptions = [];
 
     const option_items = options.map(
         (val, idx) => {
             return (
                 <option key={idx}
                     value={values? values[idx] : idx}
-                    disabled={disabled_options.indexOf(val) !== -1}>
+                    disabled={disabledOptions.indexOf(val) !== -1}>
                     {val}
                 </option>
             );
@@ -17,8 +17,8 @@ export const RLSelect = ({ options, values, selected, on_select, disabled, disab
     const on_change = (e) => {
         const i = parseInt(e.target.value);
 
-        if (on_select)
-            on_select(values ? e.target.value : options[i], values ? undefined : i);
+        if (setSelected)
+            setSelected(values ? e.target.value : options[i], values ? undefined : i);
     };
 
     return (

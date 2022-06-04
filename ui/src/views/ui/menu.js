@@ -41,7 +41,7 @@ const ButtonItem = ({ disabled, children, ...props }) => (
 );
 
 const SeparatorItem = () => (
-    <Menu.Item as="div" className="h-1 border-gray-200 border-b-2"></Menu.Item>
+    <Menu.Item as="div" className="h-[2px] border-gray-200 border-b-2"></Menu.Item>
 );
 
 const HeaderItem = ({ children, ...props }) => (

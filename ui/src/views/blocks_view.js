@@ -4,7 +4,7 @@ import { api_url } from '../config.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
 import { classNames } from './ui/common.js';
-import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
+import { RLSelect } from './ui/select.js';
 
 export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }) => {
     const reset_block = (idx) => {
@@ -88,7 +88,7 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
         if (!options.includes("$inter_trial_interval"))
             options.push("$inter_trial_interval")
 
-        return <RLSimpleListbox options={RLListbox.simpleOptions(options)} selected={options[0]} setSelected={(key) => add_block_param(block_idx, key)}/>
+        return <RLSelect options={options} selected={options[0]} setSelected={(key) => add_block_param(block_idx, key)}/>
     };
 
     if (!blocks)

@@ -129,6 +129,7 @@ const StreamView = ({ idx }) => {
 };
 
 export const StreamGroupView = () => {
+    const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
     const streams = useSelector((state) => state.reptilearn.streams);
     const dispatch = useDispatch();
 
@@ -141,7 +142,7 @@ export const StreamGroupView = () => {
     React.useEffect(() => {
         localStorage.streams = JSON.stringify(streams);
     }, [streams]);
-    const stream_views = streams.map((_, idx) => <StreamView idx={idx} key={idx}/>);
+    const stream_views = ctrl_state.video ? streams.map((_, idx) => <StreamView idx={idx} key={idx}/>) : null;
 
     return (
         <div className="pr-1">
