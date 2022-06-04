@@ -68,7 +68,7 @@ export const ArenaControlView = () => {
                     onClick={() => run_command(ifs["command"], ifs.name, undefined, false)}
                     key={ifs.name}>
                     <RLIcon.MenuIcon icon={ifs.icon} />
-                    {ifs.name}
+                    <span className="pr-1 align-middle">{ifs.name}</span>
                 </RLMenu.ButtonItem>
             );
         }
@@ -80,7 +80,10 @@ export const ArenaControlView = () => {
                     : `${ifs.name}: ${format_val}${ifs.unit || ''}`;
 
                 return (
-                    <RLMenu.StaticItem key={ifs.name + idx}>{ifs.icon} {text}</RLMenu.StaticItem>
+                    <RLMenu.StaticItem key={ifs.name + idx}>
+                        <RLIcon.MenuIcon icon={ifs.icon}/>
+                        {text}
+                    </RLMenu.StaticItem>
                 );
             };
 

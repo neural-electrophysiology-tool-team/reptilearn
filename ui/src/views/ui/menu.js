@@ -16,7 +16,7 @@ const RLMenu = ({ children, align, title, button, className }) => {
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95">
                 <Menu.Items className={classNames(
-                    "origin-top-right absolute rounded-sm shadow-lg bg-white overflow-hidden whitespace-nowrap z-[200] focus:outline-none",
+                    "origin-top-right absolute rounded-sm shadow-lg bg-white overflow-hidden overflow-y-auto whitespace-nowrap z-[200] focus:outline-none max-h-[75vh]",
                     align && (align === 'right') ? 'right-0' : 'left-0')}>
 
                     {children}
