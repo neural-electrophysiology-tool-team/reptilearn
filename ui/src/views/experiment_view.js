@@ -202,7 +202,7 @@ export const ExperimentView = () => {
         <RLTabs
             onChange={setSelectedParamsIndex}
             selectedIndex={selectedParamsIndex}
-            className="overflow-hidden"
+            className="overflow-hidden mt-px"
             panelClassName="flex-col flex-1 overflow-hidden"
             tabs={[paramsTab, ...blockTabs]} />
     ) : <RLSpinner>Loading...</RLSpinner>)

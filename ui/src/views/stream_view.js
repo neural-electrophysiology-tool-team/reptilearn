@@ -14,7 +14,7 @@ import { classNames } from './ui/common.js';
 const StreamView = ({ idx }) => {
     const dispatch = useDispatch();
 
-    const streams = useSelector((state) => state.reptilearn.streams);    
+    const streams = useSelector((state) => state.reptilearn.streams);
     const video_config = useSelector((state) => state.reptilearn.videoConfig);
     const src_ids = useSelector(imageSourceIds);
 
@@ -22,7 +22,7 @@ const StreamView = ({ idx }) => {
     const [draggedOver, setDraggedOver] = React.useState(false);
     const [dragCount, setDragCount] = React.useState(0); // prevent drag indicator from disappearing on child elements
     const [mouseDownTarget, setMouseDownTarget] = React.useState(null); // drag from handle only
-    
+
     const dragHandle = React.useRef();
 
     const { src_id, width, undistort, is_streaming } = streams[idx];
@@ -34,7 +34,7 @@ const StreamView = ({ idx }) => {
         + `/image_sources/${src_id}/stream?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
 
     const on_resize = (e, d) => {
-        dispatch(updateStream({idx: idx, key: "width", val: Math.round(d.size.width)}));
+        dispatch(updateStream({ idx: idx, key: "width", val: Math.round(d.size.width) }));
     };
 
     const save_image = () => {
@@ -47,17 +47,17 @@ const StreamView = ({ idx }) => {
         setDrag(false);
         setDraggedOver(false);
         const orig_idx = parseInt(e.dataTransfer.getData("text/plain"));
-        dispatch(moveStream({from: orig_idx, to: idx}))
+        dispatch(moveStream({ from: orig_idx, to: idx }))
     };
 
     const handle_dragstart = (e) => {
         if (dragHandle.current.contains(mouseDownTarget)) {
             setDrag(true);
-            e.dataTransfer.setData("text/plain", idx); 
-            e.dataTransfer.effectAllowed = "move";    
+            e.dataTransfer.setData("text/plain", idx);
+            e.dataTransfer.effectAllowed = "move";
         } else {
             e.preventDefault();
-        }        
+        }
     }
 
     const handle_dragover = (e) => {
@@ -108,17 +108,21 @@ const StreamView = ({ idx }) => {
             maxConstraints={[src_width, src_height]}>
 
             <div draggable className={classNames("bg-gray-100 inline-block mt-px mr-px border-0", is_dragged_over && "ring-2 ring-green-500")}
-                style={{ width: width + 'px', height: stream_height + 28 + 'px' }} 
+                style={{ width: width + 'px', height: stream_height + 28 + 'px' }}
                 onDrop={handle_drop} onDragOver={handle_dragover} onDragEnter={handle_dragenter} onDragLeave={handle_dragleave}
                 onDragStart={handle_dragstart} onDragEnd={() => setDrag(false)} onMouseDown={(e) => setMouseDownTarget(e.target)} onMouseUp={() => setMouseDownTarget(null)}>
                 <Bar>
-                    <RLButton.BarButton onClick={() => dispatch(removeStream({idx}))} icon="xmark"/>
-                    <RLSimpleListbox header="Image source" options={RLListbox.simpleOptions(src_ids)} selected={src_id} setSelected={(new_src_id) => dispatch(updateStreamSources({stream_idx: idx, new_src_id, old_src_id: src_id}))} />
-                    <RLButton.BarButton onClick={() => dispatch(toggleStream({idx}))} icon={stream_btn_icon} />
+                    <RLButton.BarButton onClick={() => dispatch(removeStream({ idx }))} icon="xmark" />
+                    <RLSimpleListbox
+                        header="Image source"
+                        options={RLListbox.valueOnlyOptions(src_ids)}
+                        selected={src_id}
+                        setSelected={(new_src_id) => dispatch(updateStreamSources({ stream_idx: idx, new_src_id, old_src_id: src_id }))}/>
+                    <RLButton.BarButton onClick={() => dispatch(toggleStream({ idx }))} icon={stream_btn_icon} />
                     <RLButton.BarButton onClick={save_image} title="Save image" icon="fa-solid fa-file-image" />
                     <div className={classNames("h-4 w-4 my-auto ml-auto mr-1 cursor-move", draggedOver && "pointer-events-none")} ref={dragHandle}>
-                        <FontAwesomeIcon icon="bars" className="h-4 text-gray-600" transform="up-1"/>    
-                    </div>                    
+                        <FontAwesomeIcon icon="bars" className="h-4 text-gray-600" transform="up-1"/>
+                    </div>
                 </Bar>
                 <div className="stream" style={stream_style}>
                     {stream_img}
@@ -141,11 +145,11 @@ export const StreamGroupView = () => {
         }
     }, [dispatch]);
 
-    const stream_views = ctrl_state.video ? streams.map((_, idx) => <StreamView idx={idx} key={idx}/>) : null;
+    const stream_views = ctrl_state.video ? streams.map((_, idx) => <StreamView idx={idx} key={idx} />) : null;
 
     return (
         <div className="pr-1">
             {stream_views}
         </div>
-    );    
+    );
 };

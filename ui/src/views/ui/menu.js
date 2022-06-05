@@ -1,27 +1,31 @@
 import React from 'react';
-import { Menu, Transition } from '@headlessui/react'
+import { Menu } from '@headlessui/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { Float } from '@headlessui-float/react';
 import { classNames, styles } from './common';
 
 const RLMenu = ({ children, align, title, button, className }) => {
     return (
-        <Menu as="div" className={classNames("relative inline-block text-left overflow-visible", className)}>
-            {button || <BarMenuButton title={title} showDropIcon />}
-            <Transition
-                as={React.Fragment}
+        <Menu>
+            <Float
+                tailwindcssOriginClass
+                portal="#portalTarget"
+                placement={(align && align === 'right') ? "bottom-end" : "bottom-start"}
+                offset={1}
                 enter="transition ease-out duration-100"
                 enterFrom="transform opacity-0 scale-95"
                 enterTo="transform opacity-100 scale-100"
                 leave="transition ease-in duration-75"
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95">
+                <div>{button || <BarMenuButton title={title} showDropIcon />}</div>
+
                 <Menu.Items className={classNames(
-                    "origin-top-right absolute rounded-sm shadow-lg bg-white overflow-hidden overflow-y-auto whitespace-nowrap z-[200] focus:outline-none max-h-[75vh]",
-                    align && (align === 'right') ? 'right-0' : 'left-0')}>
+                    "rounded-sm shadow-lg bg-white overflow-hidden overflow-y-auto whitespace-nowrap focus:outline-none max-h-[75vh]")}>
 
                     {children}
                 </Menu.Items>
-            </Transition>
+            </Float>
         </Menu>
     );
 };

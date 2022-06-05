@@ -6,7 +6,7 @@ import { api_url } from '../config.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
 import { classNames } from './ui/common.js';
-import { RLSelect } from './ui/select.js';
+import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 
 
 export const BlockView = ({ idx }) => {
@@ -31,7 +31,7 @@ export const BlockView = ({ idx }) => {
             body: JSON.stringify(blocks)
         });
     };
-    
+
     const remove_block = () => {
         const bs = [...blocks];
         bs.splice(idx, 1);
@@ -96,9 +96,7 @@ export const BlockView = ({ idx }) => {
 
     const block_override_selector = (idx) => {
         const block = blocks[idx];
-        let options = ["Override", ...Object.keys(params).filter(
-            key => block[key] === undefined
-        )];
+        let options = Object.keys(params).filter(key => block[key] === undefined);
 
         if (!options.includes("$num_trials"))
             options.push("$num_trials");
@@ -109,7 +107,12 @@ export const BlockView = ({ idx }) => {
         if (!options.includes("$inter_trial_interval"))
             options.push("$inter_trial_interval")
 
-        return <RLSelect options={options} selected={options[0]} setSelected={(key) => add_block_param(key)}/>
+        return <RLSimpleListbox
+            placeholder="Override"
+            options={RLListbox.valueOnlyOptions(options)}
+            selected={null}
+            setSelected={(key) => add_block_param(key)}
+            checked={false} />
     };
 
     if (!blocks)
@@ -132,7 +135,7 @@ export const BlockView = ({ idx }) => {
                     onClick={(e) => shift_block_down(idx)}
                     disabled={is_running || idx === blocks.length - 1}
                     title="Shift down" icon="angle-down" />
-                <RLButton.BarButton 
+                <RLButton.BarButton
                     onClick={(e) => duplicate_block(idx)}
                     disabled={is_running}
                     title="Duplicate"
@@ -148,8 +151,8 @@ export const BlockView = ({ idx }) => {
                     disabled={is_running}
                     title="Reset block" icon="undo"/>
             </Bar>
-            <RLJSONEditor 
-                content={{json: blocks[idx]}}
+            <RLJSONEditor
+                content={{ json: blocks[idx] }}
                 onChange={(updatedContent) => on_block_changed(updatedContent, idx)}
                 className="h-[150px] overflow-y-auto flex flex-grow"
                 readOnly={is_running}

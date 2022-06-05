@@ -65,7 +65,7 @@ export const StateView = () => {
             setStatePath(state_path);
         };
 
-        const opts = RLListbox.simpleOptions([undefined, ...keys_for_path(i)]);
+        const opts = RLListbox.valueOnlyOptions([undefined, ...keys_for_path(i)]);
 
         if (opts.length === 1)
             return null;

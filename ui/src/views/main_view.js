@@ -26,6 +26,7 @@ export const TopBar = () => {
 
 export const MainView = () => (
     <div className="text-sm flex flex-col h-screen font-[Lato]">
+        <div id="portalTarget"></div>
         <TopBar></TopBar>
         <ReflexContainer orientation="horizontal" windowResizeAware={true} className='flex flex-grow'>
             <ReflexElement>

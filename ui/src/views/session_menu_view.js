@@ -95,7 +95,7 @@ export const SessionMenuView = () => {
                             {experimentList.length > 0
                                 ? (
                                     <RLSimpleListbox
-                                        options={RLListbox.simpleOptions(experimentList)}
+                                        options={RLListbox.valueOnlyOptions(experimentList)}
                                         selected={selectedExperiment}
                                         setSelected={setSelectedExperiment}
                                         className="w-full"/>
