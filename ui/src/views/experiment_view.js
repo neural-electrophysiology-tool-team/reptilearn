@@ -10,6 +10,7 @@ import { Bar } from './ui/bar.js';
 import RLInput from './ui/input.js';
 import RLTabs from './ui/tabs.js';
 import { RLSpinner } from './ui/spinner.js';
+import { classNames } from './ui/common.js';
 
 /*
   assign object o to object n without overwriting existing properties of o.
@@ -130,7 +131,8 @@ export const ExperimentView = () => {
 
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
     const session = ctrl_state.session;
-
+    const cur_block = ctrl_state?.session?.cur_block;
+    
     const session_title = (() => {
         if (!session) return "Session";
 
@@ -194,7 +196,7 @@ export const ExperimentView = () => {
     };
 
     const blockTabs = session && session.blocks.map((_, idx) => ({
-        title: idx === 0 ? "Block 1" : idx + 1,
+        title: <span className={classNames((cur_block === idx && session.blocks.length > 1) ? "text-green-600" : "")}>{idx === 0 ? "Block 1" : idx + 1}</span>,
         panel: <BlockView idx={idx} />
     }));
 

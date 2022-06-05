@@ -1,5 +1,4 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { api_url } from '../config';
 
 export const reptilearnSlice = createSlice({
     name: 'reptilearn',
@@ -80,9 +79,6 @@ export const reptilearnSlice = createSlice({
             const { idx } = action.payload;
             state.streams[idx].is_streaming = false;
             localStorage.setItem('streams', JSON.stringify(state.streams));
-
-            const src_id = state.streams[idx].src_id;
-            // fetch(api_url + `/stop_stream/${src_id}`);
         },
     },
 });

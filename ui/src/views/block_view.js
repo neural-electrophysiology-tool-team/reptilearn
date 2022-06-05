@@ -12,10 +12,11 @@ import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 export const BlockView = ({ idx }) => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
 
-    const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
-    const params = ctrl_state.session.params;
-    const blocks = ctrl_state.session.blocks;
-    const cur_block = ctrl_state.session ? ctrl_state.session.cur_block : undefined;
+    const session = ctrl_state?.session;
+    const is_running = session?.is_running;
+    const params = session?.params;
+    const blocks = session?.blocks;    
+    const cur_block = session?.cur_block;
 
     const reset_block = () => {
         fetch(api_url + `/session/blocks/update/${idx}`, { method: "POST" });
@@ -120,7 +121,7 @@ export const BlockView = ({ idx }) => {
 
     return (
         <div key={idx} className="h-full flex flex-col">
-            <Bar colors={classNames(cur_block === idx ? "bg-green-600" : "bg-gray-200")} border="none">
+            <Bar colors={classNames((cur_block === idx && session?.blocks?.length > 1) ? "bg-green-600" : "bg-gray-200")} border="none">
                 <RLButton.BarButton
                     onClick={(e) => remove_block(idx)}
                     disabled={is_running || blocks.length === 1}
