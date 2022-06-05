@@ -48,6 +48,7 @@ const StreamView = ({ idx }) => {
     const [draggedOver, setDraggedOver] = React.useState(false);
     const [mouseDownTarget, setMouseDownTarget] = React.useState(null); // drag from handle only
     const [restartStream, setRestartStream] = React.useState(false);
+    const [canEscape, setCanEscape] = React.useState(false);
 
     const dragCount = React.useRef(0); // prevent drag indicator from disappearing on child elements
     const dragHandle = React.useRef();
@@ -56,10 +57,67 @@ const StreamView = ({ idx }) => {
     const src_width = video_config.image_sources[src_id].image_shape[1];
     const src_height = video_config.image_sources[src_id].image_shape[0];
 
-    const stream_height = src_height * (width / src_width);
+    const stream_btn_icon = is_streaming ? "pause" : "play";
+    const is_dragged_over = draggedOver && !drag;
+    const bar_height = 28;
 
-    const on_resize = (e, d) => {
-        dispatch(updateStream({ idx: idx, key: "width", val: Math.round(d.size.width) }));
+    const get_stream_height = (stream) => {
+        const { src_id: id, width: w } = stream;
+        const src_width = video_config.image_sources[id].image_shape[1];
+        const src_height = video_config.image_sources[id].image_shape[0];
+
+        return src_height * (w / src_width);
+    }
+
+    const stream_height = get_stream_height(streams[idx])
+
+    const stream_width_from_height = (height) => {
+        const { src_id } = streams[idx];
+        const src_width = video_config.image_sources[src_id].image_shape[1];
+        const src_height = video_config.image_sources[src_id].image_shape[0];
+
+        return src_width * (height / src_height);
+    }
+
+    const on_resize = (_, d) => {
+        const requestedHeight = d.size.height - bar_height;
+
+        const closestHeight = (idx > 0)
+            ? (() => {
+                if (idx < streams.length - 1) {
+                    const sh_before = get_stream_height(streams[idx - 1]);
+                    const sh_after = get_stream_height(streams[idx + 1]);                    
+                    return (Math.abs(sh_before - requestedHeight) < Math.abs(sh_after - requestedHeight)) ? sh_before : sh_after;
+                } else {
+                    return get_stream_height(streams[idx - 1]);
+                }
+            })()
+            : (() => {
+                if (idx < streams.length - 1) {
+                    return get_stream_height(streams[idx + 1])
+                } else {
+                    return null;
+                }
+            })();
+
+        const dh = Math.abs(d.size.height - closestHeight - bar_height);
+
+        let target_width;
+        if (!canEscape) {
+            if (dh < 10) {
+                target_width = stream_width_from_height(closestHeight);
+                setTimeout(() => setCanEscape(true), 500);
+            } else {
+                target_width = d.size.width;
+            }
+        } else {
+            target_width = d.size.width;
+            if (dh > 10) {
+                setCanEscape(false);
+            }
+        }
+
+        dispatch(updateStream({ idx: idx, key: "width", val: Math.floor(target_width) }));
     };
 
     const on_resize_start = () => {
@@ -128,17 +186,14 @@ const StreamView = ({ idx }) => {
         dragCount.current -= 1;
     };
 
-    const stream_btn_icon = is_streaming ? "pause" : "play";
-    const is_dragged_over = draggedOver && !drag;
-
     return (
-        <Resizable width={width} height={stream_height + 28}
+        <Resizable width={width} height={stream_height + bar_height}
             resizeHandles={['se']}
             lockAspectRatio={true}
             onResize={on_resize}
             onResizeStart={on_resize_start}
             onResizeStop={on_resize_stop}
-            minConstraints={[240, 240]}
+            minConstraints={[stream_width_from_height(180), 180]}
             maxConstraints={[src_width, src_height]}>
 
             <div draggable className={classNames("bg-gray-100 inline-block mt-px mr-px border-0", is_dragged_over && "ring-2 ring-green-500")}
