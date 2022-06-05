@@ -88,15 +88,13 @@ export const StateView = () => {
                     state_path_select(statePath.length)
                 ]}
             </Bar>
-            <div className="overflow-y-scroll flex-grow">
-                {ctrlStatePath &&
-                    <RLJSONEditor
-                        content={{ json: ctrlStatePath }}
-                        readOnly
-                        mainMenuBar={false}
-                        navigationBar={false} />}
-                    
-            </div>
+            {ctrlStatePath &&
+                <RLJSONEditor
+                    content={{ json: ctrlStatePath }}
+                    readOnly
+                    className="overflow-y-scroll flex-grow"
+                    mainMenuBar={false}
+                    navigationBar={false} />}
         </div>
     );
 }

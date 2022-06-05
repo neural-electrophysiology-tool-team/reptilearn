@@ -20,9 +20,8 @@ const StreamView = ({ idx }) => {
 
     const [drag, setDrag] = React.useState(false);
     const [draggedOver, setDraggedOver] = React.useState(false);
-    const [dragCount, setDragCount] = React.useState(0); // prevent drag indicator from disappearing on child elements
     const [mouseDownTarget, setMouseDownTarget] = React.useState(null); // drag from handle only
-
+    const dragCount = React.useRef(0); // prevent drag indicator from disappearing on child elements
     const dragHandle = React.useRef();
 
     const { src_id, width, undistort, is_streaming } = streams[idx];
@@ -43,7 +42,7 @@ const StreamView = ({ idx }) => {
 
     const handle_drop = (e) => {
         e.preventDefault();
-        setDragCount(0);
+        dragCount.current = 0;
         setDrag(false);
         setDraggedOver(false);
         const orig_idx = parseInt(e.dataTransfer.getData("text/plain"));
@@ -68,17 +67,17 @@ const StreamView = ({ idx }) => {
     };
 
     const handle_dragenter = () => {
-        if (dragCount === 0) {
+        if (dragCount.current === 0) {
             setDraggedOver(true);
         }
-        setDragCount(dragCount + 1);
+        dragCount.current += 1;
     };
 
     const handle_dragleave = () => {
-        if (dragCount === 1) {
+        if (dragCount.current === 1) {
             setDraggedOver(false);
         }
-        setDragCount(dragCount - 1);
+        dragCount.current -= 1;
     };
 
     const stream_style = {
@@ -121,7 +120,7 @@ const StreamView = ({ idx }) => {
                     <RLButton.BarButton onClick={() => dispatch(toggleStream({ idx }))} icon={stream_btn_icon} />
                     <RLButton.BarButton onClick={save_image} title="Save image" icon="fa-solid fa-file-image" />
                     <div className={classNames("h-4 w-4 my-auto ml-auto mr-1 cursor-move", draggedOver && "pointer-events-none")} ref={dragHandle}>
-                        <FontAwesomeIcon icon="bars" className="h-4 text-gray-600" transform="up-1"/>
+                        <FontAwesomeIcon icon="grip" className="h-4 text-gray-600" transform="up-1"/>
                     </div>
                 </Bar>
                 <div className="stream" style={stream_style}>
