@@ -15,7 +15,7 @@ export const reptilearnSlice = createSlice({
         setVideoConfig: (state, action) => {
             state.videoConfig = action.payload;
         },
-        setStreams: (state, action) => {            
+        setStreams: (state, action) => {
             state.streams = action.payload;
             localStorage.setItem('streams', JSON.stringify(state.streams));
         },
@@ -63,7 +63,7 @@ export const reptilearnSlice = createSlice({
             state.streams = state.streams.slice(0, idx)
                 .concat(state.streams.slice(idx + 1, state.streams.length));
             localStorage.setItem('streams', JSON.stringify(state.streams));
-        }, 
+        },
         updateStream: (state, action) => {
             const { idx, key, val } = action.payload;
             const s = state.streams.map(s => ({ ...s }));
@@ -71,19 +71,19 @@ export const reptilearnSlice = createSlice({
             state.streams = s;
             localStorage.setItem('streams', JSON.stringify(state.streams));
         },
-        toggleStream: (state, action) => {
+        startStreaming: (state, action) => {
             const { idx } = action.payload;
-            const is_streaming = state.streams[idx].is_streaming;
-            const src_id = state.streams[idx].src_id;
-            
-            if (is_streaming) {
-                fetch(api_url + `/stop_stream/${src_id}`);
-            }                
-
-            state.streams[idx].is_streaming = !is_streaming
+            state.streams[idx].is_streaming = true;
             localStorage.setItem('streams', JSON.stringify(state.streams));
         },
-    
+        stopStreaming: (state, action) => {
+            const { idx } = action.payload;
+            state.streams[idx].is_streaming = false;
+            localStorage.setItem('streams', JSON.stringify(state.streams));
+
+            const src_id = state.streams[idx].src_id;
+            fetch(api_url + `/stop_stream/${src_id}`);
+        },
     },
 });
 
@@ -99,6 +99,6 @@ export const streamlessSrcIds = (state) => {
     return imageSourceIds(state)?.filter(src_id => !used_ids.includes(src_id));
 };
 
-export const { setCtrlState, setVideoConfig, setStreams, addStream, updateStreamSources, moveStream, removeStream, updateStream, toggleStream } = reptilearnSlice.actions;
+export const { setCtrlState, setVideoConfig, setStreams, addStream, updateStreamSources, moveStream, removeStream, updateStream, stopStreaming, startStreaming } = reptilearnSlice.actions;
 
 export default reptilearnSlice.reducer;

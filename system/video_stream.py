@@ -129,7 +129,7 @@ class ImageSource(ConfigurableProcess):
         """
         Return a numpy.array image containing the supplied text
 
-        This image will be yielded by the stream generator (see stream_gen method) when image acquisition times 
+        This image will be yielded by the stream generator (see stream_gen method) when image acquisition times
         out (i.e. acquire_image doesn't return for a certain timeout duration)
         """
         im_h, im_w = shape[:2]
@@ -161,16 +161,17 @@ class ImageSource(ConfigurableProcess):
         while True:
             t1 = time.time()
             self.stream_obs_event.wait(5)
+
+            if self.end_event.is_set() or stop_this_stream_event.is_set():
+                self.stop_streaming_events.remove(stop_this_stream_event)
+                break
+
             if not self.stream_obs_event.is_set():
                 # timed out while waiting for image
                 yield timeout_img, None
                 continue
 
             self.stream_obs_event.clear()
-
-            if self.end_event.is_set() or stop_this_stream_event.is_set():
-                self.stop_streaming_events.remove(stop_this_stream_event)
-                break
 
             yield self.get_image()
 

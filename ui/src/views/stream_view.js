@@ -5,11 +5,35 @@ import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 
 import { api_url } from '../config.js';
-import { imageSourceIds, moveStream, removeStream, setStreams, toggleStream, updateStream, updateStreamSources } from '../store/reptilearn_slice.js';
+import { imageSourceIds, moveStream, removeStream, setStreams, startStreaming, stopStreaming, updateStream, updateStreamSources } from '../store/reptilearn_slice.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 import { classNames } from './ui/common.js';
+
+const StreamImage = React.memo(({ src_id, width, height, is_streaming }) => {
+    const stream_url = api_url
+        + `/image_sources/${src_id}/stream?width=${width}&ts=${Date.now()}`;
+
+    const stream_style = {
+        width: width + "px",
+        height: height + "px",
+        background: 'black',
+    };
+
+    return (
+        <div style={stream_style}>
+            {is_streaming
+                ? (
+                    <img src={stream_url}
+                        width={width}
+                        height={height}
+                        alt={"Video stream " + src_id}
+                    />
+                ) : <FontAwesomeIcon icon="pause" className="text-gray-500 h-full w-full" transform="shrink-10"/>}
+        </div>
+    );
+});
 
 const StreamView = ({ idx }) => {
     const dispatch = useDispatch();
@@ -21,19 +45,41 @@ const StreamView = ({ idx }) => {
     const [drag, setDrag] = React.useState(false);
     const [draggedOver, setDraggedOver] = React.useState(false);
     const [mouseDownTarget, setMouseDownTarget] = React.useState(null); // drag from handle only
+    const [restartStream, setRestartStream] = React.useState(false);
+
     const dragCount = React.useRef(0); // prevent drag indicator from disappearing on child elements
     const dragHandle = React.useRef();
 
-    const { src_id, width, undistort, is_streaming } = streams[idx];
+    const { src_id, width, is_streaming } = streams[idx];
     const src_width = video_config.image_sources[src_id].image_shape[1];
     const src_height = video_config.image_sources[src_id].image_shape[0];
 
     const stream_height = src_height * (width / src_width);
-    const stream_url = api_url
-        + `/image_sources/${src_id}/stream?width=${width}&fps=5&undistort=${undistort}&ts=${Date.now()}`;
 
     const on_resize = (e, d) => {
         dispatch(updateStream({ idx: idx, key: "width", val: Math.round(d.size.width) }));
+    };
+
+    const on_resize_start = () => {
+        if (is_streaming) {
+            setRestartStream(true);
+            dispatch(stopStreaming({ idx }));
+        }
+    };
+
+    const on_resize_stop = () => {
+        if (restartStream) {
+            setRestartStream(false);
+            dispatch(startStreaming({ idx }));
+        }
+    };
+
+    const toggle_stream = () => {
+        if (is_streaming) {
+            dispatch(stopStreaming({ idx }));
+        } else {
+            dispatch(startStreaming({ idx }));
+        }
     };
 
     const save_image = () => {
@@ -57,7 +103,7 @@ const StreamView = ({ idx }) => {
         } else {
             e.preventDefault();
         }
-    }
+    };
 
     const handle_dragover = (e) => {
         if (!drag) {
@@ -80,21 +126,6 @@ const StreamView = ({ idx }) => {
         dragCount.current -= 1;
     };
 
-    const stream_style = {
-        width: (width) + "px",
-        height: (stream_height) + "px",
-        background: 'black',
-    };
-
-    const stream_img = is_streaming ?
-        (
-            <img src={stream_url}
-                width={width}
-                height={stream_height}
-                alt=""
-            />
-        ) : null;
-
     const stream_btn_icon = is_streaming ? "pause" : "play";
     const is_dragged_over = draggedOver && !drag;
 
@@ -103,6 +134,8 @@ const StreamView = ({ idx }) => {
             resizeHandles={['se']}
             lockAspectRatio={true}
             onResize={on_resize}
+            onResizeStart={on_resize_start}
+            onResizeStop={on_resize_stop}
             minConstraints={[240, 240]}
             maxConstraints={[src_width, src_height]}>
 
@@ -116,16 +149,14 @@ const StreamView = ({ idx }) => {
                         header="Image source"
                         options={RLListbox.valueOnlyOptions(src_ids)}
                         selected={src_id}
-                        setSelected={(new_src_id) => dispatch(updateStreamSources({ stream_idx: idx, new_src_id, old_src_id: src_id }))}/>
-                    <RLButton.BarButton onClick={() => dispatch(toggleStream({ idx }))} icon={stream_btn_icon} />
+                        setSelected={(new_src_id) => dispatch(updateStreamSources({ stream_idx: idx, new_src_id, old_src_id: src_id }))} />
+                    <RLButton.BarButton onClick={toggle_stream} icon={stream_btn_icon} />
                     <RLButton.BarButton onClick={save_image} title="Save image" icon="fa-solid fa-file-image" />
-                    <div className={classNames("h-4 w-4 my-auto ml-auto mr-1 cursor-move", draggedOver && "pointer-events-none")} ref={dragHandle}>
-                        <FontAwesomeIcon icon="grip" className="h-4 text-gray-600" transform="up-1"/>
+                    <div className={classNames("h-4 w-4 my-auto ml-auto cursor-move", draggedOver && "pointer-events-none")} ref={dragHandle}>
+                        <FontAwesomeIcon icon="grip-vertical" className="h-4 text-gray-600" transform="up-1" />
                     </div>
                 </Bar>
-                <div className="stream" style={stream_style}>
-                    {stream_img}
-                </div>
+                <StreamImage src_id={src_id} width={width} height={stream_height} is_streaming={is_streaming} />
             </div>
         </Resizable>
     );
