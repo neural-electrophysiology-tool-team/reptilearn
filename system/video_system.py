@@ -317,7 +317,7 @@ def shutdown_video():
             _log.exception("Error while closing image observers:")
 
     if has_trigger():
-        start_trigger()
+        start_trigger(update_state=False)
 
     for img_src in image_sources.values():
         try:
@@ -333,8 +333,9 @@ def shutdown_video():
     image_sources.clear()
     image_observers.clear()
 
+    if has_trigger():
+        stop_trigger(update_state=False)
+
 
 def shutdown():
     shutdown_video()
-    if has_trigger():
-        stop_trigger()

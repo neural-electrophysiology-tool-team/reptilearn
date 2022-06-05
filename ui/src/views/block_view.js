@@ -1,5 +1,6 @@
 import React from 'react';
 import { RLJSONEditor } from './ui/json_edit.js';
+import { useSelector } from 'react-redux';
 
 import { api_url } from '../config.js';
 import { Bar } from './ui/bar.js';
@@ -7,18 +8,37 @@ import RLButton from './ui/button.js';
 import { classNames } from './ui/common.js';
 import { RLSelect } from './ui/select.js';
 
-export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }) => {
-    const reset_block = (idx) => {
+
+export const BlockView = ({ idx }) => {
+    const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
+
+    const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
+    const params = ctrl_state.session.params;
+    const blocks = ctrl_state.session.blocks;
+    const cur_block = ctrl_state.session ? ctrl_state.session.cur_block : undefined;
+
+    const reset_block = () => {
         fetch(api_url + `/session/blocks/update/${idx}`, { method: "POST" });
     };
 
-    const remove_block = (idx) => {
+    const set_blocks = (blocks) => {
+        fetch(api_url + "/session/blocks/update", {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(blocks)
+        });
+    };
+    
+    const remove_block = () => {
         const bs = [...blocks];
         bs.splice(idx, 1);
         set_blocks(bs);
     };
 
-    const add_block_param = (idx, key) => {
+    const add_block_param = (key) => {
         const bs = [...blocks];
         bs[idx] = { ...bs[idx] };
 
@@ -31,7 +51,7 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
         set_blocks(bs);
     };
 
-    const shift_block_up = (idx) => {
+    const shift_block_up = () => {
         const bs = [...blocks];
         const b = blocks[idx];
         bs.splice(idx, 1);
@@ -39,7 +59,7 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
         set_blocks(bs);
     };
 
-    const shift_block_down = (idx) => {
+    const shift_block_down = () => {
         const bs = [...blocks];
         const b = blocks[idx];
         bs.splice(idx, 1);
@@ -47,14 +67,14 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
         set_blocks(bs);
     };
 
-    const duplicate_block = (idx) => {
+    const duplicate_block = () => {
         const bs = [...blocks];
         const b = { ...blocks[idx] };
         bs.splice(idx + 1, 0, b);
         set_blocks(bs);
     };
 
-    const insert_block_after = (idx) => {
+    const insert_block_after = () => {
         const bs = [...blocks];
         bs.splice(idx + 1, 0, {});
         set_blocks(bs);
@@ -74,8 +94,8 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
         set_blocks(bs);
     };
 
-    const block_override_selector = (block_idx) => {
-        const block = blocks[block_idx];
+    const block_override_selector = (idx) => {
+        const block = blocks[idx];
         let options = ["Override", ...Object.keys(params).filter(
             key => block[key] === undefined
         )];
@@ -89,15 +109,15 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
         if (!options.includes("$inter_trial_interval"))
             options.push("$inter_trial_interval")
 
-        return <RLSelect options={options} selected={options[0]} setSelected={(key) => add_block_param(block_idx, key)}/>
+        return <RLSelect options={options} selected={options[0]} setSelected={(key) => add_block_param(key)}/>
     };
 
     if (!blocks)
         return null;
 
-    const block_divs = blocks.map((block, idx) => (
-        <div key={idx}>
-            <Bar colors={classNames(cur_block === idx ? "bg-green-600" : "bg-gray-50", "border-gray-300")}>
+    return (
+        <div key={idx} className="h-full flex flex-col">
+            <Bar colors={classNames(cur_block === idx ? "bg-green-600" : "bg-gray-200")} border="none">
                 <RLButton.BarButton
                     onClick={(e) => remove_block(idx)}
                     disabled={is_running || blocks.length === 1}
@@ -128,19 +148,13 @@ export const BlocksView = ({ is_running, cur_block, params, blocks, set_blocks }
                     disabled={is_running}
                     title="Reset block" icon="undo"/>
             </Bar>
-            <div className="pb-2  border-b-2 border-solid border-b-gray-200 h-fit">
-                <RLJSONEditor 
-                    content={{json: blocks[idx]}}
-                    onChange={(updatedContent) => on_block_changed(updatedContent, idx)}
-                    readOnly={is_running}
-                    mainMenuBar={false}
-                    navigationBar={false}/>
-            </div>
-        </div>
-    ));
-    return (
-        <div style={{ overflow: "hidden" }}>
-            {block_divs}
+            <RLJSONEditor 
+                content={{json: blocks[idx]}}
+                onChange={(updatedContent) => on_block_changed(updatedContent, idx)}
+                className="h-[150px] overflow-y-auto flex flex-grow"
+                readOnly={is_running}
+                mainMenuBar={false}
+                navigationBar={false}/>
         </div>
     );
 };

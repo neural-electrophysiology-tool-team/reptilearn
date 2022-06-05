@@ -1,8 +1,9 @@
 import { JSONEditor } from "svelte-jsoneditor/dist/jsoneditor.js";
 import { useEffect, useRef } from "react";
+import { classNames } from "./common";
 
 // Adapted from https://codesandbox.io/s/svelte-jsoneditor-react-59wxz
-export const RLJSONEditor = (props) => {
+export const RLJSONEditor = ({ className, ...props }) => {
   const refContainer = useRef(null);
   const refEditor = useRef(null);
 
@@ -29,7 +30,7 @@ export const RLJSONEditor = (props) => {
     }
   }, [props]);
 
-  return <div className="flex flex-1" style={{
+  return <div className={classNames(className)} style={{
       '--jse-font-family-mono': 'Inconsolata', 
       '--jse-font-size-mono': '15px',
       '--jse-font-size': '14px',
@@ -38,6 +39,7 @@ export const RLJSONEditor = (props) => {
       '--jse-context-menu-button-background-highlight': 'rgb(107 114 128)',
       '--jse-context-menu-separator-color': 'rgb(107 114 128)',
       '--jse-context-menu-button-size': 'calc(1em + 2px)',
-      '--jse-padding': '10px'
+      '--jse-padding': '10px',
+      '--jse-main-border': '0px',
     }} ref={refContainer}></div>;
 }

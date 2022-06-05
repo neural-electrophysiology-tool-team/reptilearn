@@ -3,7 +3,7 @@ import { SocketContext } from '../socket.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
 import { api_url } from '../config.js';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { RLSpinner } from './ui/spinner.js';
 
 export const LogView = () => {
     const socket = React.useContext(SocketContext);
@@ -43,6 +43,7 @@ export const LogView = () => {
         }
 
         socket.on('log', listener);
+        socket.on('disconnect', () => socket.off('log'));
 
         fetch(api_url + '/log/get_buffer')
             .then((res) => res.json())
@@ -59,7 +60,7 @@ export const LogView = () => {
             .then((val) => {
                 setBufferLength(val)
                 setListenerSetup(true);                
-            });
+            });        
     });
 
     React.useEffect(() => {
@@ -81,7 +82,7 @@ export const LogView = () => {
                 <RLButton.BarButton onClick={clear_log} text="Clear" disabled={!log?.current} />
             </Bar>
             {(!log?.current)
-                ? <div><FontAwesomeIcon icon="spinner" className="animate-spin mx-1" />Loading...</div>
+                ? <RLSpinner>Loading...</RLSpinner>
                 : (<textarea value={log.current.join('\n')}
                     readOnly
                     className="whitespace-pre py-0 px-1 flex flex-1 w-full font-mono overflow-y-auto text-[15px]"

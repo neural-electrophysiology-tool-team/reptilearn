@@ -2,13 +2,14 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 
 import { api_url } from '../config.js';
-import { BlocksView } from './blocks_view.js';
+import { BlockView } from './block_view.js';
 import RLMenu from './ui/menu.js';
 import { RLJSONEditor } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
-import { classNames } from './ui/common.js';
 import RLInput from './ui/input.js';
+import RLTabs from './ui/tabs.js';
+import { RLSpinner } from './ui/spinner.js';
 
 /*
   assign object o to object n without overwriting existing properties of o.
@@ -29,7 +30,7 @@ const assign_keep_old = (o, n) => {
 
 export const ExperimentView = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
-
+    const [selectedParamsIndex, setSelectedParamsIndex] = React.useState(0);
     /*
     const update_defaults = (override_blocks) => {
     fetch(exp_url + "/default_params")
@@ -97,7 +98,7 @@ export const ExperimentView = () => {
         fetch(api_url + "/session/stop");
     };
 
-    const on_params_changed = (updatedContent, previousContent, patchResult) => {
+    const on_params_changed = (updatedContent) => {
         fetch(api_url + "/session/params/update", {
             method: "POST",
             headers: {
@@ -105,17 +106,6 @@ export const ExperimentView = () => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(updatedContent.json)
-        });
-    };
-
-    const update_blocks = (blocks) => {
-        fetch(api_url + "/session/blocks/update", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(blocks)
         });
     };
 
@@ -139,7 +129,6 @@ export const ExperimentView = () => {
         return null;
 
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
-    const cur_block = ctrl_state.session ? ctrl_state.session.cur_block : undefined;
     const session = ctrl_state.session;
 
     const session_title = (() => {
@@ -164,53 +153,66 @@ export const ExperimentView = () => {
         ) : null;
 
     const phase_toolbar = !session ? null :
-        <Bar colors="bg-gray-50 border-gray-300" className={classNames("h-10 min-h-10")}>
+        <Bar colors="bg-gray-50 border-gray-300">
             {session
                 ? (is_running
-                    ? <RLButton.BarButton onClick={stop_experiment} icon="stop"/>
-                    : <RLButton.BarButton onClick={run_experiment} icon="play"/>)
+                    ? <RLButton.BarButton onClick={stop_experiment} icon="stop" />
+                    : <RLButton.BarButton onClick={run_experiment} icon="play" />)
                 : null
             }
             <div className='flex items-center px-1 h-[22px]'>Block:</div>
-            <RLInput.Text readOnly value={session.cur_block + 1} size="3" className="h-[22px]"/>
-            <RLButton.BarButton onClick={next_block} icon="add"/>
+            <RLInput.Text readOnly value={session.cur_block + 1} size="3" className="h-[22px]" />
+            <RLButton.BarButton onClick={next_block} icon="add" />
             <div className='flex items-center px-1 h-[22px]'>Trial:</div>
-            <RLInput.Text readOnly value={session.cur_trial + 1} size="3" className="h-[22px]"/>
-            <RLButton.BarButton onClick={next_trial} icon="add"/>
-            <RLButton.BarButton onClick={reset_phase} icon="undo" className="mr-auto"/>
+            <RLInput.Text readOnly value={session.cur_trial + 1} size="3" className="h-[22px]" />
+            <RLButton.BarButton onClick={next_trial} icon="add" />
+            <RLButton.BarButton onClick={reset_phase} icon="undo" className="mr-auto" />
             {actions_view}
         </Bar>;
 
-    const exp_interaction = session?.params ? (
-        <div className="overflow-y-scroll">
-            <Bar title="Parameters" colors="bg-gray-200 border-gray-300">
-                <RLButton.BarButton onClick={reset_params} disabled={is_running}text="Reset"/>
-            </Bar>
-            <div className="pb-2 border-b-2 border-solid border-b-gray-200 h-fit">
+    if (session?.blocks && selectedParamsIndex > session.blocks.length) {
+        setSelectedParamsIndex(session.blocks.length);
+    }
+
+    const paramsTab = session && {
+        title: "Params",
+        panel: (
+            <div className="flex flex-col h-full overflow-hidden">
+                <Bar title="Parameters" colors="bg-gray-200" border="none">
+                    <RLButton.BarButton onClick={reset_params} disabled={is_running} text="Reset" />
+                    <RLButton.BarButton onClick={reset_all_blocks} disabled={is_running} text="Reset blocks" />
+                </Bar>
                 <RLJSONEditor
-                    content={{json: ctrl_state.session.params}}
+                    content={{ json: session.params }}
                     onChange={on_params_changed}
+                    className="flex-grow overflow-y-scroll"
                     readOnly={is_running}
                     mainMenuBar={false}
-                    navigationBar={false}/>
+                    navigationBar={false} />
             </div>
+        ),
+    };
 
-            <Bar title="Blocks" colors="bg-gray-200">
-                <RLButton.BarButton onClick={reset_all_blocks} disabled={is_running} text="Reset all"/>
-            </Bar>
-            <BlocksView is_running={is_running}
-                params={ctrl_state.session.params}
-                blocks={ctrl_state.session.blocks}
-                set_blocks={update_blocks}
-                cur_block={cur_block} />
-        </div>
-    ) : null;
+    const blockTabs = session && session.blocks.map((_, idx) => ({
+        title: idx === 0 ? "Block 1" : idx + 1,
+        panel: <BlockView idx={idx} />
+    }));
+
+    const params = session && ((session?.params && session?.blocks) ? (
+        <RLTabs
+            onChange={setSelectedParamsIndex}
+            selectedIndex={selectedParamsIndex}
+            className="overflow-hidden"
+            panelClassName="flex-col flex-1 overflow-hidden"
+            tabs={[paramsTab, ...blockTabs]} />
+    ) : <RLSpinner>Loading...</RLSpinner>)
+
 
     return (
         <div className="flex flex-col h-full">
             <Bar title={session_title} />
             {phase_toolbar}
-            {exp_interaction}
+            {params}
         </div>
     );
 };

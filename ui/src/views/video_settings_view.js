@@ -239,7 +239,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
     const tabPanel = (type) => ({
         title: type === 'sources' ? 'Sources' : 'Observers',
         panel: (
-            <div className='flex flex-col h-full'>
+            <div className='flex flex-col overflow-hidden'>
                 <Bar colors="bg-gray-100">
                     <RLSimpleListbox
                         options={type === 'sources' ? srcs_options : obs_options}
@@ -249,29 +249,28 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                     <RLButton.BarButton onClick={remove_object} icon="xmark" />
                     <RLButton.BarButton onClick={reset_object} icon="undo" />
                 </Bar>
-                <div className="overflow-y-auto">
-                    <RLJSONEditor
-                        mainMenuBar={false}
-                        navigationBar={false}
-                        className="p-1"
-                        content={{ json: type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver] }}
-                        onChange={(updatedContent) => type === 'sources' ? on_source_changed(updatedContent.json, selectedSource) : on_observer_changed(updatedContent.json, selectedObserver)} />
-                </div>
+                <RLJSONEditor
+                    mainMenuBar={false}
+                    navigationBar={false}
+                    className="p-1 overflow-y-auto flex-grow"
+                    content={{ json: type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver] }}
+                    onChange={(updatedContent) => type === 'sources' ? on_source_changed(updatedContent.json, selectedSource) : on_observer_changed(updatedContent.json, selectedObserver)} />
+
             </div>
         )
     });
     return (
-        <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-y-auto" actions={
-            <React.Fragment>
+        <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-hidden" actions={
+            <>
                 {video_is_running ? <RLButton.ModalButton colorClasses="text-red-500" onClick={shutdown}>Shutdown</RLButton.ModalButton> : null}
                 <RLButton.ModalButton colorClasses="text-green-600" onClick={apply}>{restart_label}</RLButton.ModalButton>
                 <RLButton.ModalButton onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</RLButton.ModalButton>
-            </React.Fragment>
+            </>
         }>
             {!isLoadingConfig
                 ? (
-                    <>
-                        <RLTabs onChange={(index) => setActiveTabIdx(index)} tabs={[tabPanel('sources'), tabPanel('observers')]} className="mt-1"/>
+                    <div className="flex flex-grow overflow-hidden">
+                        <RLTabs onChange={(index) => setActiveTabIdx(index)} panelClassName="flex-col flex-1 overflow-hidden" tabs={[tabPanel('sources'), tabPanel('observers')]} />
                         <RLModal open={openAddModal} setOpen={setOpenAddModal} className="w-2/6 h-1/4" header={<>Add {cur_object}</>} actions={
                             <>
                                 <RLButton.ModalButton onClick={add_object} disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>
@@ -308,7 +307,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                                 </tbody>
                             </table>
                         </RLModal>
-                    </>
+                    </div>
                 ) : <div>Loading...</div>}
         </RLModal >
     );
