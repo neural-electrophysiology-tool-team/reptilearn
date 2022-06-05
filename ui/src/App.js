@@ -14,6 +14,8 @@ library.add(fas, far);
 const App = () => {
     const ctrlState = useSelector((state) => state.reptilearn.ctrlState);
     const videoConfig = useSelector((state) => state.reptilearn.videoConfig);
+    const streams = useSelector((state) => state.reptilearn.streams);
+
     const dispatch = useDispatch();
 
     const socket = React.useContext(SocketContext);
@@ -24,8 +26,17 @@ const App = () => {
 
     const handle_disconnect = React.useCallback(() => dispatch(setCtrlState(null)), [dispatch]);
 
-    // Display confirmation dialog before unloading page.
-    // window.onbeforeunload = () => true;    
+    
+    window.onbeforeunload = () => {
+        streams.forEach((stream) => {
+            if (stream.is_streaming) {
+                fetch(api_url + `/stop_stream/${stream.src_id}`);
+            }
+        });
+
+        // Display confirmation dialog before unloading page.
+        // return true;
+    }
 
     React.useEffect(() => {
         socket.on("state", handle_new_state);

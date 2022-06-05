@@ -82,7 +82,7 @@ export const reptilearnSlice = createSlice({
             localStorage.setItem('streams', JSON.stringify(state.streams));
 
             const src_id = state.streams[idx].src_id;
-            fetch(api_url + `/stop_stream/${src_id}`);
+            // fetch(api_url + `/stop_stream/${src_id}`);
         },
     },
 });
