@@ -61,6 +61,7 @@ class BBoxDataCollector:
     def __init__(self):
         self.obs = None
         self.bbox_log = None
+        self.remove_listener = None
 
     def start(self, listener=None, obs_id="head_bbox"):
         if obs_id not in video_system.image_observers:
@@ -69,7 +70,7 @@ class BBoxDataCollector:
         self.obs: ImageObserver = video_system.image_observers[obs_id]
 
         if listener is not None:
-            self.obs.add_listener(listener)
+            self.remove_listener = self.obs.add_listener(listener)
 
         self.bbox_log = data_log.ObserverLogger(
             self.obs,
@@ -93,3 +94,5 @@ class BBoxDataCollector:
             self.obs.stop_observing()
         if self.bbox_log:
             self.bbox_log.stop()
+        if self.remove_listener:
+            self.remove_listener()

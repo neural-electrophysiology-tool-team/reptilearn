@@ -63,7 +63,7 @@ export const VideoRecordView = () => {
                         disabled={!ctrlState.video.image_sources[src_id].acquiring || is_recording}
                         key={src_id}
                     >
-                        <RLIcon.MenuIcon icon={selected ? "toggle-on" : "toggle-off"}/>
+                        <RLIcon.MenuIcon icon={selected ? "toggle-on" : "toggle-off"} />
                         <span className='pr-1 align-middle'>{src_id}</span>
                     </RLMenu.ButtonItem>
                 );
@@ -72,7 +72,7 @@ export const VideoRecordView = () => {
 
 
         return (
-            <RLMenu button={<RLMenu.TopBarMenuButton title="Video"/>}>
+            <RLMenu button={<RLMenu.TopBarMenuButton title="Video" />}>
                 <RLMenu.HeaderItem key="sources">Record sources</RLMenu.HeaderItem>
                 {src_items}
                 <RLMenu.SeparatorItem key="sep" />
@@ -92,8 +92,8 @@ export const VideoRecordView = () => {
                 disabled={is_recording}
                 className='px-2 py-1'
             />
-            <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"}/>
-            <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]}/>
+            <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} className={is_recording ? "text-green-700" : "text-red-500"} />
+            <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />
 
             {/* <Popup content={is_recording ? "Stop recording" : "Start recording"}
                 trigger={

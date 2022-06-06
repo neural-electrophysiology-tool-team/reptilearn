@@ -122,21 +122,43 @@ class LocationExperiment(exp.Experiment):
             },
         )
 
+        exp.event_logger.log(
+            "loclearn/rewards_available",
+            {},
+        )
+
+    def manual_reward(self):
+        self.dispense_reward({"manual": True})
+
     def on_day_start(self):
+        if self.daytime:
+            self.log.warning("Trying to start day but it already started.")
+            return
+
+        self.daytime = True
+
         self.bbox_collector.start(self.on_bbox_detection)
         arena.start_trigger()
         video_system.start_record()
-        arena.run_command("set", "Light8", [1])
-        arena.run_command("set", "AC Line 2", [1])
-        arena.run_command("set", "AC Line 1", [1])
+        arena.run_command("set", "Light8", [1], False)
+        arena.run_command("set", "AC Line 2", [1], False)
+        arena.run_command("set", "AC Line 1", [1], False)
+        arena.request_values()
 
     def on_day_end(self):
+        if not self.daytime:
+            self.log.warning("Trying to end day but it already ended.")
+            return
+
+        self.daytime = False
+
         arena.run_command("set", "Light8", [0])
         arena.run_command("set", "AC Line 2", [0])
         arena.run_command("set", "AC Line 1", [0])
         video_system.stop_record()
         arena.stop_trigger()
         self.bbox_collector.stop()
+        arena.request_values()
 
     def setup(self):
         self.actions["Find aruco markers"] = {"run": self.find_aruco}
@@ -145,6 +167,7 @@ class LocationExperiment(exp.Experiment):
         self.actions["Simulate leave area"] = {"run": self.simulate_leave_area}
         self.actions["Simulate day start"] = {"run": self.on_day_start}
         self.actions["Simulate day end"] = {"run": self.on_day_end}
+        self.actions["Dispense reward"] = {"run": self.dispense_reward}
         self.actions["Reset available rewards"] = {"run": self.reset_rewards_count}
 
         self.cancel_day_start_sched = schedule.timeofday(
@@ -158,7 +181,9 @@ class LocationExperiment(exp.Experiment):
         self.bbox_collector = BBoxDataCollector()
         self.print_next_detection = False
 
+        session_state["is_in_area"] = False
         self.reset_rewards_count()
+        self.daytime = False
 
     def release(self):
         pass
@@ -166,6 +191,9 @@ class LocationExperiment(exp.Experiment):
     def run(self):
         session_state["is_in_area"] = False
         session_state.add_callback("is_in_area", self.is_in_area_changed)
+
+    def end(self):
+        session_state.remove_callback("is_in_area")
 
     def run_block(self):
         self.find_reinforced_location()
@@ -186,11 +214,8 @@ class LocationExperiment(exp.Experiment):
         rl = session_state["reinforced_location"]
         r = exp.get_params()["reinforced_area"]["radius"]
         self.log.info(
-            f"Experiment started. Reinforced area at ({rl[0]}, {rl[1]}), radius: {r}."
+            f"Block started. Reinforced area center: ({rl[0]}, {rl[1]}), radius: {r}."
         )
-
-    def end(self):
-        session_state.remove_callback("is_in_area")
 
     def find_reinforced_location(self):
         params = exp.get_params()
@@ -250,6 +275,9 @@ class LocationExperiment(exp.Experiment):
         self.update_is_in_area(det)
 
     def update_is_in_area(self, det):
+        if "reinforced_location" not in session_state:
+            return
+
         if det is None:
             # later might take part in logic
             return
@@ -347,7 +375,7 @@ class LocationExperiment(exp.Experiment):
                 # self.log.info("Animal entered the reinforced area during cooldown.")
                 pass
             else:
-                self.log.info("Animal entered the reinforced area.")
+                # self.log.info("Animal entered the reinforced area.")
                 schedule.once(
                     self.maybe_end_trial, exp.get_params()["area_stay_duration"]
                 )
@@ -356,21 +384,22 @@ class LocationExperiment(exp.Experiment):
             exp.event_logger.log("loclearn/left_area", None)
             # self.log.info("Animal left the reinforced area.")
 
-    def dispense_reward(self):
+    def trial_finished(self):
+        session_state["reward_scheduled"] = False
+
         if random.random() <= exp.get_params()["reward"]["dispense_prob"]:
             self.log.info("Trial ended. Dispensing reward.")
+            self.dispense_reward({"stochastic_delay": self.using_stochastic_delay})
         else:
             self.log.info("Trial ended. NOT dispensing reward (stochastic reward).")
             exp.event_logger.log(
                 "loclearn/witholding_reward", {"reason": "stochastic dispense"}
             )
-            exp.next_trial()
-            return
 
+        exp.next_trial()
+
+    def dispense_reward(self, data={}):
         rewards_count = session_state["rewards_count"] + 1
-
-        session_state["reward_scheduled"] = False
-
         feeders = exp.get_params()["reward"]["feeders"]
         max_reward = sum(feeders.values())
         rewards_sum = 0
@@ -382,16 +411,23 @@ class LocationExperiment(exp.Experiment):
                 exp.event_logger.log(
                     "loclearn/dispensing_reward",
                     {
-                        "num": rewards_count,
-                        "stochastic_delay": self.using_stochastic_delay,
+                        **data,
+                        **{
+                            "num": rewards_count,
+                        },
                     },
                 )
 
-                self.log.info(
-                    f"Dispensing reward #{rewards_count} from feeder {interface} (stochastic_delay={self.using_stochastic_delay})"
-                )
+                self.log.info(f"Dispensing reward #{rewards_count} from {interface}")
                 arena.run_command("dispense", interface, None, False)
                 break
+            else:
+                exp.event_logger.log(
+                    "loclearn/cannot_dispense_reward",
+                    {
+                        **data,
+                    },
+                )
 
         if rewards_count >= max_reward:
             session_state["out_of_rewards"] = True
@@ -399,8 +435,3 @@ class LocationExperiment(exp.Experiment):
             exp.event_logger.log("loclearn/out_of_rewards", {})
 
         session_state["rewards_count"] = rewards_count
-        exp.next_trial()
-
-
-# TODO:
-# - better events for the log
