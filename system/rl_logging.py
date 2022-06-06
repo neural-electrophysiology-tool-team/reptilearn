@@ -8,6 +8,7 @@ main process. Processes should call logger_configurer() from the process run met
 setup the process root logger to send log records to the listener.
 """
 
+from collections import deque
 import multiprocessing as mp
 import threading
 import sys
@@ -18,6 +19,7 @@ from state import state
 _default_level = None
 _log_queue = None
 _log_listener = None
+_log_buffer = None
 
 # The default log formatter
 formatter = logging.Formatter(
@@ -38,10 +40,9 @@ class SocketIOHandler(logging.Handler):
         """
         super().__init__()
         self.socketio = socketio
-        self.setFormatter(formatter)
         self.event_name = event_name
         self.setFormatter(formatter)
-        
+
     def emit(self, record):
         self.socketio.emit(self.event_name, self.format(record))
 
@@ -95,6 +96,35 @@ class SessionLogHandler(logging.StreamHandler):
                 logging.StreamHandler.close(self)
         finally:
             self.release()
+
+
+class LogBuffer(logging.Handler):
+    """
+    a Log handler that stores log records in a ring buffer.
+    The handler uses rl_logging.formatter by default.
+    """
+    def __init__(self, buffer_size):
+        """
+        - buffer_size: Number of log lines that the buffer can hold.
+        """
+        super().__init__()
+        self.d = deque(maxlen=buffer_size)
+        self.setFormatter(formatter)
+
+    def emit(self, record):
+        self.d.append(self.format(record))
+
+    def get_logs(self):
+        """
+        Return a list of all logs line that are stored in the buffer.
+        """
+        return list(self.d)
+
+    def clear(self):
+        """
+        Clear the log buffer contents.
+        """
+        self.d.clear()
 
 
 def logger_configurer(name=None, level=None):
@@ -192,7 +222,18 @@ def _excepthook(exc_type, exc_value, exc_traceback, thread_name=None):
     logging.getLogger("Main").critical(msg, exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def init(log_handlers, extra_loggers, extra_log_level, default_level):
+def get_log_buffer():
+    if _log_buffer:
+        return _log_buffer.get_logs()
+    else:
+        return None
+
+
+def clear_log_buffer():
+    if _log_buffer:
+        _log_buffer.clear()
+
+def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level):
     """
     Initializes the main logger that is used for exceptions, and the multiprocess
     listening logger.
@@ -202,9 +243,12 @@ def init(log_handlers, extra_loggers, extra_log_level, default_level):
     - extra_log_level: Log level of extra_loggers.
     - default_level: This will be the log level of each logger, including loggers on other processes.
     """
-    global _log_queue, _log_listener, _default_level
+    global _log_queue, _log_listener, _default_level, _log_buffer
 
     _default_level = default_level
+    _log_buffer = log_buffer
+    log_handlers = list(log_handlers) + [log_buffer]
+
     main_logger = logging.getLogger("Main")
     for handler in log_handlers:
         main_logger.addHandler(handler)
@@ -223,7 +267,7 @@ def init(log_handlers, extra_loggers, extra_log_level, default_level):
         for handler in log_handlers:
             el.addHandler(handler)
         el.setLevel(extra_log_level)
-        
+
     return main_logger
 
 

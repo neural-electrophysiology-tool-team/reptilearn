@@ -72,6 +72,7 @@ log = rl_logging.init(
         stderr_handler,
         rl_logging.SessionLogHandler(),
     ),
+    log_buffer=rl_logging.LogBuffer(config.log_buffer_size),
     extra_loggers=(app_log, app.logger),
     extra_log_level=logging.WARNING,
     default_level=config.log_level,

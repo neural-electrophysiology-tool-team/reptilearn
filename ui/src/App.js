@@ -1,30 +1,46 @@
-import './App.css';
-import 'react-reflex/styles.css';
-
 import React from 'react';
-import { MainPanelView } from './main_panel_view.js';
-import { SocketContext } from './socket.js';
-import { api_url } from './config.js';
-import 'semantic-ui-css/semantic.min.css';
+import { useSelector, useDispatch } from 'react-redux';
+import { SocketContext } from './socket';
+import { library } from '@fortawesome/fontawesome-svg-core';
+import { fas } from '@fortawesome/free-solid-svg-icons';
+import { far } from '@fortawesome/free-regular-svg-icons';
+
+import { setCtrlState, setVideoConfig } from './store/reptilearn_slice';
+import { api_url } from './config';
+import { MainView } from './views/main_view';
+
+library.add(fas, far);
 
 const App = () => {
-    const [ctrlState, setCtrlState] = React.useState(null);
-    const [videoConfig, setVideoConfig] = React.useState(null);
-    
+    const ctrlState = useSelector((state) => state.reptilearn.ctrlState);
+    const videoConfig = useSelector((state) => state.reptilearn.videoConfig);
+    const streams = useSelector((state) => state.reptilearn.streams);
+
+    const dispatch = useDispatch();
+
     const socket = React.useContext(SocketContext);
-    
+
     const handle_new_state = React.useCallback(new_state => {
-	setCtrlState(JSON.parse(new_state));
-    }, []);
+        dispatch(setCtrlState(JSON.parse(new_state)));
+    }, [dispatch]);
 
-    const handle_disconnect = React.useCallback(() => setCtrlState(null), []);
+    const handle_disconnect = React.useCallback(() => dispatch(setCtrlState(null)), [dispatch]);
 
-    // Display confirmation dialog before unloading page.
-    // window.onbeforeunload = () => true;    
+    
+    window.onbeforeunload = () => {
+        streams.forEach((stream) => {
+            if (stream.is_streaming) {
+                fetch(api_url + `/stop_stream/${stream.src_id}`);
+            }
+        });
+
+        // Display confirmation dialog before unloading page.
+        // return true;
+    }
 
     React.useEffect(() => {
-	socket.on("state", handle_new_state);
-	socket.on("disconnect", handle_disconnect);
+        socket.on("state", handle_new_state);
+        socket.on("disconnect", handle_disconnect);
         socket.on("connect", () => {
         });
     }, [handle_disconnect, handle_new_state, socket]);
@@ -32,38 +48,28 @@ const App = () => {
     const fetch_video_config = React.useCallback(() => {
         return fetch(api_url + '/video/get_config')
             .then((res) => res.json())
-            .then((config) => setVideoConfig(config))
+            .then((config) => dispatch(setVideoConfig(config)))
             .catch(err => {
-		console.log(`Error while fetching video config: ${err}`);
-		setTimeout(fetch_video_config, 5000);
-	    });
-    }, [setVideoConfig]);
-    
+                console.log(`Error while fetching video config: ${err}`);
+                setTimeout(fetch_video_config, 5000);
+            });
+    }, [dispatch]);
+
     React.useEffect(() => {
         fetch_video_config();
     }, [fetch_video_config]);
-    
+
     if (ctrlState === null || videoConfig === null)
-	return (
-	    <div className="App">
-		<div style={{
-			 position: 'absolute',
-			 top: '50%',
-			 left: '50%',
-			 transform: 'translate(-50%, -50%)',
-			 textAlign: 'center',
-		     }}>
-		    <div style={{ fontSize: '5rem', marginBottom: '2rem', display: 'inline-block'}}>ReptiLearn</div>
-		    <div>Waiting for connection...</div>
-		</div>
-	    </div>
-	);
-    
-    return (
-        <div className="app">
-          <MainPanelView ctrl_state={ctrlState} video_config={videoConfig} fetch_video_config={fetch_video_config}/>
-        </div>
-    );   
+        return (
+            <div className="font-[Roboto] flex h-screen justify-center items-center">
+                <div>
+                    <div className="text-8xl mr-b-8 inline-block text-center">ReptiLearn</div>
+                    <div className="text-2xl animate-pulse text-center">Waiting for connection...</div>
+                </div>
+            </div>
+        );
+
+    return <MainView/>
 };
 
 export default App;

@@ -6,6 +6,8 @@ import undistort
 import json
 from json_convert import json_convert
 import image_utils
+import rl_logging
+
 # import overlay
 import cv2
 import task
@@ -431,6 +433,19 @@ def add_routes(app, config, log):
     @app.route("/arena/poll")
     def route_arena_poll():
         arena.poll()
+        return flask.Response("ok")
+
+    @app.route("/log/get_buffer")
+    def route_log_buffer():
+        try:
+            return flask.jsonify(rl_logging.get_log_buffer())
+        except Exception as e:
+            log.exception("Exception while getting log buffer:")
+            flask.abort(500, e)
+
+    @app.route("/log/clear_buffer")
+    def route_log_clear_buffer():
+        rl_logging.clear_log_buffer()
         return flask.Response("ok")
 
     @app.route("/")
