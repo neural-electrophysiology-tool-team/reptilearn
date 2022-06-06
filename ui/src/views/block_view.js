@@ -113,6 +113,7 @@ export const BlockView = ({ idx }) => {
             options={RLListbox.valueOnlyOptions(options)}
             selected={null}
             setSelected={(key) => add_block_param(key)}
+            portal
             checked={false} />
     };
 

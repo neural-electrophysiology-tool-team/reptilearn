@@ -76,6 +76,7 @@ export const StateView = () => {
                 options={opts}
                 selected={statePath[i]}
                 setSelected={on_change}
+                portal
                 key={i} />
         );
     };

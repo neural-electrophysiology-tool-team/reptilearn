@@ -4,12 +4,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Listbox } from "@headlessui/react";
 import { classNames, styles } from "./common";
 
-const RLListbox = ({ value, onChange, multiple, children, header, className }) => (
+const RLListbox = ({ value, onChange, multiple, children, header, className, portal }) => (
     <Listbox as="div" value={value} onChange={onChange} multiple={multiple}>
         <Float
             placement="bottom-start"
             offset={1}
-            portal="#portalTarget"
+            portal={portal && "#portalTarget"}
             leave="transition ease-in duration-100"
             leaveFrom="opacity-100"
             leaveTo="opacity-0">
@@ -72,11 +72,12 @@ const HeaderOption = ({ children }) => (
     </Option>
 );
 
-const RLSimpleListbox = ({ placeholder, options, selected, setSelected, header, className, checked=true }) => (
+const RLSimpleListbox = ({ placeholder, options, selected, setSelected, header, className, portal, checked=true }) => (
     <RLListbox
         header={selected ? options.filter(({ value }) => value === selected)[0]?.label : placeholder}
         value={selected}
         onChange={setSelected}
+        portal={portal}
         className={className}>
         {header && <HeaderOption>{header}</HeaderOption>}
         {options.map(({ label, value, key }) => (

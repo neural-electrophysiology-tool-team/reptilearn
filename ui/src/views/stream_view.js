@@ -206,6 +206,7 @@ const StreamView = ({ idx }) => {
                         header="Image source"
                         options={RLListbox.valueOnlyOptions(src_ids)}
                         selected={src_id}
+                        portal
                         setSelected={(new_src_id) => dispatch(updateStreamSources({ stream_idx: idx, new_src_id, old_src_id: src_id }))} />
                     <RLButton.BarButton onClick={toggle_stream} icon={stream_btn_icon} />
                     <RLButton.BarButton onClick={save_image} title="Save image" icon="fa-solid fa-file-image" />

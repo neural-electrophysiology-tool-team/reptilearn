@@ -2,10 +2,10 @@ import React from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { classNames } from './common';
 
-const RLModal = ({ header, children, actions, open, setOpen, initialFocus, className, sizeClasses, contentOverflowClass}) => {
+const RLModal = ({ header, children, actions, open, setOpen, initialFocus, className, sizeClasses, contentOverflowClass}) => {    
     return (
         <Transition.Root show={open} as={React.Fragment}>
-            <Dialog as="div" className="relative z-[200] overflow-y-auto" initialFocus={initialFocus} onClose={() => null}>
+            <Dialog as="div" className="relative z-[200] overflow-y-auto" initialFocus={initialFocus} onClose={setOpen}>
                 <Transition.Child
                     as={React.Fragment}
                     enter="ease-out duration-300"
