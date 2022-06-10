@@ -9,7 +9,7 @@ import dicttools
 # TODO: docstrings
 
 
-class StateManager(SyncManager):
+class _StateManager(SyncManager):
     pass
 
 
@@ -30,8 +30,8 @@ class Cursor:
             self.path = path
 
         if self._mgr is None:
-            StateManager.register("get")
-            self._mgr = StateManager(address=("127.0.0.1", 50000), authkey=authkey)
+            _StateManager.register("get")
+            self._mgr = _StateManager(address=("127.0.0.1", 50000), authkey=authkey)
             self._mgr.connect()
             mp.current_process().authkey = authkey
             self._managed_data = self._mgr.get()
@@ -224,17 +224,17 @@ class Cursor:
         return self._state_dispatcher.remove_callback(self.absolute_path(path))
 
 
-class State:
+class StateStore:
     def __init__(self, authkey=b"reptilearn-state") -> None:
         self.authkey = authkey
         mp.Process(target=self.managerProcess, daemon=True).start()
 
     def managerProcess(self):
         managed_data = {}
-        StateManager.register("get", lambda: managed_data, DictProxy)
+        _StateManager.register("get", lambda: managed_data, DictProxy)
 
         try:
-            mgr = StateManager(address=("127.0.0.1", 50000), authkey=self.authkey)
+            mgr = _StateManager(address=("127.0.0.1", 50000), authkey=self.authkey)
             mgr.get_server().serve_forever()
         except OSError:
             # failed to listen on port - already in use.
@@ -308,7 +308,7 @@ class ProcessWithState(mp.Process):
 
 
 if __name__ == "__main__":
-    state = State()
+    state = StateStore()
 
     root = None
     # try until the state server is working
