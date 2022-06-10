@@ -1,13 +1,12 @@
-from state import state
 from dynamic_loading import instantiate_class, load_modules, find_subclasses
 import video_write
 from arena import has_trigger, start_trigger, stop_trigger
 from video_stream import ImageSource, ImageObserver
 import overlay
+import managed_state
 from threading import Timer
 from pathlib import Path
 import json
-
 
 video_config = None
 image_sources = {}
@@ -17,6 +16,7 @@ source_classes = []
 observer_classes = []
 image_class_params = {}
 
+_state = None
 _log = None
 _config = None
 _rec_state = None
@@ -28,7 +28,7 @@ def load_source(id, config):
         config["class"],
         id,
         config,
-        state_cursor=state.get_cursor(("video", "image_sources", id)),
+        _config.state_store_address,
     )
 
     overlay.overlays[id] = [overlay.TimestampVisualizer()]
@@ -39,15 +39,36 @@ def load_observer(id, config):
         config["class"],
         id,
         config,
-        state_cursor=state.get_cursor(("video", "image_observers", id)),
+        image_sources[config["src_id"]],
+        _config.state_store_address,
     )
+
+
+def load_video_writers():
+    global video_writers
+    video_writers = {}
+
+    for src_id in image_sources.keys():
+        video_writers[src_id] = video_write.VideoWriter(
+            id=src_id + ".writer",
+            config={
+                "src_id": src_id,
+                "frame_rate": _config.video_record["video_frame_rate"],
+                "queue_max_size": _config.video_record["max_write_queue_size"],
+            },
+            encoding_params=_config.video_record["encoding_configs"][
+                image_sources[src_id].get_config("encoding_config")
+            ],
+            image_source=image_sources[src_id],
+            state_store_address=_config.state_store_address,
+        )
 
 
 def load_video_config(config: dict):
     overlay.overlays = {}
 
-    if "video" not in state:
-        state["video"] = {
+    if "video" not in _state:
+        _state["video"] = {
             "image_sources": {},
             "image_observers": {},
         }
@@ -74,22 +95,6 @@ def load_video_config(config: dict):
                 load_observer(obs_id, conf)
             except Exception:
                 _log.exception(f"Exception while loading image observer {obs_id}:")
-
-
-def load_video_writers():
-    global video_writers
-    video_writers = {}
-
-    for src_id in image_sources.keys():
-        video_writers[src_id] = video_write.VideoWriter(
-            src_id + ".writer",
-            {
-                "src_id": src_id,
-                "frame_rate": _config.video_record["video_frame_rate"],
-                "queue_max_size": _config.video_record["max_write_queue_size"],
-            },
-            state_cursor=None,
-        )
 
 
 def update_video_config(config: dict):
@@ -199,6 +204,10 @@ def capture_images(src_ids=None):
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
 
+def set_filename_prefix(prefix):
+    _state[("video", "record", "filename_prefix")] = prefix
+
+
 def _find_image_classes():
     global source_classes, source_params, observer_classes
 
@@ -224,9 +233,10 @@ def _find_image_classes():
             image_class_params[name] = cls.default_params
 
 
-def init(log, config):
-    global _log, _config, video_config, _rec_state
+def init(log, state: managed_state.Cursor, config):
+    global _log, _state, _config, video_config, _rec_state
     _log = log
+    _state = state
     _config = config
     config_path = config.video_config_path
 
@@ -267,12 +277,12 @@ def update_acquire_callback(src_id):
     def select_when_acquiring(old_val, new_val):
         nonlocal src_id
 
-        if new_val is True and old_val is False:
+        if new_val is True and not old_val:
             select_source(src_id)
-        elif new_val is False and old_val is True:
+        elif not new_val and old_val is True:
             unselect_source(src_id)
 
-    state.add_callback(
+    _state.add_callback(
         ("video", "image_sources", src_id, "acquiring"), select_when_acquiring
     )
 
@@ -295,8 +305,8 @@ def start():
         f"Starting {len(image_sources)} image sources: {', '.join(list(image_sources.keys()))}"
     )
     for src_id, img_src in image_sources.items():
-        img_src.start()
         update_acquire_callback(src_id)
+        img_src.start()
 
 
 def shutdown_video():
@@ -327,9 +337,9 @@ def shutdown_video():
             _log.exception("Error while closing image sources:")
 
     for src_id in image_sources.keys():
-        state.remove_callback(("video", "image_sources", src_id, "acquiring"))
+        _state.remove_callback(("video", "image_sources", src_id, "acquiring"))
 
-    state.delete("video")
+    _state.delete("video")
     image_sources.clear()
     image_observers.clear()
 

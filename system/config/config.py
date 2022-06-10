@@ -2,11 +2,18 @@ import numpy as np
 from pathlib import Path
 import logging
 
+# Method for starting up child processes. Valid values are "spawn" and "fork".
+# See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+process_start_method = "spawn"
+
 # Logging level of process and main loggers.
 log_level = logging.INFO
 
 # Max number of recent log lines that will be stored in the log buffer.
 log_buffer_size = 1000
+
+# A tuple (host, port) of the shared state store server
+state_store_address = ("127.0.0.1", 50000)
 
 # Port number for a REST and socketio api server. If changed, edit ui/src/config.js with
 # a matching value.
@@ -36,7 +43,7 @@ static_web_path: Path = Path("../stimuli")
 # Available archive directories
 archive_dirs = {
     "Local archive": Path("/media/2TB/rl_archive"),
-    "Tal on SIL2": Path("/media/sil2/tal/reptilearn_sessions/rl2_archive")
+    "Tal on SIL2": Path("/media/sil2/tal/reptilearn_sessions/rl2_archive"),
 }
 
 # The frame rate of HTTP image source streaming. Lower this to reduce network usage.

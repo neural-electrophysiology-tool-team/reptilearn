@@ -1,6 +1,5 @@
 import flask
 import experiment
-from state import state
 import video_system
 import undistort
 import json
@@ -29,7 +28,11 @@ def add_routes(app, config, log):
         sheight = flask.request.args.get("height")
         height = None if sheight is None else int(sheight)
 
-        if state.get(("video", "image_sources", src_id), None) is not None:
+        # TODO: don't use video_system here --v
+        if (
+            video_system._state.get(("video", "image_sources", src_id), None)
+            is not None
+        ):
             src_config = video_system.video_config["image_sources"][src_id]
         else:
             src_config = None
@@ -108,8 +111,9 @@ def add_routes(app, config, log):
 
     @app.route("/stop_stream/<src_id>")
     def route_stop_stream(src_id):
-        img_src = video_system.image_sources[src_id]
-        img_src.stop_streaming()
+        if src_id in video_system.image_sources:
+            img_src = video_system.image_sources[src_id]
+            img_src.stop_streaming()
         return flask.Response("ok")
 
     @app.route("/save_image/<src_id>")
@@ -129,7 +133,8 @@ def add_routes(app, config, log):
     @app.route("/state")
     def route_state():
         return flask.Response(
-            json.dumps(state.get_self(), default=json_convert),
+            # TODO: change this --v
+            json.dumps(video_system._state.get_self(), default=json_convert),
             mimetype="application/json",
         )
 
@@ -389,7 +394,7 @@ def add_routes(app, config, log):
     @app.route("/video_record/set_prefix/")
     @app.route("/video_record/set_prefix/<prefix>")
     def route_set_prefix(prefix=""):
-        state[("video", "record", "filename_prefix")] = prefix
+        video_system.set_filename_prefix(prefix)
         return flask.Response("ok")
 
     # Arena Routes

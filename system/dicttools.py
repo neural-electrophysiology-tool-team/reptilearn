@@ -11,6 +11,7 @@ getitem(d, ("x", "y")) is equivalent to d["x"]["y"].
 """
 
 from collections import Sequence
+import multiprocessing
 
 
 class _PathNotFound:
@@ -100,23 +101,43 @@ def _remove_coll(c, k):
     return c.remove(k)
 
 
+def _update_coll(c, kvs):
+    return c.update(kvs)
+
+
+def _delete(c, k):
+    return c.pop(k)
+
+
+def _append_coll(c, v):
+    return c.append(v)
+
+
+def _contains_coll(c, k):
+    return k in c
+
+
 setitem = _path_element_fn(_setitem_coll)
 setitem.__doc__ = """setitem(d, path, v) - Sets path of d to the value v."""
 
-update = _path_coll_fn(lambda c, kvs: c.update(kvs))
+update = _path_coll_fn(_update_coll)
 update.__doc__ = """update(d, path, kvs) - Updates a dictionary at path of d with the contents of dict kvs."""
 
-delete = _path_element_fn(lambda c, k: c.pop(k))
+delete = _path_element_fn(_delete)
 delete.__doc__ = """delete(d, path) - Deletes the key at path of d, removing it from its container."""
 
 remove = _path_coll_fn(_remove_coll)
-remove.__doc__ = """remove(d, path, v) - Removes element v from the list at path of d."""
+remove.__doc__ = (
+    """remove(d, path, v) - Removes element v from the list at path of d."""
+)
 
-append = _path_coll_fn(lambda c, v: c.append(v))
+append = _path_coll_fn(_append_coll)
 append.__doc__ = """append(d, path, v) - Appends v to the list at path of d."""
 
 exists = _path_element_fn(_exists_coll, return_from_fn=True)
 exists.__doc__ = """exists(d, path) - Returns True if path exists in d."""
 
-contains = _path_coll_fn(lambda c, k: k in c, return_from_fn=True)
-contains.__doc__ = """contains(d, path, v) - Returns True if the container at path contains v"""
+contains = _path_coll_fn(_contains_coll, return_from_fn=True)
+contains.__doc__ = (
+    """contains(d, path, v) - Returns True if the container at path contains v"""
+)

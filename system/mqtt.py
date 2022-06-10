@@ -17,8 +17,10 @@ class MQTTClient(paho.Client):
     Logs messages to the MQTTClient logger by default.
     """
 
-    def __init__(self):
+    def __init__(self, host, port):
         super().__init__()
+        self.host = host
+        self.port = port
         self.is_connected = False
         self.subscriptions = {}
         self.on_connect_callback = None
@@ -43,12 +45,11 @@ class MQTTClient(paho.Client):
         if on_success is not None:
             self.on_connect_callback = on_success
 
-        super().connect(**_config.mqtt)
+        super().connect(self.host, self.port)
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == paho.MQTT_ERR_SUCCESS:
-            host, port = _config.mqtt["host"], _config.mqtt["port"]
-            self.log.info(f"MQTT connected successfully to {host}:{port}.")
+            self.log.info(f"MQTT connected successfully to {self.host}:{self.port}.")
             self.is_connected = True
             for topic, callback in self.subscriptions.items():
                 self.subscribe_callback(topic, callback)
@@ -62,7 +63,7 @@ class MQTTClient(paho.Client):
     def on_disconnect(self, client, userdata, rc):
         if not rc == paho.MQTT_ERR_SUCCESS:
             self.log.info("Unexpected MQTT client disconnect.")
-            
+
     def subscribe_callback(self, topic, callback):
         """
         Subscribe a callback function to a topic (str).
@@ -134,9 +135,6 @@ def mqtt_json_callback(callback):
 # Main process threaded client
 client = None
 
-# Reference to the current config module
-_config = None
-
 
 def init(logger, config):
     """
@@ -146,9 +144,8 @@ def init(logger, config):
     - logger: Client logger
     - config: The current config module
     """
-    global client, _config
-    _config = config
-    client = MQTTClient()
+    global client
+    client = MQTTClient(config.mqtt["host"], config.mqtt["port"])
     client.log = logger
     client.loop_start()
     logger.info("Connecting to MQTT server...")

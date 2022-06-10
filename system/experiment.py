@@ -1,18 +1,18 @@
 from datetime import datetime
 import re
-
-from state import state
-from json_convert import json_convert
-from dynamic_loading import load_modules, find_subclass, reload_module
-import video_system
-import event_log
-import schedule
-
+import time
 import json
 import shutil
 import pandas as pd
 from pathlib import Path
 import threading
+
+from json_convert import json_convert
+from dynamic_loading import load_modules, find_subclass, reload_module
+import video_system
+import event_log
+import schedule
+import managed_state
 
 
 class ExperimentException(Exception):
@@ -27,15 +27,17 @@ cur_experiment = None
 event_logger = None
 
 # Cursors
-session_state = None
-params = None
-blocks = None
-actions = None
+state: managed_state.Cursor = None
+session_state: managed_state.Cursor = None
+params: managed_state.Cursor = None
+blocks: managed_state.Cursor = None
+actions: managed_state.Cursor = None
 
 
-def init(logger, config_module):
-    global log, config, session_state, params, blocks, actions
+def init(logger, state_obj, config_module):
+    global log, config, session_state, params, blocks, actions, state
 
+    state = state_obj
     session_state = state.get_cursor("session")
     params = session_state.get_cursor("params")
     blocks = session_state.get_cursor("blocks")
@@ -209,6 +211,7 @@ def init_session(continue_session=False):
 
     global event_logger
     event_logger = event_log.EventDataLogger(
+        config,
         csv_path=csv_path,
         log_to_db=config.event_log["log_to_db"],
         table_name=config.event_log["table_name"],

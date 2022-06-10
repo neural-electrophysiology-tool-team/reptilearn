@@ -1,30 +1,29 @@
 # -*- coding: utf-8 -*-
 
+import multiprocessing
 import threading
 import logging
+import time
 import flask
 import flask_cors
 from flask_socketio import SocketIO, emit
-import routes
 import json
 import sys
 import argparse
 import importlib
 import traceback
 from dotenv import load_dotenv
-import multiprocessing as mp
-import platform
 
 import rl_logging
 import mqtt
 import arena
 import schedule
-from state import state
-import state as state_mod
+import managed_state
 import experiment
 import task
 import video_system
 from json_convert import json_convert
+import routes
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -47,18 +46,31 @@ except Exception:
     traceback.print_exc()
     sys.exit(1)
 
-if platform.system() == "Darwin":
-    mp.set_start_method("fork")
-
-# Initialize state module
-state_mod.init()
+multiprocessing.set_start_method(config.process_start_method)
 
 # Initialize Flask REST app
-app = flask.Flask("reptiLearnAPI", static_folder=config.static_web_path, static_url_path='/' + str(config.static_web_path.name))
+app = flask.Flask(
+    "reptiLearnAPI",
+    static_folder=config.static_web_path,
+    static_url_path="/" + str(config.static_web_path.name),
+)
 app.config["SECRET_KEY"] = "reptilearn"
 flask_cors.CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+
+state_store = managed_state.StateStore(address=config.state_store_address)
+state = None
+while state is None:  # wait until the store server is running
+    try:
+        state = managed_state.Cursor((), address=config.state_store_address)
+    except (ConnectionRefusedError, multiprocessing.AuthenticationError):
+        time.sleep(0.01)
+
+
+_dispatcher = managed_state.StateDispatcher(state)
+_dispatcher_thread = threading.Thread(target=_dispatcher.listen)
+_dispatcher_thread.start()
 
 # Setup Logging
 stderr_handler = logging.StreamHandler(sys.stderr)
@@ -70,7 +82,7 @@ log = rl_logging.init(
     log_handlers=(
         rl_logging.SocketIOHandler(socketio),
         stderr_handler,
-        rl_logging.SessionLogHandler(),
+        rl_logging.SessionLogHandler(state),
     ),
     log_buffer=rl_logging.LogBuffer(config.log_buffer_size),
     extra_loggers=(app_log, app.logger),
@@ -81,9 +93,9 @@ log = rl_logging.init(
 # Initialize all other modules
 mqtt.init(log, config)
 task.init(log, config)
-arena.init(log, config)
-video_system.init(log, config)
-experiment.init(log, config)
+arena.init(log, state, config)
+video_system.init(log, state, config)
+experiment.init(log, state, config)
 
 # Setup flask http routes
 routes.add_routes(app, config, log)
@@ -105,7 +117,7 @@ def handle_connect():
     # TODO: emit("log", all_past_log_or_session_log?)
 
 
-state_listen, stop_state_emitter = state_mod.register_listener(send_state)
+state_listen, stop_state_emitter = state.register_listener(send_state)
 threading.Thread(target=state_listen).start()
 
 
@@ -117,13 +129,23 @@ except KeyboardInterrupt:
 
 
 # Shutdown (flask server was terminated)
+def shutdown():
+    video_system.shutdown()
+    schedule.cancel_all(pool=None, wait=True)
+    arena.shutdown()
+    mqtt.shutdown()
+
+    log.info("Shutting down logging and global state...")
+    rl_logging.shutdown()
+    stop_state_emitter()
+    _dispatcher.stop()
+    state_store.shutdown()
+
+
 log.info("System is shutting down...")
-stop_state_emitter()
-experiment.shutdown()
-video_system.shutdown()
-schedule.cancel_all(pool=None, wait=True)
-arena.shutdown()
-mqtt.shutdown()
-log.info("Shutting down logging and global state...")
-rl_logging.shutdown()
-state_mod.shutdown()
+if "session" in state:
+    state.add_callback("session", lambda old, new: shutdown())
+    experiment.shutdown()
+else:
+    experiment.shutdown()
+    shutdown()

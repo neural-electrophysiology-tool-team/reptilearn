@@ -47,11 +47,11 @@ class DataLogger(mp.Process):
 
         self.split_csv = split_csv
         self.logger = None
-
+        self._logger_configurer = rl_logging._logger_configurer
         super().__init__()
 
     def _init_log(self):
-        self.logger = rl_logging.logger_configurer(self.name)
+        self.logger = self._logger_configurer.configure_child(self.name)
         self.logger.debug("Initializing data logger...")
 
         if self.log_to_db:
@@ -195,7 +195,7 @@ class QueuedDataLogger(DataLogger):
         try:
             return self._log_q.get()
         except KeyboardInterrupt:
-            return None
+            pass
 
 
 class ObserverLogger(QueuedDataLogger):

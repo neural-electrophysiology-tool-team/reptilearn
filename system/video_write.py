@@ -1,15 +1,12 @@
 import time
 from datetime import datetime
-from state import state
-from video_stream import ImageObserver
-import video_system
+from video_stream import ImageObserver, ImageSource
 import imageio
 import queue
 import threading
 
 
-def get_write_path(src_id, file_ext, timestamp=datetime.now()):
-    rec_state = state["video", "record"]
+def get_write_path(src_id, rec_state, file_ext, timestamp=datetime.now()):
     filename_prefix = rec_state["filename_prefix"]
     write_dir = rec_state["write_dir"]
 
@@ -20,9 +17,9 @@ def get_write_path(src_id, file_ext, timestamp=datetime.now()):
     return write_dir / (base + file_ext)
 
 
-def save_image(image, timestamp, prefix):
+def save_image(image, timestamp, rec_state, prefix):
     dt = datetime.fromtimestamp(timestamp)
-    path = get_write_path(prefix, "jpg", dt)
+    path = get_write_path(prefix, rec_state, "jpg", dt)
     imageio.imwrite(str(path), image)
     return path
 
@@ -36,16 +33,30 @@ class VideoWriter(ImageObserver):
         "queue_max_size": 0,
     }
 
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        encoding_params,
+        image_source: ImageSource,
+        state_store_address: tuple,
+        running_state_key="writing",
+    ):
+        super().__init__(
+            id,
+            config,
+            image_source,
+            state_store_address,
+            ("video", "image_sources", image_source.id),
+            running_state_key,
+        )
+        self.encoding_params = encoding_params
+
     def _init(self):
         super()._init()
         self.frame_rate = self.get_config("frame_rate")
         self.file_ext = self.get_config("file_ext")
-        self.encoding_params = video_system._config.video_record["encoding_configs"][
-            self.img_src.get_config("encoding_config")
-        ]
         self.queue_max_size = self.get_config("queue_max_size")
-
-        self.img_src.state["writing"] = False
 
         if len(self.img_src.image_shape) == 3 and self.img_src.image_shape[2] == 3:
             self.convert_bgr = True
@@ -56,13 +67,20 @@ class VideoWriter(ImageObserver):
         self.q = None
 
     def on_start(self):
-        if not self.img_src.state["acquiring"]:
+        if not self.state["acquiring"]:
             self.log.error("Can't write video. Image source is not acquiring.")
             return
 
         timestamp = datetime.now()
-        vid_path = get_write_path(self.img_src.id, self.file_ext, timestamp)
-        ts_path = get_write_path(self.img_src.id, "csv", timestamp)
+        vid_path = get_write_path(
+            self.img_src.id,
+            self.state.root()["video", "record"],
+            self.file_ext,
+            timestamp,
+        )
+        ts_path = get_write_path(
+            self.img_src.id, self.state.root()["video", "record"], "csv", timestamp
+        )
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(
@@ -76,7 +94,6 @@ class VideoWriter(ImageObserver):
         self.ts_file = open(str(ts_path), "w")
         self.ts_file.write("timestamp\n")
 
-        self.img_src.state["writing"] = True
         self.q = queue.Queue(self.queue_max_size)
         self.max_queued_items = 0
 
@@ -143,7 +160,6 @@ class VideoWriter(ImageObserver):
         self.q.put((img, timestamp))
 
     def on_stop(self):
-        self.img_src.state["writing"] = False
         if self.write_thread is not None:
             self.q.put_nowait(None)
             self.write_thread.join()

@@ -3,10 +3,9 @@ import numpy as np
 import multiprocessing as mp
 import cv2
 import time
-import rl_logging
-import state
-import video_system
 import threading
+import rl_logging
+import managed_state
 
 
 class AcquireException(Exception):
@@ -41,13 +40,19 @@ class ConfigurableProcess(mp.Process):
         "class": None,
     }
 
-    def __init__(self, id: str, config: dict, state_cursor: state.Cursor):
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        state_path: str,
+        state_store_address: tuple,
+    ):
         super().__init__()
         self.id = id
-        self.state = state_cursor
         self.config = config
-
-        self._init()
+        self.logging_configurer = rl_logging._logger_configurer
+        self.state_path = state_path
+        self.state_store_address = state_store_address
 
     def get_config(self, key):
         if key in self.config:
@@ -58,10 +63,13 @@ class ConfigurableProcess(mp.Process):
             raise ValueError(f"Unknown config key: {key}")
 
     def run(self):
-        self.log = rl_logging.logger_configurer(self.name)
-
-    def _init(self):
-        pass
+        self.state = managed_state.Cursor(
+            self.state_path, address=self.state_store_address
+        )
+        if not self.state.exists(()):
+            self.state.set_self({})
+        self.log = self.logging_configurer.configure_child(mp.current_process().name)
+        self.log.debug("Running...")
 
 
 class ImageSource(ConfigurableProcess):
@@ -89,10 +97,18 @@ class ImageSource(ConfigurableProcess):
         "encoding_config": None,
     }
 
-    def _init(self):
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        state_store_address: tuple,
+    ):
+        super().__init__(
+            id, config, ("video", "image_sources", id), state_store_address
+        )
+
         self.image_shape = self.get_config("image_shape")
         self.buf_len = self.get_config("buf_len")
-        self.state.set_self({"acquiring": False})
 
         self.buf_shape = (
             self.image_shape
@@ -111,6 +127,10 @@ class ImageSource(ConfigurableProcess):
         self.stop_streaming_events = []
         self.add_observer_event(self.stream_obs_event)
         self.name = f"{type(self).__name__}:{self.id}"
+        self._init()
+
+    def _init(self):
+        pass
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
@@ -197,7 +217,7 @@ class ImageSource(ConfigurableProcess):
                     self.log.error(e)
                     break
                 except KeyboardInterrupt:
-                    continue
+                    pass
 
                 if img is None:
                     break
@@ -304,16 +324,24 @@ class ImageObserver(ConfigurableProcess):
         "src_id": None,
     }
 
-    def _init(self):
-        """
-        Initialize the observer. Called by ConfigurableProcess.__init__()
-        """
-        self.img_src = video_system.image_sources[self.get_config("src_id")]
-        self.update_event = mp.Event()
-        self.img_src.add_observer_event(self.update_event)
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        image_source: ImageSource,
+        state_store_address: tuple,
+        state_path=None,
+        running_state_key="observing",
+    ):
+        if state_path is None:
+            state_path = ("video", "image_observers", id)
 
-        if self.state is not None:
-            self.state.set_self({"observing": False})
+        super().__init__(id, config, state_path, state_store_address)
+
+        self.update_event = mp.Event()
+        self.img_src = image_source
+        self.img_src.add_observer_event(self.update_event)
+        self._running_state_key = running_state_key
 
         atype, asize, shape, dtype = self.get_buffer_opts()
         self.output_buf = mp.Array(atype, asize)
@@ -326,7 +354,12 @@ class ImageObserver(ConfigurableProcess):
 
         self.parent_pipe, self.child_pipe = mp.Pipe()
 
-        self.name = f"{type(self).__name__}:{self.img_src.id}"
+        self.name = f"{type(self).__name__}:{self.get_config('src_id')}"
+
+        self._init()
+
+    def _init(self):
+        pass
 
     def add_listener(self, fn):
         """Add a listener function that's called whenever the observer output changes.
@@ -342,7 +375,7 @@ class ImageObserver(ConfigurableProcess):
         NOTE: This method should only be called from the main process
         """
         listener_uuid = uuid.uuid4()
-        update_event = state._mgr.Event()
+        update_event = self.state.state._mgr.Event()
         kill_event = threading.Event()
         self.parent_pipe.send(["add", update_event, listener_uuid])
 
@@ -404,6 +437,7 @@ class ImageObserver(ConfigurableProcess):
 
         self.output_update_events = {}
 
+        self.state[self._running_state_key] = False
         self.setup()
         cmd = None
 
@@ -411,7 +445,7 @@ class ImageObserver(ConfigurableProcess):
             try:
                 cmd = self.child_pipe.recv()
             except KeyboardInterrupt:
-                continue
+                pass
 
             if self.img_src.end_event.is_set():
                 break
@@ -433,7 +467,7 @@ class ImageObserver(ConfigurableProcess):
                 self.frame_count = 0
 
                 if self.state is not None:
-                    self.state["observing"] = True
+                    self.state[self._running_state_key] = True
                 self.on_start()
                 self.update_event.clear()
 
@@ -458,7 +492,11 @@ class ImageObserver(ConfigurableProcess):
                             self.update_event.clear()
 
                             t0 = time.time()
-                            img, timestamp = self.img_src.get_image()
+                            img = np.frombuffer(
+                                self.img_src.buf.get_obj(), dtype="uint8"
+                            ).reshape(self.img_src.buf_shape)
+                            timestamp = self.img_src.timestamp.value
+
                             self.output_timestamp.value = timestamp
                             self.on_image_update(img, timestamp)
                             dt = time.time() - t0
@@ -474,7 +512,7 @@ class ImageObserver(ConfigurableProcess):
                 finally:
                     try:
                         if self.state is not None:
-                            self.state["observing"] = False
+                            self.state[self._running_state_key] = False
                         self.on_stop()
                     except Exception:
                         self.log.exception("Exception while stopping observer:")

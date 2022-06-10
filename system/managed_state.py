@@ -1,12 +1,10 @@
 from copy import deepcopy
 import multiprocessing as mp
 from multiprocessing.managers import DictProxy, SyncManager
+import signal
 import dicttools as dt
-import threading
-from time import sleep
-import dicttools
 
-# TODO: docstrings
+# TODO: docstrings (stress that you can't do stuff like state[x][y] so you have to do state[x, y])
 
 
 class _StateManager(SyncManager):
@@ -19,9 +17,15 @@ class CursorException(Exception):
 
 class Cursor:
     def __init__(
-        self, path, manager=None, state_dispatcher=None, authkey=b"reptilearn-state"
+        self,
+        path,
+        manager=None,
+        state_dispatcher=None,
+        authkey=b"reptilearn-state",
+        address=("localhost", 50000),
     ) -> None:
         self._mgr = manager
+        self._address = address
         self._state_dispatcher = state_dispatcher
 
         if isinstance(path, str):
@@ -31,7 +35,7 @@ class Cursor:
 
         if self._mgr is None:
             _StateManager.register("get")
-            self._mgr = _StateManager(address=("127.0.0.1", 50000), authkey=authkey)
+            self._mgr = _StateManager(address=self._address, authkey=authkey)
             self._mgr.connect()
             mp.current_process().authkey = authkey
             self._managed_data = self._mgr.get()
@@ -43,6 +47,10 @@ class Cursor:
                 self._managed_data["did_update_events"] = self._mgr.list()
         else:
             self._managed_data = self._mgr.get()
+
+    def _notify(self):
+        for e in self._managed_data["did_update_events"]:
+            e.set()
 
     def _get_lock(self):
         return self._managed_data["lock"]
@@ -56,50 +64,57 @@ class Cursor:
     def _setitem(self, path, v):
 
         with self._get_lock():
-            new_state = dicttools.setitem(self._get_state(), path, v)
-            self._set_state(new_state)
+            self._set_state(dt.setitem(self._get_state(), path, v))
 
-        for e in self._managed_data["did_update_events"]:
-            e.set()
+        self._notify()
 
-    def get(self, path, default=dicttools.path_not_found):
+    def get(self, path, default=dt.path_not_found):
         """
         get(path, default=dicttools.path_not_found) - See dicttools.getitem
         """
-        return dicttools.getitem(self._get_state(), self.absolute_path(path), default)
+        return dt.getitem(self._get_state(), self.absolute_path(path), default)
 
-    def get_self(self, default=dicttools.path_not_found):
+    def get_self(self, default=dt.path_not_found):
         return self.get((), default=default)
 
     def set_self(self, v):
         if self.path == ():
-            self._set_state(v)
+            with self._get_lock():
+                self._set_state(v)
+
+            self._notify()
         else:
             self._setitem(self.absolute_path(()), v)
 
     def update(self, path, kvs):
-        self._set_state(
-            dicttools.update(self._get_state(), self.absolute_path(path), kvs)
-        )
+        with self._get_lock():
+            self._set_state(dt.update(self._get_state(), self.absolute_path(path), kvs))
+
+        self._notify()
 
     def delete(self, path):
-        self._set_state(dicttools.delete(self._get_state(), self.absolute_path(path)))
+        with self._get_lock():
+            self._set_state(dt.delete(self._get_state(), self.absolute_path(path)))
+
+        self._notify()
 
     def remove(self, path, v):
-        self._set_state(
-            dicttools.remove(self._get_state(), self.absolute_path(path), v)
-        )
+        with self._get_lock():
+            self._set_state(dt.remove(self._get_state(), self.absolute_path(path), v))
+
+        self._notify()
 
     def append(self, path, v):
-        self._set_state(
-            dicttools.append(self._get_state(), self.absolute_path(path), v)
-        )
+        with self._get_lock():
+            self._set_state(dt.append(self._get_state(), self.absolute_path(path), v))
+
+        self._notify()
 
     def contains(self, path, v):
-        return dicttools.contains(self._get_state(), self.absolute_path(path), v)
+        return dt.contains(self._get_state(), self.absolute_path(path), v)
 
     def exists(self, path):
-        return dicttools.exists(self._get_state(), self.absolute_path(path))
+        return dt.exists(self._get_state(), self.absolute_path(path))
 
     def __getitem__(self, path):
         return self.get(path)
@@ -110,11 +125,11 @@ class Cursor:
     def __contains__(self, k):
         if type(k) is tuple:
             if len(k) > 1:
-                return self.exists(self.path + k)
+                return self.exists(k)
             else:
                 k = k[0]
 
-        return self.contains(self.path, k)
+        return self.contains((), k)
 
     def __str__(self) -> str:
         return f"Cursor({self.path})"
@@ -144,7 +159,21 @@ class Cursor:
             state_dispatcher = self._state_dispatcher
 
         return Cursor(
-            self.path[:-1], manager=self._mgr, state_dispatcher=state_dispatcher
+            self.path[:-1],
+            manager=self._mgr,
+            state_dispatcher=state_dispatcher,
+            address=self._address,
+        )
+
+    def root(self, state_dispatcher="inherit"):
+        if state_dispatcher == "inherit":
+            state_dispatcher = self._state_dispatcher
+
+        return Cursor(
+            (),
+            manager=self._mgr,
+            state_dispatcher=state_dispatcher,
+            address=self._address,
         )
 
     def get_cursor(self, path, state_dispatcher="inherit"):
@@ -161,6 +190,7 @@ class Cursor:
             self.absolute_path(path),
             manager=self._mgr,
             state_dispatcher=state_dispatcher,
+            address=self._address,
         )
 
     def register_listener(self, on_update, on_ready=None):
@@ -185,7 +215,11 @@ class Cursor:
                     on_ready()
 
                 while True:
-                    did_update_event.wait()
+                    try:
+                        did_update_event.wait()
+                    except ConnectionError:
+                        break
+
                     if stop_event.is_set():
                         break
                     did_update_event.clear()
@@ -197,7 +231,10 @@ class Cursor:
 
         def stop_listening():
             stop_event.set()
-            did_update_event.set()
+            try:
+                did_update_event.set()
+            except ConnectionResetError:
+                pass
 
         return listen, stop_listening
 
@@ -225,20 +262,24 @@ class Cursor:
 
 
 class StateStore:
-    def __init__(self, authkey=b"reptilearn-state") -> None:
+    def __init__(
+        self, address=("localhost", 50000), authkey=b"reptilearn-state"
+    ) -> None:
         self.authkey = authkey
-        mp.Process(target=self.managerProcess, daemon=True).start()
+        self.address = address
+        self.managerProcess = mp.Process(target=self.start_manager, daemon=True)
+        self.managerProcess.start()
 
-    def managerProcess(self):
+    def start_manager(self):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
         managed_data = {}
         _StateManager.register("get", lambda: managed_data, DictProxy)
+        mgr = _StateManager(address=self.address, authkey=self.authkey)
+        mgr.get_server().serve_forever()
 
-        try:
-            mgr = _StateManager(address=("127.0.0.1", 50000), authkey=self.authkey)
-            mgr.get_server().serve_forever()
-        except OSError:
-            # failed to listen on port - already in use.
-            pass
+    def shutdown(self):
+        self.managerProcess.terminate()
 
 
 class StateDispatcher:
@@ -256,12 +297,15 @@ class StateDispatcher:
         self._ready_event = mp.Event()
 
         def on_update(old, new):
-            for path, on_update in self._dispatch_table.items():
-                old_val = dt.getitem(old, path, None)
-                new_val = dt.getitem(new, path, None)
+            try:
+                for path, on_update in self._dispatch_table.items():
+                    old_val = dt.getitem(old, path, None)
+                    new_val = dt.getitem(new, path, None)
 
-                if not old_val == new_val:
-                    on_update(old_val, new_val)
+                    if not old_val == new_val:
+                        on_update(old_val, new_val)
+            except RuntimeError:
+                pass
 
         def on_ready():
             self._ready_event.set()
@@ -286,52 +330,3 @@ class StateDispatcher:
         Remove and return the callback set to this state path.
         """
         return self._dispatch_table.pop(path)
-
-
-# ########## TEST FROM HERE (REMOVE EVENTUALLY)
-class ProcessWithState(mp.Process):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def run(self):
-        print(f"Process {mp.current_process().name} starting")
-        self.video_state = Cursor("video")
-
-        if not self.video_state.exists(()):
-            self.video_state.set_self({})
-
-        self.video_state[self.name] = 0
-
-        while True:
-            self.video_state[self.name] = self.video_state[self.name] + 1
-            sleep(1)
-
-
-if __name__ == "__main__":
-    state = StateStore()
-
-    root = None
-    # try until the state server is working
-    while root is None:
-        try:
-            print("try")
-            root = Cursor(())
-        except Exception:
-            sleep(0.01)
-
-    root["main"] = "hi"
-    dispatcher = StateDispatcher(root)
-    threading.Thread(target=dispatcher.listen).start()
-
-    def callback_fn(old, new):
-        print("old:", old, "\n", "new:", new, "\n")
-
-    root.add_callback("video", callback_fn)
-    ps = [ProcessWithState() for _ in range(4)]
-    for p in ps:
-        p.start()
-
-    while True:
-        root["main"] = root["main"] + " hi"
-        print(root[()])
-        sleep(1)
