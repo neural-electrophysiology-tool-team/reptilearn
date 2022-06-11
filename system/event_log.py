@@ -29,10 +29,13 @@ class EventDataLogger(DataLogger):
         self._connect_state_event = mp.Event()
         self._mqtt_config = config.mqtt
         self._state_store_address = config.state_store_address
+        self._state_store_authkey = config.state_store_authkey
         self._mqttc = None
 
     def run(self):
-        self._state = managed_state.Cursor((), address=self._state_store_address)
+        self._state = managed_state.Cursor(
+            (), authkey=self._state_store_authkey, address=self._state_store_address
+        )
         self._state_dispatcher = managed_state.StateDispatcher(self._state)
 
         self._mqttc = mqtt.MQTTClient(

@@ -40,17 +40,21 @@ class VideoWriter(ImageObserver):
         encoding_params,
         image_source: ImageSource,
         state_store_address: tuple,
+        state_store_authkey: str,
         running_state_key="writing",
     ):
+        self.img_src_id = image_source.id
+        self.encoding_params = encoding_params
+
         super().__init__(
             id,
             config,
             image_source,
             state_store_address,
+            state_store_authkey,
             ("video", "image_sources", image_source.id),
             running_state_key,
         )
-        self.encoding_params = encoding_params
 
     def _init(self):
         super()._init()
@@ -58,7 +62,7 @@ class VideoWriter(ImageObserver):
         self.file_ext = self.get_config("file_ext")
         self.queue_max_size = self.get_config("queue_max_size")
 
-        if len(self.img_src.image_shape) == 3 and self.img_src.image_shape[2] == 3:
+        if len(self.image_shape) == 3 and self.image_shape[2] == 3:
             self.convert_bgr = True
         else:
             self.convert_bgr = False
@@ -73,13 +77,13 @@ class VideoWriter(ImageObserver):
 
         timestamp = datetime.now()
         vid_path = get_write_path(
-            self.img_src.id,
+            self.img_src_id,
             self.state.root()["video", "record"],
             self.file_ext,
             timestamp,
         )
         ts_path = get_write_path(
-            self.img_src.id, self.state.root()["video", "record"], "csv", timestamp
+            self.img_src_id, self.state.root()["video", "record"], "csv", timestamp
         )
 
         self.log.info(f"Starting to write video to: {vid_path}")

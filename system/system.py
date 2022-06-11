@@ -22,8 +22,8 @@ import managed_state
 import experiment
 import task
 import video_system
-from json_convert import json_convert
 import routes
+from json_convert import json_convert
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -58,12 +58,16 @@ app.config["SECRET_KEY"] = "reptilearn"
 flask_cors.CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-
-state_store = managed_state.StateStore(address=config.state_store_address)
+# Create state store
+state_store = managed_state.StateStore(
+    address=config.state_store_address, authkey=config.state_store_authkey
+)
 state = None
 while state is None:  # wait until the store server is running
     try:
-        state = managed_state.Cursor((), address=config.state_store_address)
+        state = managed_state.Cursor(
+            (), address=config.state_store_address, authkey=config.state_store_authkey
+        )
     except (ConnectionRefusedError, multiprocessing.AuthenticationError):
         time.sleep(0.01)
 
@@ -114,7 +118,6 @@ def send_state(_, new):
 def handle_connect():
     blob = json.dumps(state.get_self(), default=json_convert)
     emit("state", blob)
-    # TODO: emit("log", all_past_log_or_session_log?)
 
 
 state_listen, stop_state_emitter = state.register_listener(send_state)
@@ -135,7 +138,7 @@ def shutdown():
     arena.shutdown()
     mqtt.shutdown()
 
-    log.info("Shutting down logging and global state...")
+    log.info("Shutting down logging and state store...")
     rl_logging.shutdown()
     stop_state_emitter()
     _dispatcher.stop()

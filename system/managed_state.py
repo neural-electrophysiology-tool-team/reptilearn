@@ -19,14 +19,15 @@ class Cursor:
     def __init__(
         self,
         path,
+        authkey,
+        address,
         manager=None,
         state_dispatcher=None,
-        authkey=b"reptilearn-state",
-        address=("localhost", 50000),
     ) -> None:
         self._mgr = manager
         self._address = address
         self._state_dispatcher = state_dispatcher
+        self._authkey = authkey
 
         if isinstance(path, str):
             self.path = (path,)
@@ -35,31 +36,35 @@ class Cursor:
 
         if self._mgr is None:
             _StateManager.register("get")
-            self._mgr = _StateManager(address=self._address, authkey=authkey)
+            self._mgr = _StateManager(address=self._address, authkey=self._authkey)
             self._mgr.connect()
             mp.current_process().authkey = authkey
-            self._managed_data = self._mgr.get()
-            if "lock" not in self._managed_data:
-                self._managed_data["lock"] = self._mgr.Lock()
-            if "state" not in self._managed_data:
-                self._managed_data["state"] = self._mgr.dict()
-            if "did_update_events" not in self._managed_data:
-                self._managed_data["did_update_events"] = self._mgr.list()
+            self._store = self._mgr.get()
+            if "lock" not in self._store:
+                self._store["lock"] = self._mgr.Lock()
+            if "state" not in self._store:
+                self._store["state"] = self._mgr.dict()
+            if "did_update_events" not in self._store:
+                self._store["did_update_events"] = self._mgr.list()
+            if "event_store" not in self._store:
+                self._store["event_store"] = self._mgr.dict()
+            if "event_change_events" not in self._store:
+                self._store["event_change_events"] = self._mgr.dict()
         else:
-            self._managed_data = self._mgr.get()
+            self._store = self._mgr.get()
 
     def _notify(self):
-        for e in self._managed_data["did_update_events"]:
+        for e in self._store["did_update_events"]:
             e.set()
 
     def _get_lock(self):
-        return self._managed_data["lock"]
+        return self._store["lock"]
 
     def _get_state(self):
-        return deepcopy(self._managed_data["state"])
+        return deepcopy(self._store["state"])
 
     def _set_state(self, new_state):
-        self._managed_data["state"] = self._mgr.dict(new_state)
+        self._store["state"] = self._mgr.dict(new_state)
 
     def _setitem(self, path, v):
 
@@ -163,6 +168,7 @@ class Cursor:
             manager=self._mgr,
             state_dispatcher=state_dispatcher,
             address=self._address,
+            authkey=self._authkey,
         )
 
     def root(self, state_dispatcher="inherit"):
@@ -174,6 +180,7 @@ class Cursor:
             manager=self._mgr,
             state_dispatcher=state_dispatcher,
             address=self._address,
+            authkey=self._authkey,
         )
 
     def get_cursor(self, path, state_dispatcher="inherit"):
@@ -191,6 +198,7 @@ class Cursor:
             manager=self._mgr,
             state_dispatcher=state_dispatcher,
             address=self._address,
+            authkey=self._authkey,
         )
 
     def register_listener(self, on_update, on_ready=None):
@@ -205,7 +213,7 @@ class Cursor:
         did_update_event = self._mgr.Event()
         stop_event = mp.Event()
 
-        self._managed_data["did_update_events"].append(did_update_event)
+        self._store["did_update_events"].append(did_update_event)
         old = self._get_state()
 
         def listen():
@@ -260,11 +268,53 @@ class Cursor:
 
         return self._state_dispatcher.remove_callback(self.absolute_path(path))
 
+    def get_event(self, owner, name):
+        if owner not in self._store["event_store"]:
+            self._store["event_store"][owner] = {}
+
+        if name not in self._store["event_store"][owner]:
+            e = self._mgr.Event()
+            owner_store = self._store["event_store"][owner]
+            owner_store[name] = e
+            self._store["event_store"][owner] = owner_store
+            self._notify_events_changed(owner)
+            return e
+        else:
+            return self._store["event_store"][owner][name]
+
+    def _notify_events_changed(self, owner):
+        if owner in self._store["event_change_events"]:
+            event = self._store["event_change_events"][owner]
+            if event:
+                event.set()
+
+    def remove_event(self, owner, name):
+        if (
+            owner in self._store["event_store"]
+            and name in self._store["event_store"][owner]
+        ):
+            owner_store = self._store["event_store"][owner]
+            del owner_store[name]
+            self._store["event_store"][owner] = owner_store
+
+            self._notify_events_changed(owner)
+        else:
+            raise KeyError(f"Event {owner}.{name} doesn't exist")
+
+    def add_events_changed_event(self, owner):
+        event = self._mgr.Event()
+        self._store["event_change_events"][owner] = event
+        return event
+
+    def get_update_events(self, owner):
+        if owner not in self._store["event_store"]:
+            return {}
+        else:
+            return self._store["event_store"][owner]
+
 
 class StateStore:
-    def __init__(
-        self, address=("localhost", 50000), authkey=b"reptilearn-state"
-    ) -> None:
+    def __init__(self, address, authkey) -> None:
         self.authkey = authkey
         self.address = address
         self.managerProcess = mp.Process(target=self.start_manager, daemon=True)
@@ -273,8 +323,8 @@ class StateStore:
     def start_manager(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-        managed_data = {}
-        _StateManager.register("get", lambda: managed_data, DictProxy)
+        store = {}
+        _StateManager.register("get", lambda: store, DictProxy)
         mgr = _StateManager(address=self.address, authkey=self.authkey)
         mgr.get_server().serve_forever()
 

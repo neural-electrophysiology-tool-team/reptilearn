@@ -29,6 +29,7 @@ def load_source(id, config):
         id,
         config,
         _config.state_store_address,
+        _config.state_store_authkey,
     )
 
     overlay.overlays[id] = [overlay.TimestampVisualizer()]
@@ -41,6 +42,7 @@ def load_observer(id, config):
         config,
         image_sources[config["src_id"]],
         _config.state_store_address,
+        _config.state_store_authkey,
     )
 
 
@@ -61,6 +63,7 @@ def load_video_writers():
             ],
             image_source=image_sources[src_id],
             state_store_address=_config.state_store_address,
+            state_store_authkey=_config.state_store_authkey,
         )
 
 
@@ -200,7 +203,7 @@ def capture_images(src_ids=None):
 
     for src in selected_sources:
         img, ts = src.get_image()
-        p = video_write.save_image(img, ts, src.id)
+        p = video_write.save_image(img, ts, _rec_state, src.id)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
 

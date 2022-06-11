@@ -46,6 +46,7 @@ class ConfigurableProcess(mp.Process):
         config: dict,
         state_path: str,
         state_store_address: tuple,
+        state_store_authkey: str,
     ):
         super().__init__()
         self.id = id
@@ -53,6 +54,7 @@ class ConfigurableProcess(mp.Process):
         self.logging_configurer = rl_logging._logger_configurer
         self.state_path = state_path
         self.state_store_address = state_store_address
+        self.state_store_authkey = state_store_authkey
 
     def get_config(self, key):
         if key in self.config:
@@ -64,7 +66,9 @@ class ConfigurableProcess(mp.Process):
 
     def run(self):
         self.state = managed_state.Cursor(
-            self.state_path, address=self.state_store_address
+            self.state_path,
+            address=self.state_store_address,
+            authkey=self.state_store_authkey,
         )
         if not self.state.exists(()):
             self.state.set_self({})
@@ -102,9 +106,14 @@ class ImageSource(ConfigurableProcess):
         id: str,
         config: dict,
         state_store_address: tuple,
+        state_store_authkey: str,
     ):
         super().__init__(
-            id, config, ("video", "image_sources", id), state_store_address
+            id,
+            config,
+            ("video", "image_sources", id),
+            state_store_address,
+            state_store_authkey,
         )
 
         self.image_shape = self.get_config("image_shape")
@@ -283,6 +292,51 @@ class ImageSource(ConfigurableProcess):
         pass
 
 
+class _ImageObserverCommunicator:
+    def __init__(self, other) -> None:
+        self.output_buf = other.output_buf
+        self.output_shape = other.output_shape
+        self.output_dtype = other.output_dtype
+        self.output_timestamp = other.output_timestamp
+        self._proc_name = other.name
+
+    def add_listener(self, fn, state: managed_state.Cursor):
+        """Add a listener function that's called whenever the observer output changes.
+
+        Args:
+        - fn: A function with signature (output, timestamp).
+            - output: a reference to the observer's output buffer (on main process)
+            - timestamp: The timestamp of the current output data as seconds since epoch
+
+        Return:
+        A remove_listener() function to remove this listener
+
+        NOTE: This method should only be called from the main process
+        """
+        listener_uuid = uuid.uuid4()
+        kill_event = threading.Event()
+        update_event = state.get_event(self._proc_name, listener_uuid)
+        output = np.frombuffer(
+            self.output_buf.get_obj(), dtype=self.output_dtype
+        ).reshape(self.output_shape)
+
+        def listener():
+            while True:
+                if update_event.wait(1):
+                    fn(output, self.output_timestamp.value)
+                    update_event.clear()
+
+                if kill_event.is_set():
+                    break
+
+        threading.Thread(target=listener, args=()).start()
+
+        def remove_listener():
+            state.remove_event(self._proc_name, listener_uuid)
+
+        return remove_listener
+
+
 class ImageObserver(ConfigurableProcess):
     """
     ImageObserver - a multiprocessing.Process that can receive a stream of images from ImageSource objects.
@@ -330,17 +384,24 @@ class ImageObserver(ConfigurableProcess):
         config: dict,
         image_source: ImageSource,
         state_store_address: tuple,
+        state_store_authkey: str,
         state_path=None,
         running_state_key="observing",
     ):
         if state_path is None:
             state_path = ("video", "image_observers", id)
 
-        super().__init__(id, config, state_path, state_store_address)
+        super().__init__(
+            id, config, state_path, state_store_address, state_store_authkey
+        )
 
         self.update_event = mp.Event()
-        self.img_src = image_source
-        self.img_src.add_observer_event(self.update_event)
+        image_source.add_observer_event(self.update_event)
+        self._img_src_end_event = image_source.end_event
+        self._img_src_buf = image_source.buf
+        self._img_src_buf_shape = image_source.buf_shape
+        self._img_src_timestamp = image_source.timestamp
+        self.image_shape = image_source.image_shape
         self._running_state_key = running_state_key
 
         atype, asize, shape, dtype = self.get_buffer_opts()
@@ -361,39 +422,8 @@ class ImageObserver(ConfigurableProcess):
     def _init(self):
         pass
 
-    def add_listener(self, fn):
-        """Add a listener function that's called whenever the observer output changes.
-
-        Args:
-        - fn: A function with signature (output, timestamp).
-            - output: a reference to the observer's output buffer (on main process)
-            - timestamp: The timestamp of the current output data as seconds since epoch
-
-        Return:
-        A remove_listener() function to remove this listener
-
-        NOTE: This method should only be called from the main process
-        """
-        listener_uuid = uuid.uuid4()
-        update_event = self.state.state._mgr.Event()
-        kill_event = threading.Event()
-        self.parent_pipe.send(["add", update_event, listener_uuid])
-
-        def listener():
-            while True:
-                if update_event.wait(1):
-                    fn(self.output, self.output_timestamp.value)
-                    update_event.clear()
-
-                if kill_event.is_set():
-                    break
-
-        threading.Thread(target=listener, args=()).start()
-
-        def remove_listener():
-            self.parent_pipe.send(["remove", listener_uuid])
-
-        return remove_listener
+    def get_communicator(self):
+        return _ImageObserverCommunicator(self)
 
     def get_output(self):
         """
@@ -435,9 +465,10 @@ class ImageObserver(ConfigurableProcess):
             self.output_buf.get_obj(), dtype=self.output_dtype
         ).reshape(self.output_shape)
 
-        self.output_update_events = {}
-
+        self.output_update_events = self.state.get_update_events(self.name)
+        on_update_events_changed = self.state.add_events_changed_event(self.name)
         self.state[self._running_state_key] = False
+
         self.setup()
         cmd = None
 
@@ -447,16 +478,12 @@ class ImageObserver(ConfigurableProcess):
             except KeyboardInterrupt:
                 pass
 
-            if self.img_src.end_event.is_set():
+            if self._img_src_end_event.is_set():
                 break
 
-            if isinstance(cmd, list):
-                if cmd[0] == "add":
-                    self.log.info(f"Adding listener: {cmd[2]}")
-                    self.output_update_events[cmd[2]] = cmd[1]
-                elif cmd[0] == "remove":
-                    self.log.info(f"Removing listener: {cmd[1]}")
-                    del self.output_update_events[cmd[1]]
+            if on_update_events_changed.is_set():
+                on_update_events_changed.clear()
+                self.output_update_events = self.state.get_update_events(self.name)
 
             if cmd == "shutdown":
                 self.log.info("Shutting down")
@@ -473,29 +500,30 @@ class ImageObserver(ConfigurableProcess):
 
                 try:
                     while True:
-                        if self.img_src.end_event.is_set():
+                        if self._img_src_end_event.is_set():
                             break
 
                         if self.child_pipe.poll():
                             cmd = self.child_pipe.recv()
                             if cmd == "stop":
                                 break
-                            elif isinstance(cmd, list):
-                                if cmd[0] == "add":
-                                    self.log.info(f"Adding listener: {cmd[2]}")
-                                    self.output_update_events[cmd[2]] = cmd[1]
-                                elif cmd[0] == "remove":
-                                    self.log.info(f"Removing listener: {cmd[1]}")
-                                    del self.output_update_events[cmd[1]]
+
+                        if on_update_events_changed.is_set():
+                            on_update_events_changed.clear()
+                            self.output_update_events = self.state.get_update_events(
+                                self.name
+                            )
 
                         if self.update_event.wait(1):
                             self.update_event.clear()
 
                             t0 = time.time()
-                            img = np.frombuffer(
-                                self.img_src.buf.get_obj(), dtype="uint8"
-                            ).reshape(self.img_src.buf_shape)
-                            timestamp = self.img_src.timestamp.value
+                            img = np.frombuffer(  # TODO: support other dtypes! (hard-coded uint8)
+                                self._img_src_buf.get_obj(), dtype="uint8"
+                            ).reshape(
+                                self._img_src_buf_shape
+                            )
+                            timestamp = self._img_src_timestamp.value
 
                             self.output_timestamp.value = timestamp
                             self.on_image_update(img, timestamp)

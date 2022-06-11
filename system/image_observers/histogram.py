@@ -20,10 +20,10 @@ class HistogramObserver(ImageObserver):
 
     def get_buffer_opts(self):
         bins = self.config["bin_count"]
-        img_shape = self.img_src.config["image_shape"]
-        if len(img_shape) == 3:
-            size = bins * img_shape[-1]
-            buf_shape = (img_shape[-1], bins)
+
+        if len(self.image_shape) == 3:
+            size = bins * self.image_shape[-1]
+            buf_shape = (self.image_shape[-1], bins)
         else:
             size = bins
             buf_shape = bins

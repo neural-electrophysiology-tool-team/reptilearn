@@ -70,7 +70,10 @@ class BBoxDataCollector:
         self.obs: ImageObserver = video_system.image_observers[obs_id]
 
         if listener is not None:
-            self.remove_listener = self.obs.add_listener(listener)
+            # NOTE: assuming this runs on the main process
+            self.remove_listener = self.obs.get_communicator().add_listener(
+                listener, exp.state
+            )
 
         self.bbox_log = data_log.ObserverLogger(
             self.obs,
