@@ -71,9 +71,7 @@ class BBoxDataCollector:
 
         if listener is not None:
             # NOTE: assuming this runs on the main process
-            self.remove_listener = self.obs.get_communicator().add_listener(
-                listener, exp.state
-            )
+            self.remove_listener = self.obs.add_listener(listener, exp.state)
 
         self.bbox_log = data_log.ObserverLogger(
             self.obs,

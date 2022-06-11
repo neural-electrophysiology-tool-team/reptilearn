@@ -423,7 +423,19 @@ class ImageObserver(ConfigurableProcess):
         pass
 
     def get_communicator(self):
+        """
+        Should be called from the main process. The returned object can then be accessed from any process
+        """
+
         return _ImageObserverCommunicator(self)
+
+    def add_listener(self, listener, state):
+        """
+        Should be called from the main process. To add a listener from another process, pass the object returned by
+        get_communicator() to the process and call its add_listener() method.
+        """
+
+        return self.get_communicator().add_listener(listener, state)
 
     def get_output(self):
         """
@@ -499,6 +511,7 @@ class ImageObserver(ConfigurableProcess):
                 self.update_event.clear()
 
                 try:
+                    self.log.debug("Started observing...")
                     while True:
                         if self._img_src_end_event.is_set():
                             break
@@ -542,6 +555,7 @@ class ImageObserver(ConfigurableProcess):
                         if self.state is not None:
                             self.state[self._running_state_key] = False
                         self.on_stop()
+                        self.log.debug("Stopped observing")
                     except Exception:
                         self.log.exception("Exception while stopping observer:")
 
