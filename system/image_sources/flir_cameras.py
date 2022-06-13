@@ -30,7 +30,11 @@ class FLIRImageSource(ImageSource):
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart)
-                self.cam.TriggerSource.SetValue(getattr(PySpin, "TriggerSource_" + self.get_config("trigger_source")))
+                self.cam.TriggerSource.SetValue(
+                    getattr(
+                        PySpin, "TriggerSource_" + self.get_config("trigger_source")
+                    )
+                )
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 self.cam.TriggerActivation.SetValue(
                     PySpin.TriggerActivation_FallingEdge
@@ -76,7 +80,7 @@ class FLIRImageSource(ImageSource):
         self.camera_time_delta = (server_time - cam_time) / 1e9
         self.log.info(f"Updated time delta: {self.camera_time_delta}")
 
-    def on_start(self):
+    def _on_start(self):
         self.system = PySpin.System_GetInstance()
         self.cam_list = self.system.GetCameras()
         filtered = filter_cameras(self.cam_list, self.get_config("cam_id"))
@@ -97,7 +101,7 @@ class FLIRImageSource(ImageSource):
         self.prev_writing = self.state.get("writing", False)
         return True
 
-    def acquire_image(self):
+    def _acquire_image(self):
         if self.image_result is not None:
             try:
                 self.image_result.Release()
@@ -117,7 +121,7 @@ class FLIRImageSource(ImageSource):
         except Exception:
             self.log.exception("Exception while getting image from flir camera:")
 
-    def on_stop(self):
+    def _on_stop(self):
         if self.cam.IsStreaming():
             self.cam.EndAcquisition()
 

@@ -274,9 +274,10 @@ class Cursor:
 
         if name not in self._store["event_store"][owner]:
             e = self._mgr.Event()
-            owner_store = self._store["event_store"][owner]
-            owner_store[name] = e
-            self._store["event_store"][owner] = owner_store
+            with self._get_lock():
+                owner_store = self._store["event_store"][owner]
+                owner_store[name] = e
+                self._store["event_store"][owner] = owner_store
             self._notify_events_changed(owner)
             return e
         else:
@@ -293,9 +294,10 @@ class Cursor:
             owner in self._store["event_store"]
             and name in self._store["event_store"][owner]
         ):
-            owner_store = self._store["event_store"][owner]
-            del owner_store[name]
-            self._store["event_store"][owner] = owner_store
+            with self._get_lock():
+                owner_store = self._store["event_store"][owner]
+                del owner_store[name]
+                self._store["event_store"][owner] = owner_store
 
             self._notify_events_changed(owner)
         else:

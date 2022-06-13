@@ -70,7 +70,7 @@ class VideoWriter(ImageObserver):
         self.prev_timestamp = None  # for missing frames alert
         self.q = None
 
-    def on_start(self):
+    def _on_start(self):
         if not self.state["acquiring"]:
             self.log.error("Can't write video. Image source is not acquiring.")
             return
@@ -142,7 +142,7 @@ class VideoWriter(ImageObserver):
 
             self.q.task_done()
 
-    def on_image_update(self, img, timestamp):
+    def _on_image_update(self, img, timestamp):
         if self.prev_timestamp is not None:
             delta = timestamp - self.prev_timestamp
 
@@ -163,7 +163,7 @@ class VideoWriter(ImageObserver):
 
         self.q.put((img, timestamp))
 
-    def on_stop(self):
+    def _on_stop(self):
         if self.write_thread is not None:
             self.q.put_nowait(None)
             self.write_thread.join()

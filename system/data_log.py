@@ -215,7 +215,7 @@ class ObserverLogger(QueuedDataLogger):
         table_name=None,
     ):
         super().__init__(columns, csv_path, split_csv, log_to_db, table_name)
-        self.obs_communicator = image_observer.get_communicator()
+        self.obs_communicator = image_observer.get_interface()
         self.state_address = image_observer.state_store_address
         self.state_authkey = image_observer.state_store_authkey
 
