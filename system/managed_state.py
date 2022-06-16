@@ -19,8 +19,8 @@ class Cursor:
     def __init__(
         self,
         path,
-        authkey,
-        address,
+        authkey=None,
+        address=None,
         manager=None,
         state_dispatcher=None,
     ) -> None:
@@ -36,9 +36,11 @@ class Cursor:
 
         if self._mgr is None:
             _StateManager.register("get")
-            self._mgr = _StateManager(address=self._address, authkey=self._authkey)
+            self._mgr = _StateManager(
+                address=self._address, authkey=self._authkey.encode("ASCII")
+            )
             self._mgr.connect()
-            mp.current_process().authkey = authkey
+            mp.current_process().authkey = authkey.encode("ASCII")
             self._store = self._mgr.get()
             if "lock" not in self._store:
                 self._store["lock"] = self._mgr.Lock()
@@ -46,8 +48,8 @@ class Cursor:
                 self._store["state"] = self._mgr.dict()
             if "did_update_events" not in self._store:
                 self._store["did_update_events"] = self._mgr.list()
-            if "event_store" not in self._store:
-                self._store["event_store"] = self._mgr.dict()
+            if "events" not in self._store:
+                self._store["events"] = self._mgr.dict()
             if "event_change_events" not in self._store:
                 self._store["event_change_events"] = self._mgr.dict()
         else:
@@ -148,55 +150,32 @@ class Cursor:
 
         return self.path + rel_path
 
-    def parent(self, state_dispatcher="inherit"):
+    def parent(self):
         """
         Return a cursor pointing to the parent path of this cursor. The new cursor can only be used
         in the same process as this cursor.
 
         When called on the root state cursor a KeyError exception is raised.
-
-        - state_dispatcher: This will become the state_dispatcher of the new Cursor. The default "inherit" value means to use the dispatcher of this cursor.
         """
         if len(self.path) == 0:
             raise KeyError(f"path {self.path} has no parent.")
 
-        if state_dispatcher == "inherit":
-            state_dispatcher = self._state_dispatcher
+        return self.get_cursor(self.path[:-1], absolute_path=True)
 
-        return Cursor(
-            self.path[:-1],
-            manager=self._mgr,
-            state_dispatcher=state_dispatcher,
-            address=self._address,
-            authkey=self._authkey,
-        )
+    def root(self):
+        return self.get_cursor((), absolute_path=True)
 
-    def root(self, state_dispatcher="inherit"):
-        if state_dispatcher == "inherit":
-            state_dispatcher = self._state_dispatcher
-
-        return Cursor(
-            (),
-            manager=self._mgr,
-            state_dispatcher=state_dispatcher,
-            address=self._address,
-            authkey=self._authkey,
-        )
-
-    def get_cursor(self, path, state_dispatcher="inherit"):
+    def get_cursor(self, path, absolute_path=False):
         """
         Return a new cursor pointing to the supplied sub path of this cursor. The new cursor can only be used
         in the same process as this cursor.
 
-        - state_dispatcher: This will become the state_dispatcher of the new Cursor. The default "inherit" value means to use the dispatcher of this cursor.
         """
-        if state_dispatcher == "inherit":
-            state_dispatcher = self._state_dispatcher
 
         return Cursor(
-            self.absolute_path(path),
+            path if absolute_path else self.absolute_path(path),
             manager=self._mgr,
-            state_dispatcher=state_dispatcher,
+            state_dispatcher=self._state_dispatcher,
             address=self._address,
             authkey=self._authkey,
         )
@@ -269,19 +248,19 @@ class Cursor:
         return self._state_dispatcher.remove_callback(self.absolute_path(path))
 
     def get_event(self, owner, name):
-        if owner not in self._store["event_store"]:
-            self._store["event_store"][owner] = {}
+        if owner not in self._store["events"]:
+            self._store["events"][owner] = {}
 
-        if name not in self._store["event_store"][owner]:
+        if name not in self._store["events"][owner]:
             e = self._mgr.Event()
             with self._get_lock():
-                owner_store = self._store["event_store"][owner]
+                owner_store = self._store["events"][owner]
                 owner_store[name] = e
-                self._store["event_store"][owner] = owner_store
+                self._store["events"][owner] = owner_store
             self._notify_events_changed(owner)
             return e
         else:
-            return self._store["event_store"][owner][name]
+            return self._store["events"][owner][name]
 
     def _notify_events_changed(self, owner):
         if owner in self._store["event_change_events"]:
@@ -290,14 +269,11 @@ class Cursor:
                 event.set()
 
     def remove_event(self, owner, name):
-        if (
-            owner in self._store["event_store"]
-            and name in self._store["event_store"][owner]
-        ):
+        if owner in self._store["events"] and name in self._store["events"][owner]:
             with self._get_lock():
-                owner_store = self._store["event_store"][owner]
+                owner_store = self._store["events"][owner]
                 del owner_store[name]
-                self._store["event_store"][owner] = owner_store
+                self._store["events"][owner] = owner_store
 
             self._notify_events_changed(owner)
         else:
@@ -309,10 +285,10 @@ class Cursor:
         return event
 
     def get_update_events(self, owner):
-        if owner not in self._store["event_store"]:
+        if owner not in self._store["events"]:
             return {}
         else:
-            return self._store["event_store"][owner]
+            return self._store["events"][owner]
 
 
 class StateStore:
@@ -327,7 +303,7 @@ class StateStore:
 
         store = {}
         _StateManager.register("get", lambda: store, DictProxy)
-        mgr = _StateManager(address=self.address, authkey=self.authkey)
+        mgr = _StateManager(address=self.address, authkey=self.authkey.encode("ASCII"))
         mgr.get_server().serve_forever()
 
     def shutdown(self):

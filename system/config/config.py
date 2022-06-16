@@ -16,7 +16,7 @@ log_buffer_size = 1000
 state_store_address = ("127.0.0.1", 50000)
 
 # Authkey of the shared state store
-state_store_authkey = b"reptilearn"
+state_store_authkey = "reptilearn"
 
 # Port number for a REST and socketio api server. If changed, edit ui/src/config.js with
 # a matching value.
