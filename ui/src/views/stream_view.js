@@ -5,7 +5,7 @@ import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 
 import { api_url } from '../config.js';
-import { imageSourceIds, moveStream, removeStream, setStreams, startStreaming, stopStreaming, updateStream, updateStreamSources } from '../store/reptilearn_slice.js';
+import { imageSourceIds, moveStream, removeStream, setStreams, startStreaming, stopStreaming, streamlessSrcIds, updateStream, updateStreamSources } from '../store/reptilearn_slice.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
@@ -32,7 +32,7 @@ const StreamImage = React.memo(({ src_id, width, height, is_streaming }) => {
                         height={height}
                         alt={"Video stream " + src_id}
                     />
-                ) : <FontAwesomeIcon icon="pause" className="text-gray-500 h-full w-full" transform="shrink-10"/>}
+                ) : <FontAwesomeIcon icon="pause" className="text-gray-500 h-full w-full" transform="shrink-10" />}
         </div>
     );
 });
@@ -43,6 +43,7 @@ const StreamView = ({ idx }) => {
     const streams = useSelector((state) => state.reptilearn.streams);
     const video_config = useSelector((state) => state.reptilearn.videoConfig);
     const src_ids = useSelector(imageSourceIds);
+    const unused_src_ids = useSelector(streamlessSrcIds);
 
     const [drag, setDrag] = React.useState(false);
     const [draggedOver, setDraggedOver] = React.useState(false);
@@ -54,6 +55,17 @@ const StreamView = ({ idx }) => {
     const dragHandle = React.useRef();
 
     const { src_id, width, is_streaming } = streams[idx];
+
+    if (!src_ids.includes(src_id)) {
+        if (unused_src_ids.length > 0) {
+            dispatch(updateStream({ idx: idx, key: "src_id", val: unused_src_ids[0] }))
+            return null;
+        } else {
+            dispatch(removeStream({ idx: idx }));
+            return null;
+        }
+    }
+
     const src_width = video_config.image_sources[src_id].image_shape[1];
     const src_height = video_config.image_sources[src_id].image_shape[0];
 
@@ -86,7 +98,7 @@ const StreamView = ({ idx }) => {
             ? (() => {
                 if (idx < streams.length - 1) {
                     const sh_before = get_stream_height(streams[idx - 1]);
-                    const sh_after = get_stream_height(streams[idx + 1]);                    
+                    const sh_after = get_stream_height(streams[idx + 1]);
                     return (Math.abs(sh_before - requestedHeight) < Math.abs(sh_after - requestedHeight)) ? sh_before : sh_after;
                 } else {
                     return get_stream_height(streams[idx - 1]);
