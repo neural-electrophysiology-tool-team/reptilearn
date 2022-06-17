@@ -49,8 +49,15 @@ archive_dirs = {
     "Tal on SIL2": Path("/media/sil2/tal/reptilearn_sessions/rl2_archive"),
 }
 
-# The frame rate of HTTP image source streaming. Lower this to reduce network usage.
-stream_frame_rate = 15
+# Image source streaming over HTTP settings
+http_streaming = {
+    "frame_rate": 15,
+    # See https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save
+    # and https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
+    "encoding": "WebP",
+    "encode_params": {"method": 2},
+}
+
 
 video_record = {
     "video_frame_rate": 60,

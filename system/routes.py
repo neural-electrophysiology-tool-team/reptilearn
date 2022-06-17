@@ -7,8 +7,7 @@ from json_convert import json_convert
 import image_utils
 import rl_logging
 
-# import overlay
-import cv2
+import overlay
 import task
 import arena
 
@@ -29,10 +28,7 @@ def add_routes(app, config, log):
         height = None if sheight is None else int(sheight)
 
         # TODO: don't use video_system here --v
-        if (
-            video_system._state.get(("video", "image_sources", src_id), None)
-            is not None
-        ):
+        if video_system._state.exists(("video", "image_sources", src_id)):
             src_config = video_system.video_config["image_sources"][src_id]
         else:
             src_config = None
@@ -58,13 +54,13 @@ def add_routes(app, config, log):
 
         return image_utils.encode_image(
             img,
-            encoding=".webp",
-            encode_params=[cv2.IMWRITE_WEBP_QUALITY, 20],
+            encoding=config.http_streaming["encoding"],
+            encode_params=config.http_streaming["encode_params"],
             shape=(width, height),
         )
 
     @app.route("/image_sources/<src_id>/get_image")
-    def route_image_sources_get_image(src_id, width=None, height=None):
+    def route_image_sources_get_image(src_id):
         img, timestamp = video_system.image_sources[src_id].get_image()
         enc_img = encode_image_for_response(img, *parse_image_request(src_id))
         return flask.Response(enc_img, mimetype="image/jpeg")
@@ -77,7 +73,9 @@ def add_routes(app, config, log):
         img_src = video_system.image_sources[src_id]
 
         frame_rate = int(
-            flask.request.args.get("frame_rate", default=config.stream_frame_rate)
+            flask.request.args.get(
+                "frame_rate", default=config.http_streaming["frame_rate"]
+            )
         )
 
         enc_args = parse_image_request(src_id)
@@ -90,11 +88,11 @@ def add_routes(app, config, log):
                 while True:
                     try:
                         img, timestamp = next(gen)
-                        # img = overlay.apply_overlays(img, timestamp, src_id)
+                        img = overlay.apply_overlays(img, timestamp, src_id)
                         enc_img = encode_image_for_response(img, *enc_args)
                         yield (
                             b"--frame\r\n"
-                            b"Content-Type: image/webp\r\n\r\n"
+                            b"Content-Type: image\r\n\r\n"
                             + bytearray(enc_img)
                             + b"\r\n\r\n"
                         )

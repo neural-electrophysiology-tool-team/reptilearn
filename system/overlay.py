@@ -7,7 +7,6 @@ import cv2
 # - way to choose overlays
 
 
-
 class ImageOverlay:
     def apply(self, img, timestamp):
         return img
@@ -56,7 +55,7 @@ class TimestampVisualizer(ImageOverlay):
         return img
 
 
-overlays = {}
+overlays = {TimestampVisualizer()}
 
 
 def apply_overlays(img, timestamp, src_id):
