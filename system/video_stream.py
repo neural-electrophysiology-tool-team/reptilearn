@@ -225,7 +225,7 @@ class ImageSource(ConfigurableProcess):
                     self.log.error(e)
                     break
                 except KeyboardInterrupt:
-                    pass
+                    img, timestamp = self._acquire_image()
 
                 if img is None:
                     break

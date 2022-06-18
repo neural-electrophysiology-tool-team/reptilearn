@@ -12,8 +12,6 @@ import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 import { classNames } from './ui/common.js';
 
 const StreamImage = React.memo(({ src_id, width, height, is_streaming }) => {
-    fetch(api_url + `/stop_stream/${src_id}`);
-
     const stream_url = api_url
         + `/image_sources/${src_id}/stream?width=${width}&ts=${Date.now()}`;
 
