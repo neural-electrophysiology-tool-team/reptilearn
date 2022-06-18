@@ -14,7 +14,7 @@ class FLIRImageSource(ImageSource):
         "exposure": 8000,
         "trigger": True,
         "frame_rate": None,
-        "pyspin": [],
+        "pyspin": {},
         "cam_id": None,
         "trigger_source": "Line3",
     }
@@ -25,7 +25,10 @@ class FLIRImageSource(ImageSource):
             self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             self.cam.ExposureTime.SetValue(self.get_config("exposure"))
+        except Exception:
+            self.log.exception("Exception while configuring camera:")
 
+        try:
             if self.get_config("trigger") is True:
                 self.cam.AcquisitionFrameRateEnable.SetValue(False)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
@@ -51,14 +54,11 @@ class FLIRImageSource(ImageSource):
 
             self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
 
-            for prop_value in self.get_config("pyspin"):
-                if len(prop_value) != 2:
-                    self.log.error(
-                        f"Configuration error: Expecting 2 elements: property, value, but got: {prop_value}"
-                    )
-                    continue
+            pyspin_config = self.get_config("pyspin")
 
-                prop, value = prop_value
+            for prop in pyspin_config.keys():
+                value = pyspin_config[prop]
+
                 if hasattr(self.cam, prop):
                     if isinstance(value, str):
                         if hasattr(PySpin, value):
@@ -78,28 +78,32 @@ class FLIRImageSource(ImageSource):
         cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
         server_time = time.time_ns()
         self.camera_time_delta = (server_time - cam_time) / 1e9
-        self.log.info(f"Updated time delta: {self.camera_time_delta}")
+        self.log.debug(f"Updated time delta: {self.camera_time_delta}")
 
     def _on_start(self):
-        self.system = PySpin.System_GetInstance()
-        self.cam_list = self.system.GetCameras()
-        filtered = filter_cameras(self.cam_list, self.get_config("cam_id"))
-        if len(filtered) < 1:
-            self.log.error(f"Camera {self.get_config('cam_id')} was not found.")
+        try:
+            self.system = PySpin.System_GetInstance()
+            self.cam_list = self.system.GetCameras()
+            filtered = filter_cameras(self.cam_list, self.get_config("cam_id"))
+            if len(filtered) < 1:
+                self.log.error(f"Camera {self.get_config('cam_id')} was not found.")
+                return False
+
+            self.cam: PySpin.CameraPtr = filtered[0]
+            self.cam.Init()
+            self.configure_camera()
+
+            self.update_time_delta()
+
+            self.cam.BeginAcquisition()
+            self.log.info("Camera initialized.")
+            self.image_result = None
+
+            self.prev_writing = self.state.get("writing", False)
+            return True
+        except Exception:
+            self.log.exception("Exception while initializing camera:")
             return False
-
-        self.cam: PySpin.CameraPtr = filtered[0]
-        self.cam.Init()
-        self.configure_camera()
-
-        self.update_time_delta()
-
-        self.cam.BeginAcquisition()
-        self.log.info("Camera initialized.")
-        self.image_result = None
-
-        self.prev_writing = self.state.get("writing", False)
-        return True
 
     def _acquire_image(self):
         if self.image_result is not None:
@@ -112,7 +116,7 @@ class FLIRImageSource(ImageSource):
             self.update_time_delta()
         self.prev_writing = self.state.get("writing", False)
 
-        self.image_result = self.cam.GetNextImage()
+        self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
 
         try:

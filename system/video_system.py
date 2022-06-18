@@ -317,7 +317,6 @@ def shutdown_video():
         try:
             w.stop_observing()
             w.shutdown()
-            w.join()
         except Exception:
             _log.exception("Error while closing video writers:")
 
@@ -325,9 +324,14 @@ def shutdown_video():
         try:
             obs.stop_observing()
             obs.shutdown()
-            obs.join()
         except Exception:
             _log.exception("Error while closing image observers:")
+
+    for w in video_writers.values():
+        w.join()
+
+    for obs in image_observers.values():
+        obs.join()
 
     if has_trigger():
         start_trigger(update_state=False)
@@ -335,12 +339,14 @@ def shutdown_video():
     for img_src in image_sources.values():
         try:
             img_src.stop_event.set()
-            img_src.join()
         except Exception:
             _log.exception("Error while closing image sources:")
 
     for src_id in image_sources.keys():
         _state.remove_callback(("video", "image_sources", src_id, "acquiring"))
+
+    for img_src in image_sources.values():
+        img_src.join()
 
     _state.delete("video")
     image_sources.clear()

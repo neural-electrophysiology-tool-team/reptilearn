@@ -220,7 +220,6 @@ class ImageSource(ConfigurableProcess):
             while True:
                 try:
                     img, timestamp = self._acquire_image()
-
                 except AcquireException as e:
                     self.log.error(e)
                     break
@@ -229,6 +228,9 @@ class ImageSource(ConfigurableProcess):
 
                 if img is None:
                     break
+
+                if img.dtype == "uint16":
+                    img = (img / 256.0).astype("uint8")
 
                 if self.stop_event.is_set():
                     self.log.info("Shutting down")
