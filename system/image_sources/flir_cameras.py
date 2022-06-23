@@ -21,12 +21,13 @@ class FLIRImageSource(ImageSource):
 
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
-        try:
-            self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-            self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-            self.cam.ExposureTime.SetValue(self.get_config("exposure"))
-        except Exception:
-            self.log.exception("Exception while configuring camera:")
+        if "exposure" in self.config:
+            try:
+                self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
+                self.cam.ExposureTime.SetValue(self.get_config("exposure"))
+            except Exception:
+                self.log.exception("Exception while configuring camera:")
 
         try:
             if self.get_config("trigger") is True:
@@ -74,8 +75,12 @@ class FLIRImageSource(ImageSource):
             self.log.exception("Exception while configuring camera:")
 
     def update_time_delta(self):
-        self.cam.TimestampLatch()
-        cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
+        try:
+            self.cam.TimestampLatch()
+            cam_time = self.cam.TimestampLatchValue.GetValue()  # in nanosecs
+        except Exception:
+            cam_time = self.cam.Timestamp.GetValue()
+
         server_time = time.time_ns()
         self.camera_time_delta = (server_time - cam_time) / 1e9
         self.log.debug(f"Updated time delta: {self.camera_time_delta}")

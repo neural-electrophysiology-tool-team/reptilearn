@@ -40,6 +40,13 @@ export const VideoRecordView = () => {
         }
     };
 
+    const has_trigger = () => {
+        if (ctrlState["video"]?.["record"]) {
+            return "ttl_trigger" in ctrlState["video"]["record"]
+        }
+
+    };
+
     const src_changed = (src_id) => {
         if (ctrlState.video.record.selected_sources.includes(src_id)) {
             fetch(api_url + `/video_record/unselect_source/${src_id}`);
@@ -92,8 +99,8 @@ export const VideoRecordView = () => {
                 disabled={is_recording}
                 className='px-2 py-1'
             />
-            <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} className={is_recording ? "text-green-700" : "text-red-500"} />
-            <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />
+            <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : "text-red-500"} />
+            {has_trigger() && <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />}
 
             {/* <Popup content={is_recording ? "Stop recording" : "Start recording"}
                 trigger={
