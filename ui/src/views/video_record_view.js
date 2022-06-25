@@ -100,9 +100,12 @@ export const VideoRecordView = () => {
                 disabled={is_recording}
                 className='px-2 py-1'
             />
-            {ctrlState["video"]?.["record"]&& (
+            {ctrlState.video?.record && (
                 <RLTooltip content={is_recording ? "Stop recording" : "Start recording"}>
-                    <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : "text-red-500"} />
+                    <RLButton.TopBarButton
+                        onClick={toggle_recording}
+                        icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : "text-red-500"}
+                        disabled={!ctrlState.video.record?.selected_sources || ctrlState.video.record.selected_sources.length === 0} />
                 </RLTooltip>)}
 
             {has_trigger() && (

@@ -55,7 +55,6 @@ class FLIRImageSource(ImageSource):
             nodemap = self.cam.GetNodeMap()
             for key in pyspin_config.keys():
                 value = pyspin_config[key]
-                # self.setPySpinNode(nodemap, "TemperatureLinearResolution", "High")
                 try:
                     self.setPySpinNode(nodemap, key, value)
                 except Exception:
