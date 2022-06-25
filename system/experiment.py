@@ -223,13 +223,17 @@ def init_session(continue_session=False):
         event_logger.add_event(src, key)
 
     cur_experiment.setup()
-    actions.set_self(cur_experiment.actions.keys())
+    refresh_actions()
 
     event_logger.log(
         f"session/{'continue' if continue_session else 'create'}",
         session_state.get_self(),
     )
     _update_state_file()
+
+
+def refresh_actions():
+    actions.set_self(cur_experiment.actions.keys())
 
 
 def close_session():

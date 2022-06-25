@@ -21,6 +21,7 @@ const RLMenu = ({ children, align, title, button, className }) => {
                 <div>{button || <BarMenuButton title={title} showDropIcon />}</div>
 
                 <Menu.Items className={classNames(
+                    className,
                     "rounded-sm shadow-lg bg-white overflow-hidden overflow-y-auto whitespace-nowrap focus:outline-none max-h-[75vh]")}>
 
                     {children}
@@ -30,8 +31,8 @@ const RLMenu = ({ children, align, title, button, className }) => {
     );
 };
 
-const ButtonItem = ({ disabled, children, ...props }) => (
-    <Menu.Item {...props} as="div">
+const ButtonItem = ({ disabled, children, onClick, ...props }) => (
+    <Menu.Item {...props} as="div" onClick={!disabled && onClick}>
         {({ active }) => (
             <div className={classNames(
                 "p-2 cursor-pointer",

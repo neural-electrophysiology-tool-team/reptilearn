@@ -7,6 +7,7 @@ import RLMenu from './ui/menu.js';
 import RLButton from './ui/button.js';
 import RLIcon from './ui/icon.js';
 import RLInput from './ui/input.js';
+import { RLTooltip } from './ui/tooltip.js';
 
 export const VideoRecordView = () => {
     const ctrlState = useSelector((state) => state.reptilearn.ctrlState);
@@ -99,15 +100,14 @@ export const VideoRecordView = () => {
                 disabled={is_recording}
                 className='px-2 py-1'
             />
-            <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : "text-red-500"} />
-            {has_trigger() && <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />}
+            <RLTooltip content={is_recording ? "Stop recording" : "Start recording"}>
+                <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : "text-red-500"} />
+            </RLTooltip>
 
-            {/* <Popup content={is_recording ? "Stop recording" : "Start recording"}
-                trigger={
-                } /> */}
-            {/* <Popup content={ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
-                trigger={
-                } /> */}
+            <RLTooltip content={ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}>
+                {has_trigger() && <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />}
+            </RLTooltip>
+
             {video_menu}
         </React.Fragment>
     );

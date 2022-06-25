@@ -11,6 +11,7 @@ import RLInput from './ui/input.js';
 import RLTabs from './ui/tabs.js';
 import { RLSpinner } from './ui/spinner.js';
 import { classNames } from './ui/common.js';
+import { RLTooltip } from './ui/tooltip.js';
 
 /*
   assign object o to object n without overwriting existing properties of o.
@@ -132,7 +133,7 @@ export const ExperimentView = () => {
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
     const session = ctrl_state.session;
     const cur_block = ctrl_state?.session?.cur_block;
-    
+
     const session_title = (() => {
         if (!session) return "Session";
 
@@ -158,8 +159,8 @@ export const ExperimentView = () => {
         <Bar colors="bg-gray-50 border-gray-300">
             {session
                 ? (is_running
-                    ? <RLButton.BarButton onClick={stop_experiment} icon="stop" />
-                    : <RLButton.BarButton onClick={run_experiment} icon="play" />)
+                    ? <RLTooltip content="Stop experiment"><RLButton.BarButton onClick={stop_experiment} icon="stop" /></RLTooltip>
+                    : <RLTooltip content="Run experiment"><RLButton.BarButton onClick={run_experiment} icon="play" /></RLTooltip>)
                 : null
             }
             <div className='flex items-center px-1 h-[22px]'>Block:</div>
