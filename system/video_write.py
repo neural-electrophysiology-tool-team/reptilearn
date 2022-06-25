@@ -2,8 +2,10 @@ import time
 from datetime import datetime
 from video_stream import ImageObserver, ImageSource
 import imageio
+import pickle
 import queue
 import threading
+from image_utils import convert_to_8bit
 
 
 def get_write_path(src_id, rec_state, file_ext, timestamp=datetime.now()):
@@ -19,8 +21,15 @@ def get_write_path(src_id, rec_state, file_ext, timestamp=datetime.now()):
 
 def save_image(image, timestamp, rec_state, prefix):
     dt = datetime.fromtimestamp(timestamp)
-    path = get_write_path(prefix, rec_state, "jpg", dt)
-    imageio.imwrite(str(path), image)
+    ext = "jpg" if image.dtype == "uint8" else "pickle"
+    path = get_write_path(prefix, rec_state, ext, dt)
+
+    if image.dtype == "uint8":
+        imageio.imwrite(str(path), image)
+    else:
+        with open(path, "wb") as f:
+            pickle.dump(image, f)
+
     return path
 
 
@@ -44,6 +53,7 @@ class VideoWriter(ImageObserver):
         running_state_key="writing",
     ):
         self.img_src_id = image_source.id
+        self.scaling_8bit = image_source.scaling_8bit
         self.encoding_params = encoding_params
 
         super().__init__(
@@ -160,6 +170,9 @@ class VideoWriter(ImageObserver):
                 ) / self.frame_count
 
         self.prev_timestamp = timestamp
+
+        if self._img_src_buf_dtype == "uint16":
+            img = convert_to_8bit(img, self.scaling_8bit)
 
         self.q.put((img, timestamp))
 

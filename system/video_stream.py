@@ -6,6 +6,7 @@ import time
 import threading
 import rl_logging
 import managed_state
+from image_utils import convert_to_8bit
 
 
 class AcquireException(Exception):
@@ -97,8 +98,10 @@ class ImageSource(ConfigurableProcess):
     default_params = {
         **ConfigurableProcess.default_params,
         "buf_len": 1,
+        "buf_dtype": "uint8",
         "image_shape": None,
         "encoding_config": None,
+        "8bit_scaling": "full_range",
     }
 
     def __init__(
@@ -118,11 +121,22 @@ class ImageSource(ConfigurableProcess):
 
         self.image_shape = self.get_config("image_shape")
         self.buf_len = self.get_config("buf_len")
+        self.buf_dtype = self.get_config("buf_dtype")
+        self.scaling_8bit = self.get_config("8bit_scaling")
+
+        if self.buf_dtype == "uint8":
+            self.buf_type_code = "B"
+        elif self.buf_dtype == "uint16":
+            self.buf_type_code = "H"
+        else:
+            raise ValueError(
+                f"Unsupported buf_dtype: {self.buf_dtype}. Only uint8 or uint16 are currently supported."
+            )
 
         # currently supports only a single image buffer
         self.buf_shape = self.image_shape
-        self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
-        self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
+        self.buf = mp.Array(self.buf_type_code, int(np.prod(self.buf_shape)))
+        self.buf_np = np.frombuffer(self.buf.get_obj(), dtype=self.buf_dtype).reshape(
             self.buf_shape
         )
 
@@ -178,7 +192,7 @@ class ImageSource(ConfigurableProcess):
         )
         return img
 
-    def stream_gen(self, frame_rate=15):
+    def stream_gen(self, frame_rate=15, scale_to_8bit=False):
         self.stop_streaming()
 
         stop_this_stream_event = mp.Event()
@@ -201,7 +215,7 @@ class ImageSource(ConfigurableProcess):
 
             self.stream_obs_event.clear()
 
-            yield self.get_image()
+            yield self.get_image(scale_to_8bit=scale_to_8bit)
 
             if frame_rate is not None:
                 dt = time.time() - t1
@@ -229,9 +243,6 @@ class ImageSource(ConfigurableProcess):
                 if img is None:
                     break
 
-                if img.dtype == "uint16":
-                    img = (img / 256.0).astype("uint8")
-
                 if self.stop_event.is_set():
                     self.log.info("Shutting down")
                     self.stop_event.clear()
@@ -241,7 +252,7 @@ class ImageSource(ConfigurableProcess):
                     self.timestamp.value = timestamp
 
                     self.buf_np = np.frombuffer(
-                        self.buf.get_obj(), dtype="uint8"
+                        self.buf.get_obj(), dtype=self.buf_dtype
                     ).reshape(self.buf_shape)
                     np.copyto(self.buf_np, img)
 
@@ -260,13 +271,18 @@ class ImageSource(ConfigurableProcess):
             obs.set()
         self.end_event.set()
 
-    def get_image(self):
+    def get_image(self, scale_to_8bit=False):
         """
         Return img, timestamp
         - img: The current data in the image buffer (assuming a single image buffer)
         - timestamp: The timestamp of the current image buffer data in seconds since epoch.
         """
-        return self.buf_np, self.timestamp.value
+        if scale_to_8bit and self.buf_dtype == "uint16":
+            img = convert_to_8bit(self.buf_np, self.scaling_8bit)
+        else:
+            img = self.buf_np
+
+        return img, self.timestamp.value
 
     def _acquire_image(self):
         """
@@ -401,6 +417,7 @@ class ImageObserver(ConfigurableProcess):
         self._img_src_end_event = image_source.end_event
         self._img_src_buf = image_source.buf
         self._img_src_buf_shape = image_source.buf_shape
+        self._img_src_buf_dtype = image_source.buf_dtype
         self._img_src_timestamp = image_source.timestamp
         self.image_shape = image_source.image_shape
         self._running_state_key = running_state_key
@@ -532,11 +549,10 @@ class ImageObserver(ConfigurableProcess):
                             self.update_event.clear()
 
                             t0 = time.time()
-                            img = np.frombuffer(  # TODO: support other dtypes! (hard-coded uint8)
-                                self._img_src_buf.get_obj(), dtype="uint8"
-                            ).reshape(
-                                self._img_src_buf_shape
-                            )
+                            img = np.frombuffer(
+                                self._img_src_buf.get_obj(),
+                                dtype=self._img_src_buf_dtype,
+                            ).reshape(self._img_src_buf_shape)
                             timestamp = self._img_src_timestamp.value
 
                             self.output_timestamp.value = timestamp

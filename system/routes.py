@@ -61,7 +61,7 @@ def add_routes(app, config, log):
 
     @app.route("/image_sources/<src_id>/get_image")
     def route_image_sources_get_image(src_id):
-        img, timestamp = video_system.image_sources[src_id].get_image()
+        img, timestamp = video_system.image_sources[src_id].get_image(scale_to_8bit=True)
         enc_img = encode_image_for_response(img, *parse_image_request(src_id))
         return flask.Response(enc_img, mimetype="image/jpeg")
 
@@ -82,7 +82,7 @@ def add_routes(app, config, log):
 
         def flask_gen():
             # log.info(f"Starting new stream: {src_id}")
-            gen = img_src.stream_gen(frame_rate)
+            gen = img_src.stream_gen(frame_rate, scale_to_8bit=True)
 
             try:
                 while True:

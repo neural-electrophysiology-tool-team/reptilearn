@@ -1,5 +1,7 @@
 import io
 from PIL import Image
+import numpy as np
+import collections
 
 
 def resize_image(img: Image, size=(None, None)):
@@ -52,3 +54,22 @@ def encode_image(img, encoding="WebP", encode_params={}, shape=(None, None)):
     with io.BytesIO() as output:
         im.save(output, format=encoding, **encode_params)
         return output.getvalue()
+
+
+def convert_to_8bit(img, scaling_param):
+    if isinstance(scaling_param, str):
+        if scaling_param == "truncate":
+            return img.astype("uint8")
+
+        if scaling_param == "auto":
+            smin, smax = img.min(), img.max()
+        elif scaling_param == "full_range":
+            smin, smax = 0, 2 ** 16
+        else:
+            raise ValueError(f"Invalid scaling_8bit parameter value: {scaling_param}")
+    elif isinstance(scaling_param, collections.Sequence):
+        smin, smax = scaling_param
+    else:
+        raise ValueError(f"Invalid scaling_8bit parameter value: {scaling_param}")
+
+    return np.clip(256.0 * (img - smin) / (smax - smin), 0, 255).astype("uint8")

@@ -47,32 +47,54 @@ class FLIRImageSource(ImageSource):
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
                 self.cam.AcquisitionFrameRate.SetValue(self.get_config("frame_rate"))
-            else:
-                self.log.error(
-                    "Configuriation error: Expecting either a 'trigger' or 'frame_rate' properties"
-                )
-                return
 
             self.cam.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
 
             pyspin_config = self.get_config("pyspin")
 
-            for prop in pyspin_config.keys():
-                value = pyspin_config[prop]
+            nodemap = self.cam.GetNodeMap()
+            for key in pyspin_config.keys():
+                value = pyspin_config[key]
+                # self.setPySpinNode(nodemap, "TemperatureLinearResolution", "High")
+                try:
+                    self.setPySpinNode(nodemap, key, value)
+                except Exception:
+                    self.log.exception("Error while setting pyspin node:")
 
-                if hasattr(self.cam, prop):
-                    if isinstance(value, str):
-                        if hasattr(PySpin, value):
-                            getattr(self.cam, prop).SetValue(getattr(PySpin, value))
-                        else:
-                            self.log.error(f"Unknown PySpin constant: {value}")
-                    else:
-                        getattr(self.cam, prop).SetValue(value)
-                else:
-                    self.log.error(f"Unknown PySpin camera property: {prop}")
-                    return
         except Exception:
             self.log.exception("Exception while configuring camera:")
+
+    def setPySpinNode(self, nodemap, node_name, value):
+        self.log.info(f"Setting {node_name} to {value}")
+        if isinstance(value, int):
+            node = PySpin.CIntegerPtr(nodemap.GetNode(node_name))
+        elif isinstance(value, float):
+            node = PySpin.CFloatPtr(nodemap.GetNode(node_name))
+        elif isinstance(value, bool):
+            node = PySpin.CBooleanPtr(nodemap.GetNode(node_name))
+        elif isinstance(value, str):
+            node = PySpin.CEnumerationPtr(nodemap.GetNode(node_name))
+        else:
+            raise ValueError(f"Invalid value type: {value}")
+
+        if not PySpin.IsAvailable(node) or not PySpin.IsWritable(node):
+            raise ValueError(f"Node {node_name} is not available or not writable")
+
+        if isinstance(value, str):
+            enum_entry = PySpin.CEnumEntryPtr(node.GetEntryByName(value))
+            if not PySpin.IsAvailable(enum_entry) or not PySpin.IsReadable(enum_entry):
+                raise ValueError(
+                    f"Enum entry {value} is unavailable for node {node_name}"
+                )
+            node.SetIntValue(enum_entry.GetValue())
+        else:
+            node = value
+
+    def getPySpinNode(self, nodemap, node_name):
+        node = nodemap.GetNode(node_name)
+        if not PySpin.IsAvailable(node) or not PySpin.IsReadable(node):
+            raise ValueError(f"Node {node_name} is not available or not readable")
+        return node.GetValue()
 
     def update_time_delta(self):
         try:
@@ -121,7 +143,20 @@ class FLIRImageSource(ImageSource):
             self.update_time_delta()
         self.prev_writing = self.state.get("writing", False)
 
-        self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
+        is_incomplete = True
+
+        while is_incomplete:
+            try:
+                self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
+            except Exception:
+                self.log.exception("Error while retrieving next image:")
+
+            is_incomplete = self.image_result.IsIncomplete()
+            if is_incomplete:
+                time.sleep(0.001)
+
+                # self.log.info(f"Image incomplete with image status {PySpin.Image_GetImageStatusDescription(self.image_result.GetImageStatus())}")
+
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
 
         try:

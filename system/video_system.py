@@ -103,6 +103,8 @@ def load_video_config(config: dict):
 def update_video_config(config: dict):
     global image_sources, image_observers, video_config
 
+    ttl_trigger = has_trigger() and _rec_state.get("ttl_trigger", False) is True
+
     if len(image_sources) != 0:
         try:
             shutdown_video()
@@ -114,6 +116,11 @@ def update_video_config(config: dict):
 
     load_video_config(config)
     load_video_writers()
+
+    if ttl_trigger:
+        start_trigger()
+    else:
+        stop_trigger()
 
     start()
 
@@ -202,7 +209,7 @@ def capture_images(src_ids=None):
     selected_sources = [image_sources[src_id] for src_id in src_ids]
 
     for src in selected_sources:
-        img, ts = src.get_image()
+        img, ts = src.get_image()  # NOTE: here we do not convert to uint8
         p = video_write.save_image(img, ts, _rec_state, src.id)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 

@@ -12,7 +12,7 @@ import video_system
 
 
 def detect_aruco(src_id):
-    test_image, _ = image_sources[src_id].get_image()
+    test_image, _ = image_sources[src_id].get_image(scale_to_8bit=True)
     # currently using 4x4 arucos
     arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
     arucoParams = cv.aruco.DetectorParameters_create()

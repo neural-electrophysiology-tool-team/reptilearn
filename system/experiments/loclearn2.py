@@ -14,7 +14,7 @@ from image_observers.yolo_bbox_detector import BBoxDataCollector
 
 
 def detect_aruco(src_id):
-    test_image, _ = image_sources[src_id].get_image()
+    test_image, _ = image_sources[src_id].get_image(scale_to_8bit=True)
     # currently using 4x4 arucos
     arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
     arucoParams = cv.aruco.DetectorParameters_create()
@@ -240,7 +240,7 @@ class LocationExperiment(exp.Experiment):
         if self.aruco_img is not None:
             img = np.copy(self.aruco_img)
         else:
-            img, _ = image_sources[params["image_source_id"]].get_image()
+            img, _ = image_sources[params["image_source_id"]].get_image(scale_to_8bit=True)
             img = np.stack((img,) * 3, axis=-1)
 
         loc = tuple(session_state["reinforced_location"])
