@@ -176,7 +176,12 @@ class ImageSource(ConfigurableProcess):
         """
         im_h, im_w = shape[:2]
         font = cv2.FONT_HERSHEY_SIMPLEX
-        text_size = cv2.getTextSize(text, font, 5, 10)[0]
+        font_scale = 7
+        text_size = cv2.getTextSize(text, font, font_scale, 10)[0]
+        while text_size[0] > im_w and font_scale > 0:
+            font_scale -= 1
+            text_size = cv2.getTextSize(text, font, font_scale, 10)[0]
+
         pos = ((im_w - text_size[0]) // 2, (im_h + text_size[1]) // 2)
         img = np.zeros(shape)
 
@@ -185,7 +190,7 @@ class ImageSource(ConfigurableProcess):
             text,
             pos,
             font,
-            5,
+            font_scale,
             (160, 160, 160),
             10,
             cv2.LINE_AA,

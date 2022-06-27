@@ -72,4 +72,7 @@ def convert_to_8bit(img, scaling_param):
     else:
         raise ValueError(f"Invalid scaling_8bit parameter value: {scaling_param}")
 
-    return np.clip(256.0 * (img - smin) / (smax - smin), 0, 255).astype("uint8")
+    if smax == smin:
+        return img
+    else:
+        return np.clip(256.0 * (img - smin) / (smax - smin), 0, 255).astype("uint8")

@@ -64,7 +64,7 @@ class FLIRImageSource(ImageSource):
             self.log.exception("Exception while configuring camera:")
 
     def setPySpinNode(self, nodemap, node_name, value):
-        self.log.info(f"Setting {node_name} to {value}")
+        self.log.info(f"Setting {node_name} to {value} ({type(value)})")
         if isinstance(value, int):
             node = PySpin.CIntegerPtr(nodemap.GetNode(node_name))
         elif isinstance(value, float):
@@ -76,8 +76,10 @@ class FLIRImageSource(ImageSource):
         else:
             raise ValueError(f"Invalid value type: {value}")
 
-        if not PySpin.IsAvailable(node) or not PySpin.IsWritable(node):
-            raise ValueError(f"Node {node_name} is not available or not writable")
+        if not PySpin.IsAvailable(node):
+            raise ValueError(f"Node {node_name} is not available.")
+        if PySpin.IsWritable(node):
+            raise ValueError(f"Node {node_name} is not writable.")
 
         if isinstance(value, str):
             enum_entry = PySpin.CEnumEntryPtr(node.GetEntryByName(value))
