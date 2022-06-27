@@ -89,6 +89,8 @@ export const VideoRecordView = () => {
         );
     })();
 
+    const recording_disabled = !ctrlState.video.record?.selected_sources || ctrlState.video.record.selected_sources.length === 0;
+
     return (
         <React.Fragment>
             <VideoSettingsView open={openSettingsModal} setOpen={setOpenSettingsModal} />
@@ -104,8 +106,8 @@ export const VideoRecordView = () => {
                 <RLTooltip content={is_recording ? "Stop recording" : "Start recording"}>
                     <RLButton.TopBarButton
                         onClick={toggle_recording}
-                        icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : "text-red-500"}
-                        disabled={!ctrlState.video.record?.selected_sources || ctrlState.video.record.selected_sources.length === 0} />
+                        icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : recording_disabled ? "text-gray-500" : "text-red-500"}
+                        disabled={recording_disabled} />
                 </RLTooltip>)}
 
             {has_trigger() && (
