@@ -89,7 +89,7 @@ export const VideoRecordView = () => {
         );
     })();
 
-    const recording_disabled = !ctrlState.video.record?.selected_sources || ctrlState.video.record.selected_sources.length === 0;
+    const recording_disabled = !ctrlState.video?.record?.selected_sources || ctrlState.video.record.selected_sources.length === 0;
 
     return (
         <React.Fragment>
