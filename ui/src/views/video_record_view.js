@@ -7,6 +7,7 @@ import RLMenu from './ui/menu.js';
 import RLButton from './ui/button.js';
 import RLIcon from './ui/icon.js';
 import RLInput from './ui/input.js';
+import { RLTooltip } from './ui/tooltip.js';
 
 export const VideoRecordView = () => {
     const ctrlState = useSelector((state) => state.reptilearn.ctrlState);
@@ -38,6 +39,13 @@ export const VideoRecordView = () => {
         else {
             fetch(api_url + "/video_record/start_trigger");
         }
+    };
+
+    const has_trigger = () => {
+        if (ctrlState["video"]?.["record"]) {
+            return "ttl_trigger" in ctrlState["video"]["record"];
+        }
+        return false;
     };
 
     const src_changed = (src_id) => {
@@ -81,6 +89,8 @@ export const VideoRecordView = () => {
         );
     })();
 
+    const recording_disabled = !ctrlState.video?.record?.selected_sources || ctrlState.video.record.selected_sources.length === 0;
+
     return (
         <React.Fragment>
             <VideoSettingsView open={openSettingsModal} setOpen={setOpenSettingsModal} />
@@ -92,15 +102,19 @@ export const VideoRecordView = () => {
                 disabled={is_recording}
                 className='px-2 py-1'
             />
-            <RLButton.TopBarButton onClick={toggle_recording} icon={is_recording ? "stop-circle" : "circle"} className={is_recording ? "text-green-700" : "text-red-500"} />
-            <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />
+            {ctrlState.video?.record && (
+                <RLTooltip content={is_recording ? "Stop recording" : "Start recording"}>
+                    <RLButton.TopBarButton
+                        onClick={toggle_recording}
+                        icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : recording_disabled ? "text-gray-500" : "text-red-500"}
+                        disabled={recording_disabled} />
+                </RLTooltip>)}
 
-            {/* <Popup content={is_recording ? "Stop recording" : "Start recording"}
-                trigger={
-                } /> */}
-            {/* <Popup content={ttl_trigger_state ? "Stop Trigger" : "Start Trigger"}
-                trigger={
-                } /> */}
+            {has_trigger() && (
+                <RLTooltip content={ttl_trigger_state ? "Stop camera trigger" : "Start camera trigger"}>
+                    <RLButton.TopBarButton onClick={toggle_ttl_trigger} icon={[(ttl_trigger_state ? "fas" : "far"), "clock"]} />
+                </RLTooltip>)}
+
             {video_menu}
         </React.Fragment>
     );

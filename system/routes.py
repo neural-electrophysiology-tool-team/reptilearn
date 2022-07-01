@@ -1,6 +1,5 @@
 import flask
 import experiment
-from state import state
 import video_system
 import undistort
 import json
@@ -8,8 +7,7 @@ from json_convert import json_convert
 import image_utils
 import rl_logging
 
-# import overlay
-import cv2
+import overlay
 import task
 import arena
 
@@ -29,7 +27,8 @@ def add_routes(app, config, log):
         sheight = flask.request.args.get("height")
         height = None if sheight is None else int(sheight)
 
-        if state.get(("video", "image_sources", src_id), None) is not None:
+        # TODO: don't use video_system here --v
+        if video_system._state.exists(("video", "image_sources", src_id)):
             src_config = video_system.video_config["image_sources"][src_id]
         else:
             src_config = None
@@ -55,14 +54,14 @@ def add_routes(app, config, log):
 
         return image_utils.encode_image(
             img,
-            encoding=".webp",
-            encode_params=[cv2.IMWRITE_WEBP_QUALITY, 20],
+            encoding=config.http_streaming["encoding"],
+            encode_params=config.http_streaming["encode_params"],
             shape=(width, height),
         )
 
     @app.route("/image_sources/<src_id>/get_image")
-    def route_image_sources_get_image(src_id, width=None, height=None):
-        img, timestamp = video_system.image_sources[src_id].get_image()
+    def route_image_sources_get_image(src_id):
+        img, timestamp = video_system.image_sources[src_id].get_image(scale_to_8bit=True)
         enc_img = encode_image_for_response(img, *parse_image_request(src_id))
         return flask.Response(enc_img, mimetype="image/jpeg")
 
@@ -74,24 +73,26 @@ def add_routes(app, config, log):
         img_src = video_system.image_sources[src_id]
 
         frame_rate = int(
-            flask.request.args.get("frame_rate", default=config.stream_frame_rate)
+            flask.request.args.get(
+                "frame_rate", default=config.http_streaming["frame_rate"]
+            )
         )
 
         enc_args = parse_image_request(src_id)
 
         def flask_gen():
             # log.info(f"Starting new stream: {src_id}")
-            gen = img_src.stream_gen(frame_rate)
+            gen = img_src.stream_gen(frame_rate, scale_to_8bit=True)
 
             try:
                 while True:
                     try:
                         img, timestamp = next(gen)
-                        # img = overlay.apply_overlays(img, timestamp, src_id)
+                        img = overlay.apply_overlays(img, timestamp, src_id)
                         enc_img = encode_image_for_response(img, *enc_args)
                         yield (
                             b"--frame\r\n"
-                            b"Content-Type: image/webp\r\n\r\n"
+                            b"Content-Type: image\r\n\r\n"
                             + bytearray(enc_img)
                             + b"\r\n\r\n"
                         )
@@ -108,8 +109,9 @@ def add_routes(app, config, log):
 
     @app.route("/stop_stream/<src_id>")
     def route_stop_stream(src_id):
-        img_src = video_system.image_sources[src_id]
-        img_src.stop_streaming()
+        if src_id in video_system.image_sources:
+            img_src = video_system.image_sources[src_id]
+            img_src.stop_streaming()
         return flask.Response("ok")
 
     @app.route("/save_image/<src_id>")
@@ -129,7 +131,8 @@ def add_routes(app, config, log):
     @app.route("/state")
     def route_state():
         return flask.Response(
-            json.dumps(state.get_self(), default=json_convert),
+            # TODO: change this --v
+            json.dumps(video_system._state.get_self(), default=json_convert),
             mimetype="application/json",
         )
 
@@ -389,7 +392,7 @@ def add_routes(app, config, log):
     @app.route("/video_record/set_prefix/")
     @app.route("/video_record/set_prefix/<prefix>")
     def route_set_prefix(prefix=""):
-        state[("video", "record", "filename_prefix")] = prefix
+        video_system.set_filename_prefix(prefix)
         return flask.Response("ok")
 
     # Arena Routes

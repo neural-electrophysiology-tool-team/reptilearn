@@ -355,7 +355,7 @@ class LearnExp(exp.Experiment):
     def detectAruco(self):
         # detecting aruco marker
         params = exp.get_merged_params()
-        test_image, _ = exp.image_sources["top"].get_image()
+        test_image, _ = exp.image_sources["top"].get_image(scale_to_8bit=True)
         # currently using 4x4 arucos
         arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
         arucoParams = cv.aruco.DetectorParameters_create()

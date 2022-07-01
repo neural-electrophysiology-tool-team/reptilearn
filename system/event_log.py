@@ -2,15 +2,15 @@ import multiprocessing as mp
 import functools
 import threading
 import mqtt
-import state
 import time
 import json
+import managed_state
 from data_log import DataLogger
 from json_convert import json_convert
 
 
 class EventDataLogger(DataLogger):
-    def __init__(self, table_name="events", *args, **kwargs):
+    def __init__(self, config, table_name="events", *args, **kwargs):
         super().__init__(
             columns=(
                 ("time", "timestamptz not null"),
@@ -27,11 +27,20 @@ class EventDataLogger(DataLogger):
         self._remove_event_q = mp.Queue()
         self._connect_mqtt_event = mp.Event()
         self._connect_state_event = mp.Event()
-        self._state_dispatcher = state.StateDispatcher()
+        self._mqtt_config = config.mqtt
+        self._state_store_address = config.state_store_address
+        self._state_store_authkey = config.state_store_authkey
         self._mqttc = None
 
     def run(self):
-        self._mqttc = mqtt.MQTTClient()
+        self._state = managed_state.Cursor(
+            (), authkey=self._state_store_authkey, address=self._state_store_address
+        )
+        self._state_dispatcher = managed_state.StateDispatcher(self._state)
+
+        self._mqttc = mqtt.MQTTClient(
+            self._mqtt_config["host"], self._mqtt_config["port"]
+        )
         self._mqttc.connect(on_success=lambda: self._connect_mqtt_event.set())
         threading.Thread(target=self._state_dispatcher.listen).start()
         self._mqttc.loop_start()
@@ -49,17 +58,13 @@ class EventDataLogger(DataLogger):
             return True
 
         timeout = wait if type(wait) is int else None
+        # TODO: should we wait for the state dispatcher to init? is it necessary?
 
         if self._connect_mqtt_event.wait(timeout):
             self._connect_mqtt_event.clear()
-        else:
-            # timeout has passed
-            return False
-
-        if self._state_dispatcher.wait_until_ready(timeout):
             return True
         else:
-            # timeout has passed.
+            # timeout has passed
             return False
 
     def _log_mqtt(self, topic, payload):
@@ -121,13 +126,16 @@ class EventDataLogger(DataLogger):
             try:
                 event = self._event_q.get(timeout=1)
             except KeyboardInterrupt:
-                return None
+                pass
             except mp.queues.Empty:
                 pass
             else:
                 if event is not None:
                     self.logger.debug(f"Logging event: {event}")
-                    return event[0], event[1], json.dumps(event[2], default=json_convert)
+                    return (
+                        event[0],
+                        event[1],
+                        json.dumps(event[2], default=json_convert),
+                    )
                 else:
-                    self.logger.debug("Stopping event logger")
                     return None

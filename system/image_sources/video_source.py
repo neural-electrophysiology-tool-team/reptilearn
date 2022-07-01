@@ -47,7 +47,7 @@ class VideoImageSource(ImageSource):
         vcap.release()
         super()._init()
 
-    def on_start(self):
+    def _on_start(self):
         self.vcap = cv2.VideoCapture(self.video_path)
         if self.end_frame is None:
             self.end_frame = self.vcap.get(cv2.CAP_PROP_FRAME_COUNT) - 1
@@ -59,7 +59,7 @@ class VideoImageSource(ImageSource):
         self.last_acquire_time = None
         return True
 
-    def acquire_image(self):
+    def _acquire_image(self):
         if self.last_acquire_time is not None:
             time.sleep(max(1 / self.frame_rate - self.last_acquire_time, 0))
         t = time.time()
@@ -86,5 +86,5 @@ class VideoImageSource(ImageSource):
         self.last_acquire_time = time.time() - t
         return img, t
 
-    def on_stop(self):
+    def _on_stop(self):
         self.vcap.release()

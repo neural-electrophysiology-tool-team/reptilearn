@@ -7,7 +7,6 @@ import cv2
 # - way to choose overlays
 
 
-
 class ImageOverlay:
     def apply(self, img, timestamp):
         return img
@@ -42,13 +41,20 @@ class BarPlot(ImageOverlay):
 class TimestampVisualizer(ImageOverlay):
     def apply(self, img, timestamp):
         stime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+        im_h, im_w = img.shape[:2]
+        font = cv2.FONT_HERSHEY_PLAIN
+        font_scale = 3
+        text_size = cv2.getTextSize(stime, font, font_scale, 10)[0]
+        while text_size[0] > 0.7 * im_w and font_scale > 0:
+            font_scale -= 1
+            text_size = cv2.getTextSize(stime, font, font_scale, 10)[0]
 
         cv2.putText(
             img,
             stime,
-            (20, 1060),
-            fontFace=cv2.FONT_HERSHEY_PLAIN,
-            fontScale=3,
+            (font_scale * 5, im_h - font_scale * 5),
+            fontFace=font,
+            fontScale=font_scale,
             color=255,
             thickness=4,
             lineType=1,
@@ -56,7 +62,7 @@ class TimestampVisualizer(ImageOverlay):
         return img
 
 
-overlays = {}
+overlays = {TimestampVisualizer()}
 
 
 def apply_overlays(img, timestamp, src_id):

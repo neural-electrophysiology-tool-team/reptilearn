@@ -14,12 +14,10 @@ import threading
 import sys
 import logging.handlers
 import traceback
-from state import state
 
-_default_level = None
-_log_queue = None
-_log_listener = None
 _log_buffer = None
+_logger_configurer = None
+_log_listener = None
 
 # The default log formatter
 formatter = logging.Formatter(
@@ -33,6 +31,7 @@ class SocketIOHandler(logging.Handler):
     a Log handler that emits log records over socketio events.
     The handler uses rl_logging.formatter by default.
     """
+
     def __init__(self, socketio, event_name="log"):
         """
         - socketio: The socketio object created by the flask-socketio library.
@@ -57,7 +56,8 @@ class SessionLogHandler(logging.StreamHandler):
 
     The handler uses rl_logging.formatter by default.
     """
-    def __init__(self, log_filename="session.log"):
+
+    def __init__(self, state, log_filename="session.log"):
         """
         - log_filename: The handler will create log files using this name in
                         new experiment data directories.
@@ -103,6 +103,7 @@ class LogBuffer(logging.Handler):
     a Log handler that stores log records in a ring buffer.
     The handler uses rl_logging.formatter by default.
     """
+
     def __init__(self, buffer_size):
         """
         - buffer_size: Number of log lines that the buffer can hold.
@@ -127,26 +128,35 @@ class LogBuffer(logging.Handler):
         self.d.clear()
 
 
-def logger_configurer(name=None, level=None):
-    """
-    Configures the root logger of the current process to send messages to the log queue.
-    This is typically called in the run() method or target function of a process, and is
-    required for routing log messages from child processes to the main process log handlers.
-    """
-    if level is None:
-        level = _default_level
+class LoggerConfigurer:
+    def __init__(self, default_level) -> None:
+        self.default_level = default_level
+        self.log_queue = mp.Queue(-1)
 
-    h = logging.handlers.QueueHandler(_log_queue)  # Just the one handler needed
-    if name is None:
-        root = logging.getLogger()
-    else:
-        root = logging.getLogger(name)
-    root.addHandler(h)
-    root.setLevel(level)
-    return root
+    def configure_child(self, name=None, level=None):
+        """
+        Configures the root logger of the current process to send messages to the log queue.
+        This is typically called in the run() method or target function of a process, and is
+        required for routing log messages from child processes to the main process log handlers.
+        """
+        if level is None:
+            level = self.default_level
+
+        h = logging.handlers.QueueHandler(self.log_queue)  # Just the one handler needed
+        if name is None:
+            root = logging.getLogger()
+        else:
+            root = logging.getLogger(name)
+        root.addHandler(h)
+        root.setLevel(level)
+        return root
+
+    def shutdown(self):
+        if self.log_queue is not None:
+            self.log_queue.put_nowait(None)
 
 
-def _listener_configurer(handlers):
+def _configure_listener(handlers):
     """
     Configure the listener log. Add the supplied handlers.
     """
@@ -219,7 +229,9 @@ def _excepthook(exc_type, exc_value, exc_traceback, thread_name=None):
         msg = "Exception on main thread:"
     else:
         msg = f"Exception at thread {thread_name}:"
-    logging.getLogger("Main").critical(msg, exc_info=(exc_type, exc_value, exc_traceback))
+    logging.getLogger("Main").critical(
+        msg, exc_info=(exc_type, exc_value, exc_traceback)
+    )
 
 
 def get_log_buffer():
@@ -233,6 +245,7 @@ def clear_log_buffer():
     if _log_buffer:
         _log_buffer.clear()
 
+
 def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level):
     """
     Initializes the main logger that is used for exceptions, and the multiprocess
@@ -243,11 +256,16 @@ def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level
     - extra_log_level: Log level of extra_loggers.
     - default_level: This will be the log level of each logger, including loggers on other processes.
     """
-    global _log_queue, _log_listener, _default_level, _log_buffer
+    global _log_buffer, _logger_configurer
 
-    _default_level = default_level
     _log_buffer = log_buffer
     log_handlers = list(log_handlers) + [log_buffer]
+
+    _logger_configurer = LoggerConfigurer(default_level)
+    _log_listener = threading.Thread(
+        target=_listener_thread, args=(_logger_configurer.log_queue,)
+    )
+    _log_listener.start()
 
     main_logger = logging.getLogger("Main")
     for handler in log_handlers:
@@ -258,10 +276,7 @@ def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level
     sys.excepthook = _excepthook
     _patch_threading_excepthook()
 
-    _log_queue = mp.Queue(-1)
-    _listener_configurer(log_handlers)
-    _log_listener = threading.Thread(target=_listener_thread, args=(_log_queue,))
-    _log_listener.start()
+    _configure_listener(log_handlers)
 
     for el in extra_loggers:
         for handler in log_handlers:
@@ -273,7 +288,6 @@ def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level
 
 def shutdown():
     """Shutdown the log listening queue and thread"""
-    if _log_queue is not None:
-        _log_queue.put_nowait(None)
+    _logger_configurer.shutdown()
     if _log_listener is not None:
         _log_listener.join()

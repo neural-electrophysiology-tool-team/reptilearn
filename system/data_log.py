@@ -6,6 +6,7 @@ import multiprocessing as mp
 import rl_logging
 import database as db
 from video_stream import ImageObserver
+import managed_state
 
 
 class DataLogger(mp.Process):
@@ -47,25 +48,30 @@ class DataLogger(mp.Process):
 
         self.split_csv = split_csv
         self.logger = None
-
+        self._logger_configurer = rl_logging._logger_configurer
         super().__init__()
 
     def _init_log(self):
-        self.logger = rl_logging.logger_configurer(self.name)
+        self.logger = self._logger_configurer.configure_child(self.name)
         self.logger.debug("Initializing data logger...")
+        self.con = None
 
         if self.log_to_db:
-            self.con = db.make_connection()
-            if self.table_name is not None:
-                db.with_commit(
-                    self.con,
-                    db.create_hypertable,
-                    self.table_name,
-                    self.columns,
-                    "time",
-                    if_not_exists=True,
+            try:
+                self.con = db.make_connection()
+                if self.table_name is not None:
+                    db.with_commit(
+                        self.con,
+                        db.create_hypertable,
+                        self.table_name,
+                        self.columns,
+                        "time",
+                        if_not_exists=True,
+                    )
+            except NameError:
+                self.logger.warning(
+                    "Can't load psycopg2 library. Database logging will not be available."
                 )
-
         if self.csv_path is not None:
             if self.split_csv:
                 timestamp = datetime.now()
@@ -91,7 +97,7 @@ class DataLogger(mp.Process):
             self.csv_writer = None
 
     def _write(self, data):
-        if self.log_to_db and self.table_name is not None:
+        if self.con and self.log_to_db and self.table_name is not None:
             import database as db
 
             try:
@@ -195,7 +201,7 @@ class QueuedDataLogger(DataLogger):
         try:
             return self._log_q.get()
         except KeyboardInterrupt:
-            return None
+            pass
 
 
 class ObserverLogger(QueuedDataLogger):
@@ -209,7 +215,9 @@ class ObserverLogger(QueuedDataLogger):
         table_name=None,
     ):
         super().__init__(columns, csv_path, split_csv, log_to_db, table_name)
-        self.observer = image_observer
+        self.obs_communicator = image_observer.get_interface()
+        self.state_address = image_observer.state_store_address
+        self.state_authkey = image_observer.state_store_authkey
 
         self.time_index = None
         for i, c in enumerate(columns):
@@ -224,7 +232,12 @@ class ObserverLogger(QueuedDataLogger):
             raise ValueError("Missing 'time' column in columns argument.")
 
     def _on_start(self):
-        self.remove_listener = self.observer.add_listener(self.on_observer_update)
+        self.state = managed_state.Cursor(
+            (), authkey=self.state_authkey, address=self.state_address
+        )
+        self.remove_listener = self.obs_communicator.add_listener(
+            self.on_observer_update, self.state
+        )
 
     def _on_stop(self):
         self.remove_listener()

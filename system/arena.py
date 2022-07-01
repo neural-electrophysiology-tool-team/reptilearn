@@ -7,7 +7,6 @@ over MQTT. It allows sending commands, and also stores sensor readings in the gl
 """
 
 import mqtt
-from state import state
 import time
 from subprocess import Popen, PIPE
 import collections
@@ -17,6 +16,7 @@ import schedule
 import logging
 
 
+_state = None
 _values_once_callback = None
 _log: logging.Logger = None
 _arena_log: data_log.DataLogger = None
@@ -43,7 +43,7 @@ def switch_display(on, display=None):
         display_id = _config.arena["displays"][display]
 
     DISPLAY_CMD = f"DISPLAY={display_id} xrandr --output HDMI-0 --{{}}"
-    state["arena", "displays", display] = on
+    _state["arena", "displays", display] = on
 
     if on:
         _run_shell_command(DISPLAY_CMD.format("auto"))
@@ -85,7 +85,7 @@ def start_trigger(update_state=True):
         return
 
     if update_state:
-        state["video", "record", "ttl_trigger"] = True
+        _state["video", "record", "ttl_trigger"] = True
 
     run_command("set", _trigger_interface, [1])
 
@@ -96,7 +96,7 @@ def stop_trigger(update_state=True):
         return
 
     if update_state:
-        state["video", "record", "ttl_trigger"] = False
+        _state["video", "record", "ttl_trigger"] = False
 
     run_command("set", _trigger_interface, [0])
 
@@ -183,7 +183,7 @@ def _on_error(topic, msg):
     _log.error(f"[{topic}] {msg}")
 
 
-def init(logger, config):
+def init(logger, state, config):
     """
     Initialize the arena module.
     Connects to MQTT, inits sensor data logger, sends arena defaults, and subscribes for
@@ -191,7 +191,8 @@ def init(logger, config):
 
     - arena_defaults: A dict with signal_led and day_lights keys with default values.
     """
-    global _log, _arena_log, _config, _arena_state, _interfaces_config, _trigger_interface
+    global _state, _log, _arena_log, _config, _arena_state, _interfaces_config, _trigger_interface
+    _state = state
     _log = logger
     _config = config
     _arena_state = state.get_cursor("arena")

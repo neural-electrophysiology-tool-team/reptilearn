@@ -3,10 +3,10 @@ import numpy as np
 import multiprocessing as mp
 import cv2
 import time
-import rl_logging
-import state
-import video_system
 import threading
+import rl_logging
+import managed_state
+from image_utils import convert_to_8bit
 
 
 class AcquireException(Exception):
@@ -41,13 +41,21 @@ class ConfigurableProcess(mp.Process):
         "class": None,
     }
 
-    def __init__(self, id: str, config: dict, state_cursor: state.Cursor):
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        state_path: str,
+        state_store_address: tuple,
+        state_store_authkey: str,
+    ):
         super().__init__()
         self.id = id
-        self.state = state_cursor
         self.config = config
-
-        self._init()
+        self.logging_configurer = rl_logging._logger_configurer
+        self.state_path = state_path
+        self.state_store_address = state_store_address
+        self.state_store_authkey = state_store_authkey
 
     def get_config(self, key):
         if key in self.config:
@@ -55,13 +63,18 @@ class ConfigurableProcess(mp.Process):
         elif key in self.__class__.default_params:
             return self.__class__.default_params[key]
         else:
-            raise ValueError(f"Unknown config key: {key}")
+            raise KeyError(f"Unknown config key: {key}")
 
     def run(self):
-        self.log = rl_logging.logger_configurer(self.name)
-
-    def _init(self):
-        pass
+        self.state = managed_state.Cursor(
+            self.state_path,
+            address=self.state_store_address,
+            authkey=self.state_store_authkey,
+        )
+        if not self.state.exists(()):
+            self.state.set_self({})
+        self.log = self.logging_configurer.configure_child(mp.current_process().name)
+        self.log.debug("Running...")
 
 
 class ImageSource(ConfigurableProcess):
@@ -75,9 +88,9 @@ class ImageSource(ConfigurableProcess):
     See documentation of the ConfigurableProcess class for more information on setting default params and runtime parameter access
 
     To make your own ImageSource subclass override any of the following methods:
-    - acquire_image(self)
-    - on_start(self)
-    - on_stop(self)
+    - _acquire_image(self)
+    - _on_start(self)
+    - _on_stop(self)
 
     See the documentation of each method for more information.
     """
@@ -85,20 +98,45 @@ class ImageSource(ConfigurableProcess):
     default_params = {
         **ConfigurableProcess.default_params,
         "buf_len": 1,
+        "buf_dtype": "uint8",
         "image_shape": None,
         "encoding_config": None,
+        "8bit_scaling": "full_range",
     }
 
-    def _init(self):
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        state_store_address: tuple,
+        state_store_authkey: str,
+    ):
+        super().__init__(
+            id,
+            config,
+            ("video", "image_sources", id),
+            state_store_address,
+            state_store_authkey,
+        )
+
         self.image_shape = self.get_config("image_shape")
         self.buf_len = self.get_config("buf_len")
-        self.state.set_self({"acquiring": False})
+        self.buf_dtype = self.get_config("buf_dtype")
+        self.scaling_8bit = self.get_config("8bit_scaling")
 
-        self.buf_shape = (
-            self.image_shape
-        )  # currently supports only a single image buffer
-        self.buf = mp.Array("B", int(np.prod(self.buf_shape)))
-        self.buf_np = np.frombuffer(self.buf.get_obj(), dtype="uint8").reshape(
+        if self.buf_dtype == "uint8":
+            self.buf_type_code = "B"
+        elif self.buf_dtype == "uint16":
+            self.buf_type_code = "H"
+        else:
+            raise ValueError(
+                f"Unsupported buf_dtype: {self.buf_dtype}. Only uint8 or uint16 are currently supported."
+            )
+
+        # currently supports only a single image buffer
+        self.buf_shape = self.image_shape
+        self.buf = mp.Array(self.buf_type_code, int(np.prod(self.buf_shape)))
+        self.buf_np = np.frombuffer(self.buf.get_obj(), dtype=self.buf_dtype).reshape(
             self.buf_shape
         )
 
@@ -111,6 +149,10 @@ class ImageSource(ConfigurableProcess):
         self.stop_streaming_events = []
         self.add_observer_event(self.stream_obs_event)
         self.name = f"{type(self).__name__}:{self.id}"
+        self._init()
+
+    def _init(self):
+        pass
 
     def add_observer_event(self, obs: mp.Event):
         self.observer_events.append(obs)
@@ -125,16 +167,21 @@ class ImageSource(ConfigurableProcess):
         for e in self.stop_streaming_events:
             e.set()
 
-    def make_timeout_img(self, shape, text="NO IMAGE"):
+    def _make_timeout_img(self, shape, text="NO IMAGE"):
         """
         Return a numpy.array image containing the supplied text
 
         This image will be yielded by the stream generator (see stream_gen method) when image acquisition times
-        out (i.e. acquire_image doesn't return for a certain timeout duration)
+        out (i.e. _acquire_image doesn't return for a certain timeout duration)
         """
         im_h, im_w = shape[:2]
         font = cv2.FONT_HERSHEY_SIMPLEX
-        text_size = cv2.getTextSize(text, font, 5, 10)[0]
+        font_scale = 7
+        text_size = cv2.getTextSize(text, font, font_scale, 10)[0]
+        while text_size[0] > im_w and font_scale > 0:
+            font_scale -= 1
+            text_size = cv2.getTextSize(text, font, font_scale, 10)[0]
+
         pos = ((im_w - text_size[0]) // 2, (im_h + text_size[1]) // 2)
         img = np.zeros(shape)
 
@@ -143,20 +190,20 @@ class ImageSource(ConfigurableProcess):
             text,
             pos,
             font,
-            5,
+            font_scale,
             (160, 160, 160),
             10,
             cv2.LINE_AA,
         )
         return img
 
-    def stream_gen(self, frame_rate=15):
+    def stream_gen(self, frame_rate=15, scale_to_8bit=False):
         self.stop_streaming()
 
         stop_this_stream_event = mp.Event()
         self.stop_streaming_events.append(stop_this_stream_event)
 
-        timeout_img = self.make_timeout_img(self.image_shape)
+        timeout_img = self._make_timeout_img(self.image_shape)
 
         while True:
             t1 = time.time()
@@ -173,7 +220,7 @@ class ImageSource(ConfigurableProcess):
 
             self.stream_obs_event.clear()
 
-            yield self.get_image()
+            yield self.get_image(scale_to_8bit=scale_to_8bit)
 
             if frame_rate is not None:
                 dt = time.time() - t1
@@ -183,7 +230,7 @@ class ImageSource(ConfigurableProcess):
         # This code runs on the image source process
         super().run()
 
-        if not self.on_start():
+        if not self._on_start():
             return
 
         self.state["acquiring"] = True
@@ -191,13 +238,12 @@ class ImageSource(ConfigurableProcess):
         try:
             while True:
                 try:
-                    img, timestamp = self.acquire_image()
-
+                    img, timestamp = self._acquire_image()
                 except AcquireException as e:
                     self.log.error(e)
                     break
                 except KeyboardInterrupt:
-                    continue
+                    img, timestamp = self._acquire_image()
 
                 if img is None:
                     break
@@ -211,7 +257,7 @@ class ImageSource(ConfigurableProcess):
                     self.timestamp.value = timestamp
 
                     self.buf_np = np.frombuffer(
-                        self.buf.get_obj(), dtype="uint8"
+                        self.buf.get_obj(), dtype=self.buf_dtype
                     ).reshape(self.buf_shape)
                     np.copyto(self.buf_np, img)
 
@@ -224,21 +270,26 @@ class ImageSource(ConfigurableProcess):
         except Exception:
             self.log.exception("Exception while acquiring images:")
         finally:
-            self.on_stop()
+            self._on_stop()
 
         for obs in self.observer_events:
             obs.set()
         self.end_event.set()
 
-    def get_image(self):
+    def get_image(self, scale_to_8bit=False):
         """
         Return img, timestamp
         - img: The current data in the image buffer (assuming a single image buffer)
         - timestamp: The timestamp of the current image buffer data in seconds since epoch.
         """
-        return self.buf_np, self.timestamp.value
+        if scale_to_8bit and self.buf_dtype == "uint16":
+            img = convert_to_8bit(self.buf_np, self.scaling_8bit)
+        else:
+            img = self.buf_np
 
-    def acquire_image(self):
+        return img, self.timestamp.value
+
+    def _acquire_image(self):
         """
         Called when the ImageSource is ready for a new image.
 
@@ -250,17 +301,62 @@ class ImageSource(ConfigurableProcess):
         """
         pass
 
-    def on_start(self):
+    def _on_start(self):
         """
         Called when the image source process is starting.
         """
         pass
 
-    def on_stop(self):
+    def _on_stop(self):
         """
         Called when the image source process is shutting down.
         """
         pass
+
+
+class _ImageObserverInterface:
+    def __init__(self, other) -> None:
+        self.output_buf = other.output_buf
+        self.output_shape = other.output_shape
+        self.output_dtype = other.output_dtype
+        self.output_timestamp = other.output_timestamp
+        self._proc_name = other.name
+
+    def add_listener(self, fn, state: managed_state.Cursor):
+        """Add a listener function that's called whenever the observer output changes.
+
+        Args:
+        - fn: A function with signature (output, timestamp).
+            - output: a reference to the observer's output buffer (on main process)
+            - timestamp: The timestamp of the current output data as seconds since epoch
+
+        Return:
+        A remove_listener() function to remove this listener
+
+        NOTE: This method should only be called from the main process
+        """
+        listener_uuid = uuid.uuid4()
+        kill_event = threading.Event()
+        update_event = state.get_event(self._proc_name, listener_uuid)
+        output = np.frombuffer(
+            self.output_buf.get_obj(), dtype=self.output_dtype
+        ).reshape(self.output_shape)
+
+        def listener():
+            while True:
+                if update_event.wait(1):
+                    fn(output, self.output_timestamp.value)
+                    update_event.clear()
+
+                if kill_event.is_set():
+                    break
+
+        threading.Thread(target=listener, args=()).start()
+
+        def remove_listener():
+            state.remove_event(self._proc_name, listener_uuid)
+
+        return remove_listener
 
 
 class ImageObserver(ConfigurableProcess):
@@ -278,11 +374,11 @@ class ImageObserver(ConfigurableProcess):
     - shutdown()
 
     To make your own observer override any of the following methods:
-    - on_start(self)
-    - on_image_update(self, img, timestamp)
-    - on_stop(self)
-    - setup(self)
-    - release(self)
+    - _on_start(self)
+    - _on_image_update(self, img, timestamp)
+    - _on_stop(self)
+    - _setup(self)
+    - _release(self)
 
     See the documentation of each method for more information.
 
@@ -291,9 +387,9 @@ class ImageObserver(ConfigurableProcess):
 
     To update the buffer, change the contents of self.output while taking care to not reassign the value of self.output.
     For example, do NOT use: ```self.output = np.zeros(some_shape)``` as this will overwrite the field without updating the buffer.
-    To make this specific example work use: ```self.output[:] = np.zeros(some_shape)```
+    To make this specific example work use: ```self.output[:] = np.zeros(self.output.shape)```
 
-    Once the buffer is updated, call self.notify_listeners(). This will cause all listener functions to be called with the updated data.
+    Once the buffer is updated, call self._notify_listeners(). This will cause all listener functions to be called with the updated data.
 
     The buffer size and various options are determined according to the values returned by self.get_buffer_opts() (see method documentation for details).
     This method is called once while the observer is initializing.
@@ -304,18 +400,35 @@ class ImageObserver(ConfigurableProcess):
         "src_id": None,
     }
 
-    def _init(self):
-        """
-        Initialize the observer. Called by ConfigurableProcess.__init__()
-        """
-        self.img_src = video_system.image_sources[self.get_config("src_id")]
+    def __init__(
+        self,
+        id: str,
+        config: dict,
+        image_source: ImageSource,
+        state_store_address: tuple,
+        state_store_authkey: str,
+        state_path=None,
+        running_state_key="observing",
+    ):
+        if state_path is None:
+            state_path = ("video", "image_observers", id)
+
+        super().__init__(
+            id, config, state_path, state_store_address, state_store_authkey
+        )
+
         self.update_event = mp.Event()
-        self.img_src.add_observer_event(self.update_event)
+        image_source.add_observer_event(self.update_event)
+        self._img_src_end_event = image_source.end_event
+        self._img_src_buf = image_source.buf
+        self._img_src_buf_shape = image_source.buf_shape
+        self._img_src_buf_dtype = image_source.buf_dtype
+        self._img_src_timestamp = image_source.timestamp
+        self._img_src_config = image_source.config
+        self.image_shape = image_source.image_shape
+        self._running_state_key = running_state_key
 
-        if self.state is not None:
-            self.state.set_self({"observing": False})
-
-        atype, asize, shape, dtype = self.get_buffer_opts()
+        atype, asize, shape, dtype = self._get_buffer_opts()
         self.output_buf = mp.Array(atype, asize)
         self.output_shape = shape
         self.output_dtype = dtype
@@ -326,41 +439,27 @@ class ImageObserver(ConfigurableProcess):
 
         self.parent_pipe, self.child_pipe = mp.Pipe()
 
-        self.name = f"{type(self).__name__}:{self.img_src.id}"
+        self.name = f"{type(self).__name__}:{self.get_config('src_id')}"
 
-    def add_listener(self, fn):
-        """Add a listener function that's called whenever the observer output changes.
+        self._init()
 
-        Args:
-        - fn: A function with signature (output, timestamp).
-            - output: a reference to the observer's output buffer (on main process)
-            - timestamp: The timestamp of the current output data as seconds since epoch
+    def _init(self):
+        pass
 
-        Return:
-        A remove_listener() function to remove this listener
-
-        NOTE: This method should only be called from the main process
+    def get_interface(self):
         """
-        listener_uuid = uuid.uuid4()
-        update_event = state._mgr.Event()
-        kill_event = threading.Event()
-        self.parent_pipe.send(["add", update_event, listener_uuid])
+        Should be called from the main process. The returned object can then be accessed from any process
+        """
 
-        def listener():
-            while True:
-                if update_event.wait(1):
-                    fn(self.output, self.output_timestamp.value)
-                    update_event.clear()
+        return _ImageObserverInterface(self)
 
-                if kill_event.is_set():
-                    break
+    def add_listener(self, listener, state):
+        """
+        Should be called from the main process. To add a listener from another process, pass the object returned by
+        get_interface() to the process and call its add_listener() method.
+        """
 
-        threading.Thread(target=listener, args=()).start()
-
-        def remove_listener():
-            self.parent_pipe.send(["remove", listener_uuid])
-
-        return remove_listener
+        return self.get_interface().add_listener(listener, state)
 
     def get_output(self):
         """
@@ -402,27 +501,25 @@ class ImageObserver(ConfigurableProcess):
             self.output_buf.get_obj(), dtype=self.output_dtype
         ).reshape(self.output_shape)
 
-        self.output_update_events = {}
+        self.output_update_events = self.state.get_update_events(self.name)
+        on_update_events_changed = self.state.add_events_changed_event(self.name)
+        self.state[self._running_state_key] = False
 
-        self.setup()
+        self._setup()
         cmd = None
 
         while True:
             try:
                 cmd = self.child_pipe.recv()
             except KeyboardInterrupt:
-                continue
+                pass
 
-            if self.img_src.end_event.is_set():
+            if self._img_src_end_event.is_set():
                 break
 
-            if isinstance(cmd, list):
-                if cmd[0] == "add":
-                    self.log.info(f"Adding listener: {cmd[2]}")
-                    self.output_update_events[cmd[2]] = cmd[1]
-                elif cmd[0] == "remove":
-                    self.log.info(f"Removing listener: {cmd[1]}")
-                    del self.output_update_events[cmd[1]]
+            if on_update_events_changed.is_set():
+                on_update_events_changed.clear()
+                self.output_update_events = self.state.get_update_events(self.name)
 
             if cmd == "shutdown":
                 self.log.info("Shutting down")
@@ -433,34 +530,39 @@ class ImageObserver(ConfigurableProcess):
                 self.frame_count = 0
 
                 if self.state is not None:
-                    self.state["observing"] = True
-                self.on_start()
+                    self.state[self._running_state_key] = True
+                self._on_start()
                 self.update_event.clear()
 
                 try:
+                    self.log.debug("Started observing...")
                     while True:
-                        if self.img_src.end_event.is_set():
+                        if self._img_src_end_event.is_set():
                             break
 
                         if self.child_pipe.poll():
                             cmd = self.child_pipe.recv()
                             if cmd == "stop":
                                 break
-                            elif isinstance(cmd, list):
-                                if cmd[0] == "add":
-                                    self.log.info(f"Adding listener: {cmd[2]}")
-                                    self.output_update_events[cmd[2]] = cmd[1]
-                                elif cmd[0] == "remove":
-                                    self.log.info(f"Removing listener: {cmd[1]}")
-                                    del self.output_update_events[cmd[1]]
+
+                        if on_update_events_changed.is_set():
+                            on_update_events_changed.clear()
+                            self.output_update_events = self.state.get_update_events(
+                                self.name
+                            )
 
                         if self.update_event.wait(1):
                             self.update_event.clear()
 
                             t0 = time.time()
-                            img, timestamp = self.img_src.get_image()
+                            img = np.frombuffer(
+                                self._img_src_buf.get_obj(),
+                                dtype=self._img_src_buf_dtype,
+                            ).reshape(self._img_src_buf_shape)
+                            timestamp = self._img_src_timestamp.value
+
                             self.output_timestamp.value = timestamp
-                            self.on_image_update(img, timestamp)
+                            self._on_image_update(img, timestamp)
                             dt = time.time() - t0
                             self.frame_count += 1
                             if self.frame_count == 1:
@@ -474,12 +576,13 @@ class ImageObserver(ConfigurableProcess):
                 finally:
                     try:
                         if self.state is not None:
-                            self.state["observing"] = False
-                        self.on_stop()
+                            self.state[self._running_state_key] = False
+                        self._on_stop()
+                        self.log.debug("Stopped observing")
                     except Exception:
                         self.log.exception("Exception while stopping observer:")
 
-    def notify_listeners(self):
+    def _notify_listeners(self):
         """
         Notify listeners that the output buffer was updated.
         Should be called by the inheriting class after new data was written to the output buffer.
@@ -487,13 +590,13 @@ class ImageObserver(ConfigurableProcess):
         for evt in self.output_update_events.values():
             evt.set()
 
-    def on_start(self):
+    def _on_start(self):
         """
         Called when the start_observing() method is called.
         """
         pass
 
-    def on_image_update(self, img, timestamp):
+    def _on_image_update(self, img, timestamp):
         """
         Called after a new image was written to the image source buffer.
 
@@ -503,25 +606,25 @@ class ImageObserver(ConfigurableProcess):
         """
         pass
 
-    def on_stop(self):
+    def _on_stop(self):
         """
         Called when the stop_observing() method is called.
         """
         pass
 
-    def setup(self):
+    def _setup(self):
         """
         Called when the observer process is started.
         """
         pass
 
-    def release(self):
+    def _release(self):
         """
         Called when the observer process is shutdown.
         """
         pass
 
-    def get_buffer_opts(self):
+    def _get_buffer_opts(self):
         """
         Return the output buffer options for this observer.
 
