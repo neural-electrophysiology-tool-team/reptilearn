@@ -5,6 +5,7 @@ import imageio
 import pickle
 import queue
 import threading
+import json
 from image_utils import convert_to_8bit
 
 
@@ -95,6 +96,9 @@ class VideoWriter(ImageObserver):
         ts_path = get_write_path(
             self.img_src_id, self.state.root()["video", "record"], "csv", timestamp
         )
+        metadata_path = get_write_path(
+            self.img_src_id, self.state.root()["video", "record"], "json", timestamp
+        )
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(
@@ -107,6 +111,16 @@ class VideoWriter(ImageObserver):
 
         self.ts_file = open(str(ts_path), "w")
         self.ts_file.write("timestamp\n")
+
+        with open(str(metadata_path), "w") as f:
+            json.dump(
+                {
+                    "image_source_config": self._img_src_config,
+                    "writer_config": self.config,
+                    "encoding_params": self.encoding_params,
+                },
+                f,
+            )
 
         self.q = queue.Queue(self.queue_max_size)
         self.max_queued_items = 0
@@ -198,6 +212,7 @@ class VideoWriter(ImageObserver):
                 + s_missed_frames
             )
         )
+
         self.prev_timestamp = None
         self.writer.close()
         self.ts_file.close()

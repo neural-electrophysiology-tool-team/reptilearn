@@ -15,7 +15,7 @@ class FLIRImageSource(ImageSource):
         "trigger": True,
         "frame_rate": None,
         "pyspin": {},
-        "cam_id": None,
+        "serial_number": None,
         "trigger_source": "Line3",
     }
 
@@ -56,15 +56,20 @@ class FLIRImageSource(ImageSource):
             for key in pyspin_config.keys():
                 value = pyspin_config[key]
                 try:
-                    self.setPySpinNode(nodemap, key, value)
+                    self.set_pyspin_node(nodemap, key, value)
                 except Exception:
                     self.log.exception("Error while setting pyspin node:")
 
         except Exception:
             self.log.exception("Exception while configuring camera:")
 
-    def setPySpinNode(self, nodemap, node_name, value):
-        self.log.info(f"Setting {node_name} to {value} ({type(value)})")
+    def cam_by_serial_number(self, sn):
+        cams = self.system.GetCameras()
+        cam = cams.GetBySerial(sn)
+        return cam
+
+    def set_pyspin_node(self, nodemap, node_name, value):
+        # self.log.info(f"Setting {node_name} to {value} ({type(value)})")
         if isinstance(value, int):
             node = PySpin.CIntegerPtr(nodemap.GetNode(node_name))
         elif isinstance(value, float):
@@ -78,7 +83,7 @@ class FLIRImageSource(ImageSource):
 
         if not PySpin.IsAvailable(node):
             raise ValueError(f"Node {node_name} is not available.")
-        if PySpin.IsWritable(node):
+        if not PySpin.IsWritable(node):
             raise ValueError(f"Node {node_name} is not writable.")
 
         if isinstance(value, str):
@@ -91,11 +96,14 @@ class FLIRImageSource(ImageSource):
         else:
             node = value
 
-    def getPySpinNode(self, nodemap, node_name):
+    def get_pyspin_node(self, nodemap, node_name):
         node = nodemap.GetNode(node_name)
+
         if not PySpin.IsAvailable(node) or not PySpin.IsReadable(node):
             raise ValueError(f"Node {node_name} is not available or not readable")
-        return node.GetValue()
+
+        node_type = _attr_types[node.GetPrincipalInterfaceType()]
+        return node_type(node).GetValue()
 
     def update_time_delta(self):
         try:
@@ -112,13 +120,16 @@ class FLIRImageSource(ImageSource):
         try:
             self.system = PySpin.System_GetInstance()
             self.cam_list = self.system.GetCameras()
-            filtered = filter_cameras(self.cam_list, self.get_config("cam_id"))
-            if len(filtered) < 1:
-                self.log.error(f"Camera {self.get_config('cam_id')} was not found.")
-                return False
 
-            self.cam: PySpin.CameraPtr = filtered[0]
-            self.cam.Init()
+            sn = str(self.get_config("serial_number"))
+            self.cam: PySpin.CameraPtr = self.cam_list.GetBySerial(sn)
+            try:
+                self.cam.Init()
+            except PySpin.SpinnakerException as e:
+                if e.errorcode == -1015:
+                    self.log.error(f"Camera with serial number {sn} was not found.")
+                    return False
+
             self.configure_camera()
 
             self.update_time_delta()
@@ -152,7 +163,9 @@ class FLIRImageSource(ImageSource):
             except Exception:
                 self.log.exception("Error while retrieving next image:")
 
-            is_incomplete = self.image_result.IsIncomplete()
+            is_incomplete = (
+                self.image_result is None or self.image_result.IsIncomplete()
+            )
             if is_incomplete:
                 time.sleep(0.001)
 
@@ -186,54 +199,20 @@ def get_device_id(cam) -> str:
     return m[0][4:]
 
 
-def filter_cameras(cam_list, cameras_string: str) -> None:
-    """Filter cameras according to camera_label, which can be a name or last digits of device ID"""
-    current_devices = [get_device_id(cam) for cam in cam_list]
-    chosen_devices = []
-    for cam_id in cameras_string.split(","):
-        if re.match(r"[a-zA-Z]+", cam_id):
-            if cam_id and cam_id in current_devices:
-                chosen_devices.append(cam_id)
-        elif re.match(r"[0-9]+", cam_id):
-            chosen_devices.extend(
-                [d for d in current_devices if d[-len(cam_id) :] == cam_id]
-            )
+# From https://github.com/klecknerlab/simple_pyspin
+_attr_types = {
+    PySpin.intfIFloat: PySpin.CFloatPtr,
+    PySpin.intfIBoolean: PySpin.CBooleanPtr,
+    PySpin.intfIInteger: PySpin.CIntegerPtr,
+    PySpin.intfIEnumeration: PySpin.CEnumerationPtr,
+    PySpin.intfIString: PySpin.CStringPtr,
+}
 
-    def _remove_from_cam_list(device_id):
-        devices = [get_device_id(c) for c in cam_list]
-        cam_list.RemoveByIndex(devices.index(device_id))
-
-    for d in current_devices:
-        if d not in chosen_devices:
-            _remove_from_cam_list(d)
-
-    return cam_list
-
-
-def get_cam_ids():
-    system = PySpin.System.GetInstance()
-    cameras = system.GetCameras()
-    dids = [get_device_id(cam) for cam in cameras]
-    cameras.Clear()
-    system.ReleaseInstance()
-    return dids
-
-
-def factory_reset(cam_id):
-    """not tested"""
-    system = PySpin.System.GetInstance()
-    cameras = system.GetCameras()
-    filtered = filter_cameras(cameras, cam_id)
-    if len(filtered) == 0:
-        raise Exception(f"Camera {cam_id} was not found.")
-
-    cam = filtered[0]
-    cam.Init()
-    cam.FactoryReset.Execute()
-    cam.DeInit()
-    cameras.Clear()
-    system.ReleaseInstance()
-
-
-if __name__ == "__main__":
-    print("Connected cameras ids:", get_cam_ids())
+_attr_type_names = {
+    PySpin.intfIFloat: "float",
+    PySpin.intfIBoolean: "bool",
+    PySpin.intfIInteger: "int",
+    PySpin.intfIEnumeration: "enum",
+    PySpin.intfIString: "string",
+    PySpin.intfICommand: "command",
+}

@@ -355,7 +355,9 @@ def shutdown_video():
     for img_src in image_sources.values():
         img_src.join()
 
-    _state.delete("video")
+    if "video" in _state:
+        _state.delete("video")
+
     image_sources.clear()
     image_observers.clear()
 

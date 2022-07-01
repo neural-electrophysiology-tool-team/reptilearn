@@ -424,6 +424,7 @@ class ImageObserver(ConfigurableProcess):
         self._img_src_buf_shape = image_source.buf_shape
         self._img_src_buf_dtype = image_source.buf_dtype
         self._img_src_timestamp = image_source.timestamp
+        self._img_src_config = image_source.config
         self.image_shape = image_source.image_shape
         self._running_state_key = running_state_key
 
