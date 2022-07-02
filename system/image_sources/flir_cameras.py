@@ -4,7 +4,6 @@ except Exception:
     pass
 
 from video_stream import ImageSource
-import re
 import time
 
 
@@ -78,6 +77,11 @@ class FLIRImageSource(ImageSource):
             node = PySpin.CBooleanPtr(nodemap.GetNode(node_name))
         elif isinstance(value, str):
             node = PySpin.CEnumerationPtr(nodemap.GetNode(node_name))
+            if not PySpin.IsAvailable(node):
+                node = PySpin.CStringPtr(nodemap.GetNode(node_name))
+                is_enum = False
+            else:
+                is_enum = True
         else:
             raise ValueError(f"Invalid value type: {value}")
 
@@ -86,8 +90,9 @@ class FLIRImageSource(ImageSource):
         if not PySpin.IsWritable(node):
             raise ValueError(f"Node {node_name} is not writable.")
 
-        if isinstance(value, str):
+        if isinstance(value, str) and is_enum:
             enum_entry = PySpin.CEnumEntryPtr(node.GetEntryByName(value))
+
             if not PySpin.IsAvailable(enum_entry) or not PySpin.IsReadable(enum_entry):
                 raise ValueError(
                     f"Enum entry {value} is unavailable for node {node_name}"
@@ -102,7 +107,7 @@ class FLIRImageSource(ImageSource):
         if not PySpin.IsAvailable(node) or not PySpin.IsReadable(node):
             raise ValueError(f"Node {node_name} is not available or not readable")
 
-        node_type = _attr_types[node.GetPrincipalInterfaceType()]
+        node_type = _int_type_to_pointer_type[node.GetPrincipalInterfaceType()]
         return node_type(node).GetValue()
 
     def update_time_delta(self):
@@ -168,7 +173,6 @@ class FLIRImageSource(ImageSource):
             )
             if is_incomplete:
                 time.sleep(0.001)
-
                 # self.log.info(f"Image incomplete with image status {PySpin.Image_GetImageStatusDescription(self.image_result.GetImageStatus())}")
 
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
@@ -189,30 +193,11 @@ class FLIRImageSource(ImageSource):
         self.system.ReleaseInstance()
 
 
-def get_device_id(cam) -> str:
-    """Get the camera device ID of the cam instance"""
-    nodemap_tldevice = cam.GetTLDeviceNodeMap()
-    device_id = PySpin.CStringPtr(nodemap_tldevice.GetNode("DeviceID")).GetValue()
-    m = re.search(r"SRL_[a-zA-Z\d]{8}", device_id)
-    if not m:
-        return device_id
-    return m[0][4:]
-
-
 # From https://github.com/klecknerlab/simple_pyspin
-_attr_types = {
+_int_type_to_pointer_type = {
     PySpin.intfIFloat: PySpin.CFloatPtr,
     PySpin.intfIBoolean: PySpin.CBooleanPtr,
     PySpin.intfIInteger: PySpin.CIntegerPtr,
     PySpin.intfIEnumeration: PySpin.CEnumerationPtr,
     PySpin.intfIString: PySpin.CStringPtr,
-}
-
-_attr_type_names = {
-    PySpin.intfIFloat: "float",
-    PySpin.intfIBoolean: "bool",
-    PySpin.intfIInteger: "int",
-    PySpin.intfIEnumeration: "enum",
-    PySpin.intfIString: "string",
-    PySpin.intfICommand: "command",
 }
