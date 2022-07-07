@@ -356,7 +356,7 @@ class LocationExperiment(exp.Experiment):
                 delay = params["reward"]["delay"]
                 self.using_stochastic_delay = False
 
-            self.cancel_reward_delay = schedule.once(self.dispense_reward, delay)
+            self.cancel_reward_delay = schedule.once(self.trial_finished, delay)
 
     def end_time_cooldown(self):
         session_state["cooldown_time"] = False
