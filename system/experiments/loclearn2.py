@@ -182,7 +182,10 @@ class LocationExperiment(exp.Experiment):
         self.print_next_detection = False
 
         session_state["is_in_area"] = False
-        self.reset_rewards_count()
+
+        if "rewards_count" not in exp.session_state:
+            self.reset_rewards_count()
+
         self.daytime = False
 
     def release(self):
@@ -240,7 +243,9 @@ class LocationExperiment(exp.Experiment):
         if self.aruco_img is not None:
             img = np.copy(self.aruco_img)
         else:
-            img, _ = image_sources[params["image_source_id"]].get_image(scale_to_8bit=True)
+            img, _ = image_sources[params["image_source_id"]].get_image(
+                scale_to_8bit=True
+            )
             img = np.stack((img,) * 3, axis=-1)
 
         loc = tuple(session_state["reinforced_location"])

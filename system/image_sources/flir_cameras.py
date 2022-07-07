@@ -172,8 +172,10 @@ class FLIRImageSource(ImageSource):
                 self.image_result is None or self.image_result.IsIncomplete()
             )
             if is_incomplete:
-                time.sleep(0.001)
-                # self.log.info(f"Image incomplete with image status {PySpin.Image_GetImageStatusDescription(self.image_result.GetImageStatus())}")
+                time.sleep(0.01)
+                self.log.info(
+                    f"Image incomplete with image status {PySpin.Image_GetImageStatusDescription(self.image_result.GetImageStatus())}"
+                )
 
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
 
