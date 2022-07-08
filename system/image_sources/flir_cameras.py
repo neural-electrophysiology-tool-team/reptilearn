@@ -160,30 +160,23 @@ class FLIRImageSource(ImageSource):
             self.update_time_delta()
         self.prev_writing = self.state.get("writing", False)
 
-        is_incomplete = True
+        try:
+            self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
+        except Exception:
+            self.log.exception("Error while retrieving next image:")
+            return None, None
 
-        while is_incomplete:
-            try:
-                self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
-            except Exception:
-                self.log.exception("Error while retrieving next image:")
-
-            is_incomplete = (
-                self.image_result is None or self.image_result.IsIncomplete()
-            )
-            if is_incomplete:
-                time.sleep(0.01)
-                self.log.info(
-                    f"Image incomplete with image status {PySpin.Image_GetImageStatusDescription(self.image_result.GetImageStatus())}"
-                )
+        if self.image_result is None or self.image_result.IsIncomplete():
+            return None, None
 
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
 
         try:
             img = self.image_result.GetNDArray()
-            return (img, timestamp)
+            return img, timestamp
         except Exception:
             self.log.exception("Exception while getting image from flir camera:")
+            return None, None
 
     def _on_stop(self):
         if self.cam.IsStreaming():

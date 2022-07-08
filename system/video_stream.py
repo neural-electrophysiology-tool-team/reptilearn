@@ -244,9 +244,11 @@ class ImageSource(ConfigurableProcess):
                     break
                 except KeyboardInterrupt:
                     img, timestamp = self._acquire_image()
+                except Exception:
+                    self.log.exception("Error while acquiring image:")
 
                 if img is None:
-                    break
+                    continue
 
                 if self.stop_event.is_set():
                     self.log.info("Shutting down")
