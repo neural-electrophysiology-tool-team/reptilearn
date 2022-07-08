@@ -247,13 +247,13 @@ class ImageSource(ConfigurableProcess):
                 except Exception:
                     self.log.exception("Error while acquiring image:")
 
-                if img is None:
-                    continue
-
                 if self.stop_event.is_set():
                     self.log.info("Shutting down")
                     self.stop_event.clear()
                     break
+
+                if img is None:
+                    continue
 
                 with self.buf.get_lock():
                     self.timestamp.value = timestamp
