@@ -1,5 +1,5 @@
-/* Interface for the fish feeder library
- * -------------------------------------
+/* Interface for the EVNICE feeder library
+ * ---------------------------------------
  * @author Tal Eisenberg <eisental@gmail.com>
  */
 

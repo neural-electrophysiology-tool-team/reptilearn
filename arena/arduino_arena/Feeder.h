@@ -1,5 +1,5 @@
-/* Arduino library for controlling a fish feeder (insert model here).
- * ------------------------------------------------------------------
+/* Arduino library for controlling a fish feeder (EVNICE EV200GW or similar).
+ * --------------------------------------------------------------------------
  * @author Tal Eisenberg <eisental@gmail.com>
  */
 
