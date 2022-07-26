@@ -1,6 +1,5 @@
 from datetime import datetime
 import re
-import time
 import json
 import shutil
 import pandas as pd
@@ -9,7 +8,6 @@ import threading
 
 from json_convert import json_convert
 from dynamic_loading import load_modules, find_subclass, reload_module
-import video_system
 import event_log
 import schedule
 import managed_state
@@ -205,7 +203,6 @@ def init_session(continue_session=False):
     calls the experiment class setup() hook, and creates session_state.json file.
     """
     data_dir = Path(session_state["data_dir"])
-    state["video", "record", "write_dir"] = data_dir
 
     csv_path = data_dir / "events.csv" if config.event_log["log_to_csv"] else None
 
@@ -271,7 +268,9 @@ def close_session():
         event_logger.log("session/close", session_state.get_self())
         event_logger.stop()
 
-    video_system.restore_after_experiment_session()
+    if state.exists(("video", "record")):
+        state["video", "record", "filename_prefix"] = ""
+
     session_state.delete(())
     log.info("Closed session.")
 

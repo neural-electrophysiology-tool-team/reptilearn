@@ -1,3 +1,4 @@
+from pathlib import Path
 import time
 from datetime import datetime
 from video_stream import ImageObserver, ImageSource
@@ -9,21 +10,18 @@ import json
 from image_utils import convert_to_8bit
 
 
-def get_write_path(src_id, rec_state, file_ext, timestamp=datetime.now()):
-    filename_prefix = rec_state["filename_prefix"]
-    write_dir = rec_state["write_dir"]
-
+def get_write_path(src_id, write_dir, filename_ext, filename_prefix, timestamp=datetime.now()):
     if len(filename_prefix.strip()) > 0:
         filename_prefix += "_"
 
     base = filename_prefix + src_id + "_" + timestamp.strftime("%Y%m%d-%H%M%S") + "."
-    return write_dir / (base + file_ext)
+    return write_dir / (base + filename_ext)
 
 
-def save_image(image, timestamp, rec_state, prefix):
+def save_image(image, timestamp, src_id, write_dir, filename_prefix):
     dt = datetime.fromtimestamp(timestamp)
     ext = "jpg" if image.dtype == "uint8" else "pickle"
-    path = get_write_path(prefix, rec_state, ext, dt)
+    path = get_write_path(src_id, write_dir, ext, filename_prefix, dt)
 
     if image.dtype == "uint8":
         imageio.imwrite(str(path), image)
@@ -48,7 +46,8 @@ class VideoWriter(ImageObserver):
         id: str,
         config: dict,
         encoding_params,
-        image_source: ImageSource,
+        media_dir,
+        image_source: ImageSource,        
         state_store_address: tuple,
         state_store_authkey: str,
         running_state_key="writing",
@@ -56,6 +55,7 @@ class VideoWriter(ImageObserver):
         self.img_src_id = image_source.id
         self.scaling_8bit = image_source.scaling_8bit
         self.encoding_params = encoding_params
+        self.media_dir = media_dir
 
         super().__init__(
             id,
@@ -86,19 +86,18 @@ class VideoWriter(ImageObserver):
             self.log.error("Can't write video. Image source is not acquiring.")
             return
 
+        write_dir = self.state.root().get(("session", "data_dir"), self.media_dir)
+        filename_prefix = self.state.root().get(("video", "record", "filename_prefix"), "")
         timestamp = datetime.now()
-        vid_path = get_write_path(
+        vid_path: Path = get_write_path(
             self.img_src_id,
-            self.state.root()["video", "record"],
+            write_dir,            
             self.file_ext,
+            filename_prefix,
             timestamp,
         )
-        ts_path = get_write_path(
-            self.img_src_id, self.state.root()["video", "record"], "csv", timestamp
-        )
-        metadata_path = get_write_path(
-            self.img_src_id, self.state.root()["video", "record"], "json", timestamp
-        )
+        ts_path = vid_path.parent / (vid_path.stem + ".csv")
+        metadata_path = vid_path.parent / (vid_path.stem + ".json")
 
         self.log.info(f"Starting to write video to: {vid_path}")
         self.writer = imageio.get_writer(

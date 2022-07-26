@@ -61,6 +61,7 @@ def load_video_writers():
             encoding_params=_config.video_record["encoding_configs"][
                 image_sources[src_id].get_config("encoding_config")
             ],
+            media_dir=_config.media_dir,
             image_source=image_sources[src_id],
             state_store_address=_config.state_store_address,
             state_store_authkey=_config.state_store_authkey,
@@ -80,7 +81,6 @@ def load_video_config(config: dict):
         {
             "selected_sources": [],
             "is_recording": False,
-            "write_dir": _config.media_dir,
             "filename_prefix": "",
         }
     )
@@ -130,11 +130,6 @@ def update_video_config(config: dict):
         json.dump(config, f, indent=4)
 
     video_config = config
-
-
-def restore_after_experiment_session():
-    _rec_state["write_dir"] = _config.media_dir
-    _rec_state["filename_prefix"] = ""
 
 
 def set_selected_sources(src_ids):
@@ -210,7 +205,9 @@ def capture_images(src_ids=None):
 
     for src in selected_sources:
         img, ts = src.get_image()  # NOTE: here we do not convert to uint8
-        p = video_write.save_image(img, ts, _rec_state, src.id)
+        write_dir = _state.get(("session", "data_dir"), _config.media_dir)
+        filename_prefix = _state.get(("video", "record", "filename_prefix"), "")
+        p = video_write.save_image(img, ts, src.id, write_dir, filename_prefix)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
 
