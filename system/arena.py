@@ -204,8 +204,8 @@ def init(logger, state, config):
         }
     )
 
-    for display in config.arena["displays"].keys():
-        switch_display(False, display)
+    #for display in config.arena["displays"].keys():
+    #   switch_display(False, display)
 
     try:
         with open(config.arena_config_path, "r") as f:

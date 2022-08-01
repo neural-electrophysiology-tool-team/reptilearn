@@ -20,6 +20,7 @@ class FLIRImageSource(ImageSource):
 
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
+        self.tlsnodemap = self.cam.GetTLStreamNodeMap()
         if "exposure" in self.config:
             try:
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
@@ -122,6 +123,9 @@ class FLIRImageSource(ImageSource):
         self.log.debug(f"Updated time delta: {self.camera_time_delta}")
 
     def _on_start(self):
+        self.f = open("test.csv", "w")
+        self.f.write("timestamp,count,status,frame_id,StreamAnnouncedBufferCount,StreamInputBufferCount\n")
+        self.count = 0
         try:
             self.system = PySpin.System_GetInstance()
             self.cam_list = self.system.GetCameras()
@@ -161,15 +165,21 @@ class FLIRImageSource(ImageSource):
         self.prev_writing = self.state.get("writing", False)
 
         try:
-            self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
+            self.image_result: PySpin.ImagePtr = self.cam.GetNextImage(10000)  # hardcoded to 10 seconds timeout
         except Exception:
             self.log.exception("Error while retrieving next image:")
             return None, None
 
-        if self.image_result is None or self.image_result.IsIncomplete():
-            return None, None
-
+        image_status = self.image_result.GetImageStatus()
+        frame_id = self.image_result.GetFrameID()
         timestamp = self.image_result.GetTimeStamp() / 1e9 + self.camera_time_delta
+        streamAnnounceBufferCount = self.get_pyspin_node(self.tlsnodemap, "StreamAnnouncedBufferCount")
+        streamInputBufferCount = self.get_pyspin_node(self.tlsnodemap, "StreamInputBufferCount")
+        self.count += 1
+        self.f.write(f"{timestamp},{self.count},{image_status},{frame_id},{streamAnnounceBufferCount},{streamInputBufferCount}\n")
+
+        if image_status != PySpin.IMAGE_NO_ERROR:
+            return None, None
 
         try:
             img = self.image_result.GetNDArray()

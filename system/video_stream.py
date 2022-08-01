@@ -215,6 +215,7 @@ class ImageSource(ConfigurableProcess):
 
             if not self.stream_obs_event.is_set():
                 # timed out while waiting for image
+                print("Timeout:", time.strftime("%I:%M:%S"))
                 yield timeout_img, None
                 continue
 
