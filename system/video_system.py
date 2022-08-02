@@ -2,6 +2,7 @@ from dynamic_loading import instantiate_class, load_modules, find_subclasses
 import video_write
 from arena import has_trigger, start_trigger, stop_trigger
 from video_stream import ImageSource, ImageObserver
+import overlays.timestamp
 import overlay
 import managed_state
 from threading import Timer
@@ -32,7 +33,7 @@ def load_source(id, config):
         _config.state_store_authkey,
     )
 
-    overlay.overlays[id] = [overlay.TimestampVisualizer()]
+    overlay.overlays[id] = [overlays.timestamp.TimestampVisualizer({})]
 
 
 def load_observer(id, config):
@@ -51,15 +52,23 @@ def load_video_writers():
     video_writers = {}
 
     for src_id in image_sources.keys():
+        img_src = image_sources[src_id]
+        src_frame_rate = img_src.get_config("video_frame_rate")
+        frame_rate = (
+            src_frame_rate
+            if src_frame_rate is not None
+            else _config.video_record["video_frame_rate"]
+        )
+
         video_writers[src_id] = video_write.VideoWriter(
             id=src_id + ".writer",
             config={
                 "src_id": src_id,
-                "frame_rate": _config.video_record["video_frame_rate"],
+                "frame_rate": frame_rate,
                 "queue_max_size": _config.video_record["max_write_queue_size"],
             },
             encoding_params=_config.video_record["encoding_configs"][
-                image_sources[src_id].get_config("encoding_config")
+                img_src.get_config("encoding_config")
             ],
             media_dir=_config.media_dir,
             image_source=image_sources[src_id],

@@ -1,4 +1,5 @@
 import time
+from bbox import xyxy_to_centroid
 import video_system
 import cv2
 
@@ -7,62 +8,51 @@ import cv2
 # - way to choose overlays
 
 
+def is_point_in_bounds(p, frame):
+    px, py = p
+    return px >= 0 and px < frame.shape[1] and py >= 0 and py < frame.shape[0]
+
+
 class ImageOverlay:
     def apply(self, img, timestamp):
         return img
 
 
-class BarPlot(ImageOverlay):
-    def __init__(self, obs_id) -> None:
-        self.obs_id = obs_id
+class ConfigurableOverlay(ImageOverlay):
+    default_params = {"class": None}
 
-    def apply(self, img, timestamp):
-        if self.obs_id in video_system.image_observers:
-            output, timestamp = video_system.image_observers[self.obs_id].get_output()
-            if timestamp == 0:
-                return img
+    def __init__(self, config) -> None:
+        self.config = config
 
-            max_len = 80
-            scale = 2
-            for idx, bin in enumerate(output):
-                line_len = max_len * bin // output.max()
-                if line_len > 0:
-                    cv2.line(
-                        img,
-                        (1440 - len(output) * scale + idx * scale, 1080),
-                        (1440 - len(output) * scale + idx * scale, 1080 - line_len),
-                        color=255,
-                        thickness=scale,
-                    )
+    def get_config(self, key):
+        if key in self.config:
+            return self.config[key]
+        elif key in self.__class__.default_params:
+            return self.__class__.default_params[key]
+        else:
+            raise KeyError(f"Unknown config key: {key}")
 
+
+class ObserverOverlay(ConfigurableOverlay):
+    default_params = {
+        **ConfigurableOverlay.default_params,
+        "obs_id": None,
+    }
+
+    def apply(self, img, img_timestamp):
+        obs_out, obs_out_timestamp = video_system.image_observers[
+            self.get_config("obs_id")
+        ].get_output()
+        return self.obs_apply(img, img_timestamp, obs_out, obs_out_timestamp)
+
+    def obs_apply(self, img, img_timestamp, obs_out, obs_out_timestamp):
         return img
 
 
-class TimestampVisualizer(ImageOverlay):
-    def apply(self, img, timestamp):
-        stime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-        im_h, im_w = img.shape[:2]
-        font = cv2.FONT_HERSHEY_PLAIN
-        font_scale = 3
-        text_size = cv2.getTextSize(stime, font, font_scale, 10)[0]
-        while text_size[0] > 0.7 * im_w and font_scale > 0:
-            font_scale -= 1
-            text_size = cv2.getTextSize(stime, font, font_scale, 10)[0]
-
-        cv2.putText(
-            img,
-            stime,
-            (font_scale * 5, im_h - font_scale * 5),
-            fontFace=font,
-            fontScale=font_scale,
-            color=255,
-            thickness=4,
-            lineType=1,
-        )
-        return img
 
 
-overlays = {TimestampVisualizer()}
+
+overlays = {}
 
 
 def apply_overlays(img, timestamp, src_id):

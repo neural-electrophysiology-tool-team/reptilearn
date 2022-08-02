@@ -102,6 +102,7 @@ class ImageSource(ConfigurableProcess):
         "image_shape": None,
         "encoding_config": None,
         "8bit_scaling": "full_range",
+        "video_frame_rate": None,
     }
 
     def __init__(
