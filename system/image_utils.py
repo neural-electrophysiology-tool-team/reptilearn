@@ -75,4 +75,4 @@ def convert_to_8bit(img, scaling_param):
     if smax == smin:
         return img
     else:
-        return np.clip(255.0 * (img - smin) / (smax - smin), 0, 255).astype("uint8")
+        return np.clip(255.0 * (img.astype("int32") - smin) / (smax - smin), 0, 255).astype("uint8")

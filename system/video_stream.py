@@ -238,6 +238,8 @@ class ImageSource(ConfigurableProcess):
 
         try:
             while True:
+                img = None
+
                 try:
                     img, timestamp = self._acquire_image()
                 except AcquireException as e:

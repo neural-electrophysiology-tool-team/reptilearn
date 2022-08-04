@@ -9,9 +9,12 @@ try:
             "exposure": 8000,
             "trigger": True,
             "frame_rate": None,
+            "stream_id": 0,
+            "acquisition_timeout": 5000,
             "pyspin": {},
             "serial_number": None,
             "trigger_source": "Line3",
+            "restart_on_timeout": False,
         }
 
         def configure_camera(self):
@@ -56,14 +59,8 @@ try:
                         self.set_pyspin_node(nodemap, key, value)
                     except Exception:
                         self.log.exception("Error while setting pyspin node:")
-
             except Exception:
                 self.log.exception("Exception while configuring camera:")
-
-        def cam_by_serial_number(self, sn):
-            cams = self.system.GetCameras()
-            cam = cams.GetBySerial(sn)
-            return cam
 
         def set_pyspin_node(self, nodemap, node_name, value):
             # self.log.info(f"Setting {node_name} to {value} ({type(value)})")
@@ -144,6 +141,7 @@ try:
                 self.image_result = None
 
                 self.prev_writing = self.state.get("writing", False)
+                self.restart_requested = False
                 return True
             except Exception:
                 self.log.exception("Exception while initializing camera:")
@@ -156,12 +154,42 @@ try:
                 except PySpin.SpinnakerException:
                     pass
 
+            if self.restart_requested:
+                self._on_stop()
+                self._on_start()
+
             if self.prev_writing is False and self.state.get("writing", False) is True:
                 self.update_time_delta()
             self.prev_writing = self.state.get("writing", False)
 
+            if self.cam is None:
+                return None, None
+
             try:
-                self.image_result: PySpin.ImagePtr = self.cam.GetNextImage()
+                self.image_result: PySpin.ImagePtr = self.cam.GetNextImage(
+                    self.get_config("acquisition_timeout"), self.get_config("stream_id")
+                )
+            except PySpin.SpinnakerException as e:
+                if e.errorcode == -1011:
+                    # Failed waiting for EventData on NEW_BUFFER_DATA
+                    # This tries to prevent a problem we encountered with Flir A70 (and possibly other GigE cameras) on Ubuntu 20.04.
+                    # Every 65535*3 images we need to restart acquisition:
+                    if self.get_config("restart_on_timeout") is not True:
+                        return None, None
+
+                    is_trigger_on = (
+                        self.state.root().get(("video", "record", "ttl_trigger"), False)
+                        is True
+                    )
+                    if (
+                        self.get_config("trigger") is True and is_trigger_on
+                    ) or self.get_config("trigger") is False:
+                        self.log.warn(
+                            "Camera stopped responding. Trying to restart camera..."
+                        )
+                        self.restart_requested = True
+                        return None, None
+
             except Exception:
                 self.log.exception("Error while retrieving next image:")
                 return None, None
@@ -179,12 +207,22 @@ try:
                 return None, None
 
         def _on_stop(self):
-            if self.cam.IsStreaming():
-                self.cam.EndAcquisition()
+            if self.cam is not None:
+                try:
+                    if self.cam.IsStreaming():
+                        self.cam.EndAcquisition()
+                        self.cam.DeInit()
+                except PySpin.SpinnakerException:
+                    pass
 
-            self.cam.DeInit()
-            self.cam = None
-            self.cam_list.Clear()
+                self.cam = None
+
+            self.image_result = None
+
+            if self.cam_list is not None:
+                self.cam_list.Clear()
+                self.cam_list = None
+
             self.system.ReleaseInstance()
 
     # From https://github.com/klecknerlab/simple_pyspin
