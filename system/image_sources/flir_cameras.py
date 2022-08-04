@@ -119,6 +119,7 @@ try:
             self.log.debug(f"Updated time delta: {self.camera_time_delta}")
 
         def _on_start(self):
+            self.restart_requested = False
             try:
                 self.system = PySpin.System_GetInstance()
                 self.cam_list = self.system.GetCameras()
@@ -141,7 +142,6 @@ try:
                 self.image_result = None
 
                 self.prev_writing = self.state.get("writing", False)
-                self.restart_requested = False
                 return True
             except Exception:
                 self.log.exception("Exception while initializing camera:")
@@ -155,6 +155,7 @@ try:
                     pass
 
             if self.restart_requested:
+                self.restart_requested = False
                 self._on_stop()
                 self._on_start()
 
