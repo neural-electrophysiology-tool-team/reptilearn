@@ -10,7 +10,9 @@ import json
 from image_utils import convert_to_8bit
 
 
-def get_write_path(src_id, write_dir, filename_ext, filename_prefix, timestamp=datetime.now()):
+def get_write_path(
+    src_id, write_dir, filename_ext, filename_prefix, timestamp=datetime.now()
+):
     if len(filename_prefix.strip()) > 0:
         filename_prefix += "_"
 
@@ -47,7 +49,7 @@ class VideoWriter(ImageObserver):
         config: dict,
         encoding_params,
         media_dir,
-        image_source: ImageSource,        
+        image_source: ImageSource,
         state_store_address: tuple,
         state_store_authkey: str,
         running_state_key="writing",
@@ -87,11 +89,13 @@ class VideoWriter(ImageObserver):
             return
 
         write_dir = self.state.root().get(("session", "data_dir"), self.media_dir)
-        filename_prefix = self.state.root().get(("video", "record", "filename_prefix"), "")
+        filename_prefix = self.state.root().get(
+            ("video", "record", "filename_prefix"), ""
+        )
         timestamp = datetime.now()
         vid_path: Path = get_write_path(
             self.img_src_id,
-            write_dir,            
+            write_dir,
             self.file_ext,
             filename_prefix,
             timestamp,

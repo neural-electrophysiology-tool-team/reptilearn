@@ -1,13 +1,16 @@
+from threading import Timer
+from pathlib import Path
+import json
+
+from configure import get_config
 from dynamic_loading import instantiate_class, load_modules, find_subclasses
+from rl_logging import get_main_logger
 import video_write
 from arena import has_trigger, start_trigger, stop_trigger
 from video_stream import ImageSource, ImageObserver
 import overlays.timestamp
 import overlay
 import managed_state
-from threading import Timer
-from pathlib import Path
-import json
 
 video_config = None
 image_sources = {}
@@ -19,7 +22,6 @@ image_class_params = {}
 
 _state = None
 _log = None
-_config = None
 _rec_state = None
 _do_restore_trigger = False
 
@@ -29,8 +31,8 @@ def load_source(id, config):
         config["class"],
         id,
         config,
-        _config.state_store_address,
-        _config.state_store_authkey,
+        get_config().state_store_address,
+        get_config().state_store_authkey,
     )
 
     overlay.overlays[id] = [overlays.timestamp.TimestampVisualizer({})]
@@ -42,8 +44,8 @@ def load_observer(id, config):
         id,
         config,
         image_sources[config["src_id"]],
-        _config.state_store_address,
-        _config.state_store_authkey,
+        get_config().state_store_address,
+        get_config().state_store_authkey,
     )
 
 
@@ -57,7 +59,7 @@ def load_video_writers():
         frame_rate = (
             src_frame_rate
             if src_frame_rate is not None
-            else _config.video_record["video_frame_rate"]
+            else get_config().video_record["video_frame_rate"]
         )
 
         video_writers[src_id] = video_write.VideoWriter(
@@ -65,15 +67,15 @@ def load_video_writers():
             config={
                 "src_id": src_id,
                 "frame_rate": frame_rate,
-                "queue_max_size": _config.video_record["max_write_queue_size"],
+                "queue_max_size": get_config().video_record["max_write_queue_size"],
             },
-            encoding_params=_config.video_record["encoding_configs"][
+            encoding_params=get_config().video_record["encoding_configs"][
                 img_src.get_config("encoding_config")
             ],
-            media_dir=_config.media_dir,
+            media_dir=get_config().media_dir,
             image_source=image_sources[src_id],
-            state_store_address=_config.state_store_address,
-            state_store_authkey=_config.state_store_authkey,
+            state_store_address=get_config().state_store_address,
+            state_store_authkey=get_config().state_store_authkey,
         )
 
 
@@ -133,9 +135,9 @@ def update_video_config(config: dict):
 
     start()
 
-    _log.info(f"Saving video config to '{_config.video_config_path.resolve()}'...")
+    _log.info(f"Saving video config to '{get_config().video_config_path.resolve()}'...")
 
-    with open(_config.video_config_path, "w") as f:
+    with open(get_config().video_config_path, "w") as f:
         json.dump(config, f, indent=4)
 
     video_config = config
@@ -214,7 +216,7 @@ def capture_images(src_ids=None):
 
     for src in selected_sources:
         img, ts = src.get_image()  # NOTE: here we do not convert to uint8
-        write_dir = _state.get(("session", "data_dir"), _config.media_dir)
+        write_dir = _state.get(("session", "data_dir"), get_config().media_dir)
         filename_prefix = _state.get(("video", "record", "filename_prefix"), "")
         p = video_write.save_image(img, ts, src.id, write_dir, filename_prefix)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
@@ -249,17 +251,15 @@ def _find_image_classes():
             image_class_params[name] = cls.default_params
 
 
-def init(log, state: managed_state.Cursor, config):
-    global _log, _state, _config, video_config, _rec_state
-    _log = log
+def init(state: managed_state.Cursor):
+    global _log, _state, video_config, _rec_state
+    _log = get_main_logger()
     _state = state
-    _config = config
-    config_path = config.video_config_path
 
     _find_image_classes()
-
     _rec_state = state.get_cursor(("video", "record"))
 
+    config_path = get_config().video_config_path
     if not config_path.exists():
         video_config = {
             "image_sources": {},
@@ -282,7 +282,7 @@ def init(log, state: managed_state.Cursor, config):
     load_video_config(video_config)
     load_video_writers()
 
-    ttl_trigger = _config.video_record["start_trigger_on_startup"]
+    ttl_trigger = get_config().video_record["start_trigger_on_startup"]
     if ttl_trigger:
         start_trigger()
     else:

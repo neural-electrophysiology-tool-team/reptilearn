@@ -1,3 +1,10 @@
+"""
+Various utility functions for dealing with bounding box data, including
+conversion between various bbox representations, finding centroids, and
+calculating "intersection over union" (IoU) of two bounding boxes.
+
+Author: Tal Eisenberg, 2021
+"""
 import numpy as np
 
 

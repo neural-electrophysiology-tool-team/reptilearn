@@ -6,9 +6,11 @@ import pandas as pd
 from pathlib import Path
 import threading
 
+from configure import get_config
 from json_convert import json_convert
 from dynamic_loading import load_modules, find_subclass, reload_module
 import event_log
+from rl_logging import get_main_logger
 import schedule
 import managed_state
 
@@ -17,7 +19,6 @@ class ExperimentException(Exception):
     pass
 
 
-config = None
 log = None
 
 experiment_specs = None
@@ -32,8 +33,8 @@ blocks: managed_state.Cursor = None
 actions: managed_state.Cursor = None
 
 
-def init(logger, state_obj, config_module):
-    global log, config, session_state, params, blocks, actions, state
+def init(state_obj):
+    global log, session_state, params, blocks, actions, state
 
     state = state_obj
     session_state = state.get_cursor("session")
@@ -41,8 +42,7 @@ def init(logger, state_obj, config_module):
     blocks = session_state.get_cursor("blocks")
     actions = session_state.get_cursor("actions")
 
-    config = config_module
-    log = logger
+    log = get_main_logger()
     load_experiment_specs()
 
 
@@ -80,7 +80,7 @@ def get_session_list():
     paths = list(
         filter(
             lambda p: (p / "session_state.json").exists(),
-            config.session_data_root.glob("*"),
+            get_config().session_data_root.glob("*"),
         )
     )
     nds = [split_name_datetime(p.stem) for p in paths]
@@ -123,7 +123,7 @@ def create_session(session_id, experiment):
 
     start_time = datetime.now()
     session_dir = session_id + "_" + start_time.strftime("%Y%m%d_%H%M%S")
-    data_path = config.session_data_root / session_dir
+    data_path = get_config().session_data_root / session_dir
 
     try:
         data_path.mkdir()
@@ -166,7 +166,7 @@ def continue_session(session_name):
     log.info(f"Continuing session {session_name}")
     log.info("=================================================")
 
-    data_path = config.session_data_root / session_name
+    data_path = get_config().session_data_root / session_name
     if not data_path.exists():
         raise ExperimentException(
             f"Session data directory {str(data_path)} doesn't exist!"
@@ -202,21 +202,21 @@ def init_session(continue_session=False):
     Initialize the session event logger (stored as a global event_logger object),
     calls the experiment class setup() hook, and creates session_state.json file.
     """
-    data_dir = Path(session_state["data_dir"])
-
-    csv_path = data_dir / "events.csv" if config.event_log["log_to_csv"] else None
-
     global event_logger
+
+    event_log_config = get_config().event_log
+    data_dir = Path(session_state["data_dir"])
+    csv_path = data_dir / "events.csv" if event_log_config["log_to_csv"] else None
+
     event_logger = event_log.EventDataLogger(
-        config,
+        config=get_config(),
         csv_path=csv_path,
-        log_to_db=config.event_log["log_to_db"],
-        table_name=config.event_log["table_name"],
+        db_table_name=event_log_config["table_name"] if event_log_config["log_to_db"] else None,
     )
     if not event_logger.start(wait=5):
         raise ExperimentException("Event logger can't connect. Timeout elapsed.")
 
-    for src, key in config.event_log["default_events"]:
+    for src, key in event_log_config["default_events"]:
         event_logger.add_event(src, key)
 
     cur_experiment.setup()
@@ -289,13 +289,13 @@ def archive_sessions(sessions, archives, move=False):
 
     def archive_fn():
         for session in sessions:
-            src = config.session_data_root / session[2]
+            src = get_config().session_data_root / session[2]
             for archive in archives:
-                if archive not in config.archive_dirs:
+                if archive not in get_config().archive_dirs:
                     log.error(f"Unknown archive: {archive}")
                     continue
 
-                archive_dir = config.archive_dirs[archive]
+                archive_dir = get_config().archive_dirs[archive]
                 if not archive_dir.exists():
                     log.error(f"Archive directory: {archive_dir} does not exist!")
                     continue
@@ -320,7 +320,7 @@ def delete_sessions(sessions):
             "Can't delete session while an experiment is running."
         )
 
-    data_dirs = [config.session_data_root / s[2] for s in sessions]
+    data_dirs = [get_config().session_data_root / s[2] for s in sessions]
 
     if session_state.exists(()) and session_state["data_dir"] in data_dirs:
         log.warning("Closing and deleting current session.")
@@ -497,7 +497,7 @@ def load_experiment_specs():
     experiment_specs = dict(
         filter(
             lambda k_mod_spec: find_subclass(k_mod_spec[1][0], Experiment),
-            load_modules(config.experiment_modules_dir, log).items(),
+            load_modules(get_config().experiment_modules_dir, log).items(),
         )
     )
     return experiment_specs

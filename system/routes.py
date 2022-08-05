@@ -1,23 +1,26 @@
 import flask
-import experiment
-import video_system
-import undistort
 import json
+from configure import get_config
 from json_convert import json_convert
-import image_utils
-import rl_logging
 
 import overlay
 import task
 import arena
+import experiment
+import video_system
+import undistort
+import image_utils
+import rl_logging
 
 
-def add_routes(app, config, log):
+def add_routes(app):
+    log = rl_logging.get_main_logger()
+
     # Flask REST API
     @app.route("/config/<attribute>")
     def route_config(attribute):
         return flask.Response(
-            json.dumps(getattr(config, attribute), default=json_convert),
+            json.dumps(getattr(get_config(), attribute), default=json_convert),
             mimetype="application/json",
         )
 
@@ -39,7 +42,7 @@ def add_routes(app, config, log):
             and "undistort" in src_config
         ):
             oheight, owidth = src_config["image_shape"][:2]
-            undistort_config = config.undistort[src_config["undistort"]]
+            undistort_config = get_config().undistort[src_config["undistort"]]
             undistort_mapping, _, _ = undistort.get_undistort_mapping(
                 owidth, oheight, undistort_config
             )
@@ -54,14 +57,14 @@ def add_routes(app, config, log):
 
         return image_utils.encode_image(
             img,
-            encoding=config.http_streaming["encoding"],
-            encode_params=config.http_streaming["encode_params"],
+            encoding=get_config().http_streaming["encoding"],
+            encode_params=get_config().http_streaming["encode_params"],
             shape=(width, height),
         )
 
     @app.route("/image_sources/<src_id>/get_image")
     def route_image_sources_get_image(src_id):
-        img, timestamp = video_system.image_sources[src_id].get_image(scale_to_8bit=True)
+        img, _ = video_system.image_sources[src_id].get_image(scale_to_8bit=True)
         enc_img = encode_image_for_response(img, *parse_image_request(src_id))
         return flask.Response(enc_img, mimetype="image/jpeg")
 
@@ -74,7 +77,7 @@ def add_routes(app, config, log):
 
         frame_rate = int(
             flask.request.args.get(
-                "frame_rate", default=config.http_streaming["frame_rate"]
+                "frame_rate", default=get_config().http_streaming["frame_rate"]
             )
         )
 
@@ -425,7 +428,7 @@ def add_routes(app, config, log):
 
     @app.route("/arena/list_displays")
     def route_arena_list_displays():
-        return flask.jsonify(config.arena["display"].keys())
+        return flask.jsonify(get_config().arena["display"].keys())
 
     @app.route("/arena/switch_display/<int:on>")
     @app.route("/arena/switch_display/<int:on>/<display>")

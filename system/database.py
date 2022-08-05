@@ -1,3 +1,10 @@
+"""
+Communicate with TimescaleDB databases. 
+This module requires the psycopg2 library. psycopg2 is an optional dependency, and only 
+necessary when database communication is required.
+
+The module tries to make a default connection to a localhost 
+"""
 try:
     import psycopg2
 except Exception:
@@ -8,13 +15,19 @@ class DatabaseException(Exception):
     pass
 
 
-def make_connection(host="127.0.0.1", port=5432, db="reptilearn"):
+def make_connection(user, host, port, db):
     return psycopg2.connect(
-        f"dbname='{db}' user='postgres' host='{host}' port='{port}'"
+        f"dbname='{db}' user='{user}' host='{host}' port='{port}'"
     )
 
 
 def list_tables(cur):
+    """
+    Return a list of all public tables in the database.
+
+    Args:
+    - cur: A psycopg cursor
+    """
     query = """
         select table_name
         from information_schema.tables
@@ -26,6 +39,12 @@ def list_tables(cur):
 
 
 def list_hypertables(cur):
+    """
+    Return a list of all TimescaleDB hypertables in the database.
+
+    Args:
+    - cur: A psycopg cursor    
+    """
     query = """
         select table_name
         from _timescaledb_catalog.hypertable
@@ -36,6 +55,13 @@ def list_hypertables(cur):
 
 
 def list_columns(cur, table_name):
+    """
+    Return a list of table columns (a list of tuples: (name, type))
+
+    Args:
+    - cur: A psycopg cursor    
+    - table_name: A database table name (str)
+    """
     query = f"""
         select column_name, data_type
         from INFORMATION_SCHEMA.COLUMNS
@@ -74,14 +100,6 @@ def insert_row(cur, table_name, col_names, data, time_col=None):
         values ({", ".join(values)});
         """
     cur.execute(query, tuple(data))
-
-
-try:
-    import psycopg2
-
-    con = make_connection()
-except Exception:
-    pass
 
 
 def with_commit(con, f, *args, **kwargs):

@@ -52,7 +52,7 @@ class ConfigurableProcess(mp.Process):
         super().__init__()
         self.id = id
         self.config = config
-        self.logging_configurer = rl_logging._logger_configurer
+        self.logging_configurer = rl_logging.get_logger_configurer()
         self.state_path = state_path
         self.state_store_address = state_store_address
         self.state_store_authkey = state_store_authkey

@@ -1,11 +1,9 @@
-import time
-from bbox import xyxy_to_centroid
 import video_system
-import cv2
 
 # TODO:
-# - overlay params !important
 # - way to choose overlays
+
+overlays = {}
 
 
 def is_point_in_bounds(p, frame):
@@ -49,14 +47,9 @@ class ObserverOverlay(ConfigurableOverlay):
         return img
 
 
-
-
-
-overlays = {}
-
-
 def apply_overlays(img, timestamp, src_id):
     img = img.copy()
-    for overlay in overlays[src_id]:
-        img = overlay.apply(img, timestamp)
+    if src_id in overlays:
+        for overlay in overlays[src_id]:
+            img = overlay.apply(img, timestamp)
     return img

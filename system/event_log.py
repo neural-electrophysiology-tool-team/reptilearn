@@ -10,14 +10,14 @@ from json_convert import json_convert
 
 
 class EventDataLogger(DataLogger):
-    def __init__(self, config, table_name="events", *args, **kwargs):
+    def __init__(self, config, db_table_name="events", *args, **kwargs):
         super().__init__(
             columns=(
                 ("time", "timestamptz not null"),
                 ("event", "varchar(128)"),
                 ("value", "json"),
             ),
-            table_name=table_name,
+            db_table_name=db_table_name,
             *args,
             **kwargs,
         )

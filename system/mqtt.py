@@ -9,6 +9,8 @@ mqtt.mqtt_json_callback is useful when the incoming message payload is a JSON st
 import paho.mqtt.client as paho
 import logging
 import json
+from configure import get_config
+from rl_logging import get_main_logger
 
 
 class MQTTClient(paho.Client):
@@ -136,19 +138,18 @@ def mqtt_json_callback(callback):
 client = None
 
 
-def init(logger, config):
+def init():
     """
     Create an MQTTClient and run it in a new thread.
     The client is accessible through mqtt.client.
 
     - logger: Client logger
-    - config: The current config module
     """
     global client
-    client = MQTTClient(config.mqtt["host"], config.mqtt["port"])
-    client.log = logger
+    client = MQTTClient(get_config().mqtt["host"], get_config().mqtt["port"])
+    client.log = get_main_logger()
     client.loop_start()
-    logger.info("Connecting to MQTT server...")
+    client.log.info("Connecting to MQTT server...")
     client.connect()
 
 

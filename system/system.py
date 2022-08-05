@@ -10,10 +10,9 @@ from flask_socketio import SocketIO, emit
 import json
 import sys
 import argparse
-import importlib
-import traceback
 from dotenv import load_dotenv
 
+import configure
 import rl_logging
 import mqtt
 import arena
@@ -40,11 +39,7 @@ args = arg_parser.parse_args()
 print("🦎 Loading ReptiLearn")
 
 # Import configuration module
-try:
-    config = importlib.import_module(f"config.{args.config}")
-except Exception:
-    traceback.print_exc()
-    sys.exit(1)
+config = configure.load_config(args.config)
 
 # Set process start method according to the config module
 multiprocessing.set_start_method(config.process_start_method)
@@ -92,21 +87,20 @@ log = rl_logging.init(
         stderr_handler,
         rl_logging.SessionLogHandler(state),
     ),
-    log_buffer=rl_logging.LogBuffer(config.log_buffer_size),
     extra_loggers=(app_log, app.logger),
     extra_log_level=logging.WARNING,
     default_level=config.log_level,
 )
 
 # Initialize all other modules
-mqtt.init(log, config)
-task.init(log, config)
-arena.init(log, state, config)
-video_system.init(log, state, config)
-experiment.init(log, state, config)
+mqtt.init()
+task.init()
+arena.init(state)
+video_system.init(state)
+experiment.init(state)
 
 # Setup flask http routes
-routes.add_routes(app, config, log)
+routes.add_routes(app)
 
 # Start the video system
 video_system.start()

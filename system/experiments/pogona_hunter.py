@@ -50,14 +50,12 @@ class PogonaHunter(exp.Experiment):
         self.trajectory_logger = QueuedDataLogger(
             ["time", "x", "y", "bug_type"],
             csv_path=exp.session_state["data_dir"] / "bug_trajectory.csv",
-            log_to_db=False,
         )
         self.trajectory_logger.start()
 
         self.video_frames_logger = QueuedDataLogger(
             ["time", "frame"],
             csv_path=exp.session_state["data_dir"] / "video_frames.csv",
-            log_to_db=False,
         )
 
         self.video_frames_logger.start()
