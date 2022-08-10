@@ -1,3 +1,7 @@
+"""
+Writing image data to video files and images.
+Author: Tal Eisenberg, 2021
+"""
 from pathlib import Path
 import time
 from datetime import datetime
@@ -11,16 +15,43 @@ from image_utils import convert_to_8bit
 
 
 def get_write_path(
-    src_id, write_dir, filename_ext, filename_prefix, timestamp=datetime.now()
-):
+    src_id: str,
+    write_dir: Path,
+    filename_ext: str,
+    filename_prefix: str,
+    timestamp=datetime.now(),
+) -> Path:
+    """
+    Return a Path object suitable for writing.
+
+    Args:
+    - src_id: The ImageSource id that acquired this image
+    - write_dir: The parent directory of the file
+    - filename_ext: File suffix after the last dot
+    - filename_prefix: File prefix before all other identifiers
+    - timestamp: A datetime which will be formatted into the file name
+    """
     if len(filename_prefix.strip()) > 0:
         filename_prefix += "_"
 
-    base = filename_prefix + src_id + "_" + timestamp.strftime("%Y%m%d-%H%M%S") + "."
-    return write_dir / (base + filename_ext)
+    stem = filename_prefix + src_id + "_" + timestamp.strftime("%Y%m%d-%H%M%S") + "."
+    return write_dir / (stem + filename_ext)
 
 
-def save_image(image, timestamp, src_id, write_dir, filename_prefix):
+def save_image(image, src_id, write_dir, filename_prefix, timestamp):
+    """
+    Save an image to file.
+    An `image` with type `uint8` will be saved to a jpeg file.
+    Any other array type will be saved to a pickle file.
+
+    Args:
+    - image: a 2d numpy.array representing an image
+    - timestamp: A datetime which will be formatted into the file name
+    - src_id: The ImageSource id that acquired this image
+    - write_dir: The parent directory of the file
+    - filename_prefix: File prefix before all other identifiers
+
+    """
     dt = datetime.fromtimestamp(timestamp)
     ext = "jpg" if image.dtype == "uint8" else "pickle"
     path = get_write_path(src_id, write_dir, ext, filename_prefix, dt)
@@ -35,32 +66,52 @@ def save_image(image, timestamp, src_id, write_dir, filename_prefix):
 
 
 class VideoWriter(ImageObserver):
-    default_params = {
-        **ImageObserver.default_params,
-        "frame_rate": 60,
-        "file_ext": "mp4",
-        "encoding_params": {},
-        "queue_max_size": 0,
-    }
+    """
+    VideoWriter - a video_stream.ImageObserver that writes image data to video files.
+
+    The VideoWriter has no output and no additional config parameters. It observes a
+    single ImageSource and writes its buffer contents whenever the buffer is updated.
+    Use `ImageObserver.start_observing()` and `ImageObserver.stop_observing()` to start or stop
+    writing the image stream.
+    """
 
     def __init__(
         self,
-        id: str,
         config: dict,
         encoding_params,
+        frame_rate,
+        queue_max_size,
         media_dir,
+        file_ext,
         image_source: ImageSource,
         state_store_address: tuple,
         state_store_authkey: str,
         running_state_key="writing",
     ):
+        """
+        Initialize a VideoWriter.
+
+        Args:
+            - encoding_params: A dictionary of video encoding parameters. These are passed to the function imageio.get_writer
+                               See available options here: https://imageio.readthedocs.io/en/stable/format_ffmpeg.html
+            - frame_rate: Used for setting the video rate and measuring potential missing frames
+            - queue_max_size: The max size of the writing queue. If <=0 the queue is inifinite (the default)
+            - media_dir: The writer writes to the session directory when there's an open session. Otherwise it will use this directory.
+            - file_ext: Video filename suffix after the dot
+            - image_source: The observed ImageSource
+            - state_store_address, state_store_authkey: Credentials for the state store
+            - running_state_key: Uses this key (str) in the state of the observed ImageSource to indicate whether it's currently writing or not.
+        """
         self.img_src_id = image_source.id
         self.scaling_8bit = image_source.scaling_8bit
         self.encoding_params = encoding_params
         self.media_dir = media_dir
+        self.frame_rate = frame_rate
+        self.file_ext = file_ext
+        self.queue_max_size = queue_max_size
 
         super().__init__(
-            id,
+            self.img_src_id + ".writer",
             config,
             image_source,
             state_store_address,
@@ -71,9 +122,6 @@ class VideoWriter(ImageObserver):
 
     def _init(self):
         super()._init()
-        self.frame_rate = self.get_config("frame_rate")
-        self.file_ext = self.get_config("file_ext")
-        self.queue_max_size = self.get_config("queue_max_size")
 
         if len(self.image_shape) == 3 and self.image_shape[2] == 3:
             self.convert_bgr = True
@@ -119,7 +167,6 @@ class VideoWriter(ImageObserver):
             json.dump(
                 {
                     "image_source_config": self._img_src_config,
-                    "writer_config": self.config,
                     "encoding_params": self.encoding_params,
                 },
                 f,

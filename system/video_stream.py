@@ -1,3 +1,12 @@
+"""
+Streaming image data between processes
+Author: Tal Eisenberg, 2021
+
+The following classes use shared memory buffers to generate and process image data in an asynchronous manner using multiple os processes.
+
+- ImageSource: a multiprocessing.Process that writes image data to a shared memory buffer.
+- ImageObserver: a multiprocessing.Process that can receive a stream of images from ImageSource objects.
+"""
 import uuid
 import numpy as np
 import multiprocessing as mp
@@ -18,8 +27,7 @@ class ConfigurableProcess(mp.Process):
     a Configurable multiprocessing.Process
 
     This is the base class of ImageSource and ImageObserver, and takes care of setting default configuration parameters
-    as well as accessing them while the process is running.
-    This class is also responsible for setting up the process logger which can be accessed from the new process using the self.log field.
+    as well as accessing them while the process is running. It also sets up a logger that can be accessed from the new process at self.log.
 
     Adding default configuration parameters in a subclass:
 
@@ -58,6 +66,9 @@ class ConfigurableProcess(mp.Process):
         self.state_store_authkey = state_store_authkey
 
     def get_config(self, key):
+        """
+        Return a config value for the supplied `key`. If it doesn't exist, return the default value for `key`.
+        """
         if key in self.config:
             return self.config[key]
         elif key in self.__class__.default_params:
@@ -66,6 +77,7 @@ class ConfigurableProcess(mp.Process):
             raise KeyError(f"Unknown config key: {key}")
 
     def run(self):
+        # This code runs on the child process
         self.state = managed_state.Cursor(
             self.state_path,
             address=self.state_store_address,

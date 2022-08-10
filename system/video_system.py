@@ -63,16 +63,14 @@ def load_video_writers():
         )
 
         video_writers[src_id] = video_write.VideoWriter(
-            id=src_id + ".writer",
-            config={
-                "src_id": src_id,
-                "frame_rate": frame_rate,
-                "queue_max_size": get_config().video_record["max_write_queue_size"],
-            },
+            config={"src_id": src_id},
             encoding_params=get_config().video_record["encoding_configs"][
                 img_src.get_config("encoding_config")
             ],
+            frame_rate=frame_rate,
+            queue_max_size=get_config().video_record["max_write_queue_size"],
             media_dir=get_config().media_dir,
+            file_ext=get_config().video_record["file_ext"],
             image_source=image_sources[src_id],
             state_store_address=get_config().state_store_address,
             state_store_authkey=get_config().state_store_authkey,
@@ -218,7 +216,7 @@ def capture_images(src_ids=None):
         img, ts = src.get_image()  # NOTE: here we do not convert to uint8
         write_dir = _state.get(("session", "data_dir"), get_config().media_dir)
         filename_prefix = _state.get(("video", "record", "filename_prefix"), "")
-        p = video_write.save_image(img, ts, src.id, write_dir, filename_prefix)
+        p = video_write.save_image(img, src.id, write_dir, filename_prefix, ts)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
 
@@ -270,13 +268,13 @@ def init(state: managed_state.Cursor):
             with open(config_path, "w") as f:
                 json.dump(video_config, f, indent=4)
         except Exception:
-            log.exception(f"Exception while writing to {str(config_path)}")
+            _log.exception(f"Exception while writing to {str(config_path)}")
     else:
         try:
             with open(config_path, "r") as f:
                 video_config = json.load(f)
         except Exception:
-            log.exception(f"Exception while reading {str(config_path)}")
+            _log.exception(f"Exception while reading {str(config_path)}")
             return
 
     load_video_config(video_config)
