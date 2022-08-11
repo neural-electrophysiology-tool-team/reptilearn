@@ -88,7 +88,7 @@ class BBoxDataCollector:
                 ("confidence", "double precision"),
             ],
             csv_path=exp.session_state["data_dir"] / "head_bbox.csv",
-            table_name="bbox_position",
+            db_table_name="bbox_position",
             split_csv=True,
         )
         self.bbox_log.start()
