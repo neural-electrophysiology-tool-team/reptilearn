@@ -203,7 +203,12 @@ class VideoWriter(ImageObserver):
                 img = img[..., ::-1]
 
             self.ts_file.write(str(timestamp) + "\n")
-            self.writer.append_data(img)
+            try:
+                self.writer.append_data(img)
+            except StopIteration:
+                break
+            except Exception:
+                self.log.exception("Error while writing image to video file:")
 
             dt = time.time() - t0
             self.write_count += 1

@@ -95,8 +95,17 @@ class ImageSource(ConfigurableProcess):
 
     ImageSource parameters (in addition to the "class" param):
     - buf_len: The number of images stored in the buffer.
+    - buf_dtype: The data type of each image pixel channel. Currently "uint8" or "uint16" are supported, for unsigned 8-bit
+                 integer or unsigned 16-bit integer respectively.
     - image_shape: a tuple with 2 element denoting the shape of each image in the buffer.
-    - encoding_config: This parameter is used in video_write.VideoWriter to determine the video encoding parameters (see VideoWriter documentation)
+    - encoding_config: This parameter is used in video_write.VideoWriter to determine the video encoding parameters (see
+                       video_write.VideoWriter documentation)
+    - 8bit_scaling: Should be used in case buf_dtype is "uint16". Videos and images can currently only be encoded in 8 bits per pixel
+                    channel. This configures the way 16 bit pixel values are scaled to 8 bits. It can be either:
+                    - "auto" (str): Scale pixel intensities linearly so that the image minimum becomes 0 and the maximum becomes 255.
+                    - "full_range" (str): Linear scaling which maps 0 to 0 and 65535 to 255.
+                    - [a, b] (any two-element sequence): Linear scaling which maps a to 0 and b to 255.
+    - video_frame_rate: The number of frames per second. Used for setting the speed of recorded videos.
     See documentation of the ConfigurableProcess class for more information on setting default params and runtime parameter access
 
     To make your own ImageSource subclass override any of the following methods:
