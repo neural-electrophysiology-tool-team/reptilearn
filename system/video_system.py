@@ -351,7 +351,7 @@ def shutdown_video():
 
     for img_src in image_sources.values():
         try:
-            img_src.stop_event.set()
+            img_src.shutdown()
         except Exception:
             _log.exception("Error while closing image sources:")
 

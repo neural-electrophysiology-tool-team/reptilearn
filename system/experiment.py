@@ -268,7 +268,7 @@ def close_session():
         event_logger.log("session/close", session_state.get_self())
         event_logger.stop()
 
-    if state.exists(("video", "record")):
+    if state.exists("video") and state.exists(("video", "record")):
         state["video", "record", "filename_prefix"] = ""
 
     session_state.delete(())

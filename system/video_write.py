@@ -206,11 +206,12 @@ class VideoWriter(ImageObserver):
         else:
             s_missed_frames = "."
 
+        avg_frame_rate = 1 / self.avg_frame_time if self.avg_frame_time != 0 else "NaN"
         self.log.info(
             (
                 f"Finished writing {self.write_count} frames. "
                 + f"Avg. write time: {self.avg_write_time * 1000:.3f}ms, "
-                + f"Avg. frame rate: {1 / self.avg_frame_time:.3f}fps, "
+                + f"Avg. frame rate: {avg_frame_rate:.3f}fps, "
                 + f"Max queued frames: {self.max_queued_items}"
                 + s_missed_frames
             )

@@ -294,6 +294,9 @@ class ImageSource(ConfigurableProcess):
 
         return img, self.timestamp.value
 
+    def shutdown(self):
+        self.stop_event.set()
+
     def _acquire_image(self):
         """
         Called when the ImageSource is ready for a new image.

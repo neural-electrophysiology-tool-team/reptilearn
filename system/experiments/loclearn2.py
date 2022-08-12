@@ -1,6 +1,6 @@
 import experiment as exp
 from experiment import session_state
-from video_system import image_sources
+from video_system import image_sources, capture_images
 import arena
 import schedule
 import video_system
@@ -144,6 +144,7 @@ class LocationExperiment(exp.Experiment):
         arena.run_command("set", "AC Line 2", [1], False)
         arena.run_command("set", "AC Line 1", [1], False)
         arena.request_values()
+        schedule.once(capture_images, interval=5, args=([exp.get_params()["image_source_id"]],))
 
     def on_day_end(self):
         if not self.daytime:
@@ -283,7 +284,7 @@ class LocationExperiment(exp.Experiment):
         if "reinforced_location" not in session_state:
             return
 
-        if det is None:
+        if np.any(np.isnan(det)):
             # later might take part in logic
             return
 
