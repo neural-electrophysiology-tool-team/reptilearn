@@ -72,6 +72,7 @@ video_record = {
             "codec": "libx264",
             "quality": 5,
             "macro_block_size": 8,  # to work with 1440x1080 image size
+            "ffmpeg_log_level": "warning",
         },
         "gpu": {
             "codec": "h264_nvenc",
@@ -117,7 +118,7 @@ arena = {
 
 # Database connection
 database = {
-    "user": "postgre",
+    "user": "postgres",
     "host": "127.0.0.1",
     "port": 5432,
     "db": "reptilearn",

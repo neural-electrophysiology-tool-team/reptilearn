@@ -1,3 +1,12 @@
+"""
+Streaming image data between processes
+Author: Tal Eisenberg, 2021
+
+The following classes use shared memory buffers to generate and process image data in an asynchronous manner using multiple os processes.
+
+- ImageSource: a multiprocessing.Process that writes image data to a shared memory buffer.
+- ImageObserver: a multiprocessing.Process that can receive a stream of images from ImageSource objects.
+"""
 import uuid
 import numpy as np
 import multiprocessing as mp
@@ -18,8 +27,7 @@ class ConfigurableProcess(mp.Process):
     a Configurable multiprocessing.Process
 
     This is the base class of ImageSource and ImageObserver, and takes care of setting default configuration parameters
-    as well as accessing them while the process is running.
-    This class is also responsible for setting up the process logger which can be accessed from the new process using the self.log field.
+    as well as accessing them while the process is running. It also sets up a logger that can be accessed from the new process at self.log.
 
     Adding default configuration parameters in a subclass:
 
@@ -58,6 +66,9 @@ class ConfigurableProcess(mp.Process):
         self.state_store_authkey = state_store_authkey
 
     def get_config(self, key):
+        """
+        Return a config value for the supplied `key`. If it doesn't exist, return the default value for `key`.
+        """
         if key in self.config:
             return self.config[key]
         elif key in self.__class__.default_params:
@@ -66,6 +77,7 @@ class ConfigurableProcess(mp.Process):
             raise KeyError(f"Unknown config key: {key}")
 
     def run(self):
+        # This code runs on the child process
         self.state = managed_state.Cursor(
             self.state_path,
             address=self.state_store_address,
@@ -83,8 +95,17 @@ class ImageSource(ConfigurableProcess):
 
     ImageSource parameters (in addition to the "class" param):
     - buf_len: The number of images stored in the buffer.
+    - buf_dtype: The data type of each image pixel channel. Currently "uint8" or "uint16" are supported, for unsigned 8-bit
+                 integer or unsigned 16-bit integer respectively.
     - image_shape: a tuple with 2 element denoting the shape of each image in the buffer.
-    - encoding_config: This parameter is used in video_write.VideoWriter to determine the video encoding parameters (see VideoWriter documentation)
+    - encoding_config: This parameter is used in video_write.VideoWriter to determine the video encoding parameters (see
+                       video_write.VideoWriter documentation)
+    - 8bit_scaling: Should be used in case buf_dtype is "uint16". Videos and images can currently only be encoded in 8 bits per pixel
+                    channel. This configures the way 16 bit pixel values are scaled to 8 bits. It can be either:
+                    - "auto" (str): Scale pixel intensities linearly so that the image minimum becomes 0 and the maximum becomes 255.
+                    - "full_range" (str): Linear scaling which maps 0 to 0 and 65535 to 255.
+                    - [a, b] (any two-element sequence): Linear scaling which maps a to 0 and b to 255.
+    - video_frame_rate: The number of frames per second. Used for setting the speed of recorded videos.
     See documentation of the ConfigurableProcess class for more information on setting default params and runtime parameter access
 
     To make your own ImageSource subclass override any of the following methods:

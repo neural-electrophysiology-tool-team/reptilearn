@@ -60,11 +60,10 @@ def convert_to_8bit(img, scaling_param):
     if isinstance(scaling_param, str):
         if scaling_param == "truncate":
             return img.astype("uint8")
-
         if scaling_param == "auto":
             smin, smax = img.min(), img.max()
         elif scaling_param == "full_range":
-            smin, smax = 0, 2**16
+            smin, smax = 0, (2**16) - 1
         else:
             raise ValueError(f"Invalid scaling_8bit parameter value: {scaling_param}")
     elif isinstance(scaling_param, collections.Sequence):
@@ -75,4 +74,6 @@ def convert_to_8bit(img, scaling_param):
     if smax == smin:
         return img
     else:
-        return np.clip(255.0 * (img.astype("int32") - smin) / (smax - smin), 0, 255).astype("uint8")
+        return np.clip(
+            255.0 * (img.astype("int32") - smin) / (smax - smin), 0, 255
+        ).astype("uint8")
