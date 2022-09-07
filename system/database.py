@@ -1,5 +1,7 @@
 """
 Communicate with TimescaleDB databases.
+Author: Tal Eisenberg, 2021
+
 This module requires the psycopg2 library. psycopg2 is an optional dependency, and only
 necessary when database communication is required.
 

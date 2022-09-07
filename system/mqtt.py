@@ -1,6 +1,6 @@
 """
 This module contains an MQTTClient class that inherits from paho.mqtt.client.Client.
-The client is instanstiated in the mqtt.init function, and can be referenced from
+The client is created in the mqtt.init function, and can be referenced at
 mqtt.client.
 
 mqtt.mqtt_json_callback is useful when the incoming message payload is a JSON string.
@@ -76,7 +76,9 @@ class MQTTClient(paho.Client):
         self.message_callback_add(topic, self._exception_handler_wrapper(callback))
 
     def unsubscribe_all(self):
-        """Unsubscribe all previous subscriptions and remove callbacks."""
+        """
+        Unsubscribe all previous subscriptions and remove callbacks.
+        """
         for topic in self.subscriptions.keys():
             self.message_callback_remove(topic)
             self.unsubscribe(topic)
@@ -84,6 +86,12 @@ class MQTTClient(paho.Client):
         self.subscriptions.clear()
 
     def unsubscribe_callback(self, topic):
+        """
+        Unsubscribe a single MQTT subscription to `topic`.
+
+        Return the callback function that's registered to `topic` or None if no subscription was found
+        under `topic`.
+        """
         if topic in self.subscriptions:
             self.message_callback_remove(topic)
             self.unsubscribe(topic)
@@ -115,8 +123,8 @@ def mqtt_json_callback(callback):
     Returns a function that can be used with MQTTClient.subscribe_callback.
 
     The callback signature should be (topic, payload) where:
-    - topic: str, the message topic,
-    - payload: dict, the decoded json message.
+    - topic: str, the message topic.
+    - payload: any, the decoded json payload.
     """
 
     def cb(client, userdata, message):
@@ -134,8 +142,9 @@ def mqtt_json_callback(callback):
     return cb
 
 
-# Main process threaded client
-client = None
+# Main process threaded MQTT client. 
+# NOTE: This client can only be accessed from the main process.
+client: paho.Client = None
 
 
 def init():
@@ -154,5 +163,8 @@ def init():
 
 
 def shutdown():
+    """
+    Disconnect the main process client and stop its thread.
+    """
     client.disconnect()
     client.loop_stop()

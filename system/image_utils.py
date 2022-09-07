@@ -1,3 +1,8 @@
+"""
+Various functions for dealing with image data.
+
+Author: Tal Eisenberg, 2021
+"""
 import io
 from PIL import Image
 import numpy as np
@@ -8,7 +13,7 @@ def resize_image(img: Image, size=(None, None)):
     """
     Resize an image to the desired size.
 
-    :param img: The image as a numpy array.
+    :param img: The image as a PIL Image object.
     :param size: A (width, height) tuple.
 
     When both width and height are None, a copy of the original image is returned.
@@ -57,6 +62,17 @@ def encode_image(img, encoding="WebP", encode_params={}, shape=(None, None)):
 
 
 def convert_to_8bit(img, scaling_param):
+    """
+    Convert an image numpy array to a uint8 numpy array, scaling each pixel channel intensity according to `scaling_param`.
+
+    Args:
+    - img: The original image (numpy array).
+    - scaling_param: Any of the following:
+        - "auto" (str): Scale pixel intensities linearly so that the image minimum becomes 0 and the maximum becomes 255.
+        - "full_range" (str): Linear scaling which maps 0 to 0 and 65535 to 255.
+        - [a, b] (any two-element sequence): Linear scaling which maps a to 0 and b to 255.
+
+    """
     if isinstance(scaling_param, str):
         if scaling_param == "truncate":
             return img.astype("uint8")
