@@ -1,3 +1,8 @@
+"""
+Manage the image processing system.
+
+Author: Tal Eisenberg, 2021
+"""
 from threading import Timer
 from pathlib import Path
 import json
@@ -50,6 +55,10 @@ def load_observer(id, config):
 
 
 def load_video_writers():
+    """
+    Create and start a video_write.VideoWriter for each of the currently loaded `ImageSource`s.
+    Each writer is responsible for recording videos from a single ImageSource.
+    """
     global video_writers
     video_writers = {}
 
@@ -78,6 +87,12 @@ def load_video_writers():
 
 
 def load_video_config(config: dict):
+    """
+    Initialize video state, and start processes of `ImageSource`s and `ImageObserver`s as specified in `config`. 
+
+    Args:
+    - config: Video configuration dict. See config/video_config.json for an example.
+    """
     overlay.overlays = {}
 
     if "video" not in _state:
@@ -110,9 +125,16 @@ def load_video_config(config: dict):
 
 
 def update_video_config(config: dict):
+    """
+    Shutdown video system and then restart it according to `config`.
+    After the system starts succesfully the new `config` is stored in the video config file.
+
+    Args:
+    - config: Video configuration dict. See config/video_config.json for an example.
+    """
     global image_sources, image_observers, video_config
 
-    ttl_trigger = has_trigger() and _rec_state.get("ttl_trigger", False) is True
+    ttl_trigger = has_trigger() and _rec_state.get("ttl_trigger", False)
 
     if len(image_sources) != 0:
         try:
@@ -206,7 +228,7 @@ def stop_record(src_ids=None):
     Timer(0.5, stop).start()
 
 
-def capture_images(src_ids=None):
+def capture_images(src_ids=None, filename_prefix=""):
     if src_ids is None:
         src_ids = _rec_state["selected_sources"]
 
@@ -215,7 +237,6 @@ def capture_images(src_ids=None):
     for src in selected_sources:
         img, ts = src.get_image()  # NOTE: here we do not convert to uint8
         write_dir = _state.get(("session", "data_dir"), get_config().media_dir)
-        filename_prefix = _state.get(("video", "record", "filename_prefix"), "")
         p = video_write.save_image(img, src.id, write_dir, filename_prefix, ts)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
@@ -250,6 +271,13 @@ def _find_image_classes():
 
 
 def init(state: managed_state.Cursor):
+    """
+    Initialize the video system. Find all ImageSource and ImageObserver classes. Read the
+    video config file, and setup the video system according to the configuration.
+
+    Args:
+    - state: A Cursor to the root of the main process state store.
+    """
     global _log, _state, video_config, _rec_state
     _log = get_main_logger()
     _state = state
@@ -288,6 +316,13 @@ def init(state: managed_state.Cursor):
 
 
 def update_acquire_callback(src_id):
+    """
+    Add a state store callback to automatically select and unselect an image source with id `src_id` when
+    it starts or stops acquiring images.
+
+    Args:
+    - src_id: The id of an existing `ImageSource`.
+    """
     def select_when_acquiring(old_val, new_val):
         nonlocal src_id
 
@@ -303,9 +338,8 @@ def update_acquire_callback(src_id):
 
 def start():
     """
-    Start processes of image writers, observers and sources
+    Start processes of image writers, observers and sources.
     """
-
     for w in video_writers.values():
         w.start()
 
@@ -324,6 +358,10 @@ def start():
 
 
 def shutdown_video():
+    """
+    Shutdown all ImageSource and ImageObserver processes. Blocks until
+    all processes terminate.
+    """
     for w in video_writers.values():
         try:
             w.stop_observing()
@@ -370,4 +408,7 @@ def shutdown_video():
 
 
 def shutdown():
+    """
+    Shutdown video system.
+    """
     shutdown_video()

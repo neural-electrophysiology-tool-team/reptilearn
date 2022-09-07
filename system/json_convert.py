@@ -1,10 +1,13 @@
+"""
+Author: Tal Eisenberg, 2021
+"""
 from pathlib import Path
 import datetime
 
 
 def json_convert(v):
     """
-    conversion for various datatypes that are not supported by the json module.
+    Convert various datatypes that are not supported by the json module into json-compatible types.
     """
     if hasattr(v, "tolist"):
         return v.tolist()

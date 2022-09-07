@@ -30,7 +30,7 @@ class YOLOv4Detector:
         :param meta_path: Path to yolo metadata file (pretty useless for inference but necessary)
         :param conf_thres: float in (0,1), confidence threshold for bounding box detections
         :param nms_thres: float in (0,1), Non-max suppression threshold. Suppresses multiple detections for the same object.
-        :param use_neareast_detection: When true, only the detection nearest to the previous one is returned.
+        :param return_neareast_detection: When true, only the detection nearest to the previous one is returned.
         """
         self.cfg_path = cfg_path
         self.weights_path = weights_path

@@ -1,5 +1,6 @@
 """
-schedule: Functions for running tasks at various schedules.
+Functions for running tasks at various schedules.
+
 Author: Tal Eisenberg, 2021
 """
 

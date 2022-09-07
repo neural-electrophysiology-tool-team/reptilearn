@@ -1,3 +1,8 @@
+"""
+Manage video overlays that display visual information on top of image source streams.
+
+Author: Tal Eisenberg, 2021
+"""
 import video_system
 
 # TODO:

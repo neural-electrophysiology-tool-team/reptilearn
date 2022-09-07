@@ -1,3 +1,8 @@
+"""
+Flask REST API routes that can be used for controlling the system. These routes are called by the ui webapp.
+
+Author: Tal Eisenberg, 2021, 2022
+"""
 import flask
 import json
 from configure import get_config
@@ -77,14 +82,14 @@ def add_routes(app):
 
         frame_rate = int(
             flask.request.args.get(
-                "frame_rate", default=get_config().http_streaming["frame_rate"]
+                "frame_rate", default=get_config().http_streaming["max_frame_rate"]
             )
         )
 
         enc_args = parse_image_request(src_id)
 
         def flask_gen():
-            # log.info(f"Starting new stream: {src_id}")
+            log.debug(f"Starting new stream over http: {src_id}")
             gen = img_src.stream_gen(frame_rate, scale_to_8bit=True)
 
             try:
@@ -102,7 +107,7 @@ def add_routes(app):
                     except StopIteration:
                         break
             finally:
-                # log.info("Stopping stream")
+                log.debug("Stopping http stream")
                 pass
 
         return flask.Response(
@@ -117,9 +122,9 @@ def add_routes(app):
             img_src.stop_streaming()
         return flask.Response("ok")
 
-    @app.route("/save_image/<src_id>")
-    def route_save_image(src_id):
-        video_system.capture_images([src_id])
+    @app.route("/save_image/<src_id>/<filename_prefix>")
+    def route_save_image(src_id, filename_prefix=""):
+        video_system.capture_images([src_id], filename_prefix)
         return flask.Response("ok")
 
     @app.route("/run_action/<label>")

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+The main module. Start all system components and shutdown gracefully.
 
+Author: Tal Eisenberg, 2021
+"""
 import multiprocessing
 import threading
 import logging
@@ -123,10 +127,7 @@ threading.Thread(target=state_listen).start()
 
 
 # Run Flask server
-try:
-    socketio.run(app, use_reloader=False, host="0.0.0.0", port=config.api_port)
-except KeyboardInterrupt:
-    pass
+socketio.run(app, port=config.api_port)
 
 
 # Shutdown (flask server was terminated)

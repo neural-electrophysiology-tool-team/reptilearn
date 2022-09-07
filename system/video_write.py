@@ -1,5 +1,6 @@
 """
 Writing image data to video files and images.
+
 Author: Tal Eisenberg, 2021
 """
 from pathlib import Path

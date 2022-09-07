@@ -1,6 +1,8 @@
 """
 This module is responsible for creating visualizations for images, videos, statistical plots and notebook widgets.
 Documented more loosely than the other modules, as it's less important
+
+Authors: Tal Eisenberg, Itai Turkenish, 2020
 """
 
 import os
@@ -162,7 +164,7 @@ def draw_sequences(
 """
 -------------------- Video closure functions ----------------------
 Functions in this part follow a closure pattern. The functions return a function that's passed to the process_video
-function. 
+function.
 """
 
 

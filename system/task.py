@@ -1,3 +1,8 @@
+"""
+Task scheduling of dynamically loaded task functions.
+
+Author: Tal Eisenberg, 2021
+"""
 from dynamic_loading import load_modules
 import inspect
 from rl_logging import get_main_logger
