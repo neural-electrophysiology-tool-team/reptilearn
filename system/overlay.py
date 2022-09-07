@@ -41,7 +41,7 @@ class BarPlot(ImageOverlay):
 class TimestampVisualizer(ImageOverlay):
     def apply(self, img, timestamp):
         stime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-        im_h, im_w = img.shape
+        im_h, im_w = img.shape[:2]
         font = cv2.FONT_HERSHEY_PLAIN
         font_scale = 3
         text_size = cv2.getTextSize(stime, font, font_scale, 10)[0]
