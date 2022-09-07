@@ -55,7 +55,7 @@ def encode_image(img, encoding="WebP", encode_params={}, shape=(None, None)):
 
     Return the encoded image as a byte string.
     """
-    im = resize_image(Image.fromarray(img, 'RGB'), shape)
+    im = resize_image(Image.fromarray(img), shape)
     with io.BytesIO() as output:
         im.save(output, format=encoding, **encode_params)
         return output.getvalue()

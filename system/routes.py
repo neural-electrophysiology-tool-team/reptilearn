@@ -82,7 +82,7 @@ def add_routes(app):
 
         frame_rate = int(
             flask.request.args.get(
-                "frame_rate", default=get_config().http_streaming["max_frame_rate"]
+                "frame_rate", default=get_config().http_streaming["frame_rate"]
             )
         )
 
