@@ -11,7 +11,6 @@ getitem(d, ("x", "y")) is equivalent to d["x"]["y"].
 """
 
 from collections import Sequence
-import multiprocessing
 
 
 class _PathNotFound:

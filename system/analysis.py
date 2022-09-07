@@ -75,7 +75,7 @@ def is_timestamp_contained(
     else:
         beginning = tdf[time_col].iloc[0]
         end = tdf[time_col].iloc[-1]
-    return beginning < timestamp < end
+    return beginning <= timestamp <= end
 
 
 def idx_for_time(df: pd.DataFrame, timestamp: pd.Timestamp, time_col=None) -> int:
@@ -285,6 +285,13 @@ class VideoInfo:
             )
             self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
             self.frame_count = self.timestamps.shape[0]
+
+        self.metadata_path = path.parent / (path.stem + ".json")
+        if not self.metadata_path.exists():
+            self.metadata = None
+        else:
+            with open(self.metadata_path) as f:
+                self.metadata = json.load(f)
 
         self.path = path
 

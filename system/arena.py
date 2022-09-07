@@ -12,16 +12,16 @@ from subprocess import Popen, PIPE
 import collections
 import data_log
 import json
+from rl_logging import get_main_logger
 import schedule
 import logging
-
+from configure import get_config
 
 _state = None
 _values_once_callback = None
 _log: logging.Logger = None
 _arena_log: data_log.DataLogger = None
 _arena_state = None
-_config = None
 _interfaces_config: list = None
 _trigger_interface: dict = None
 
@@ -36,11 +36,13 @@ def _run_shell_command(cmd):
 
 
 def switch_display(on, display=None):
+    """Switch an external display on or off. Requires xrandr and an X server"""
+    displays = get_config().arena["displays"]
     if display is None:
-        display_id = list(_config.arena["displays"].values())[0]
-        display = list(_config.arena["displays"].keys())[0]
+        display_id = list(displays.values())[0]
+        display = list(displays.keys())[0]
     else:
-        display_id = _config.arena["displays"][display]
+        display_id = displays[display]
 
     DISPLAY_CMD = f"DISPLAY={display_id} xrandr --output HDMI-0 --{{}}"
     _state["arena", "displays", display] = on
@@ -52,34 +54,57 @@ def switch_display(on, display=None):
 
 
 def run_command(command, interface, args=None, update_value=True):
+    """
+    Send a command to the MQTT-Serial bridge.
+
+    Args:
+    - command: The command name (str)
+    - interface: The interface that should receive the command (str)
+    - args: A list of command arguments (list of str)
+    - update_value: When True, the value of the interface will be requested after sending the command.
+                    It's generally a good idea in order to keep the system and arena interfaces in sync.
+                    However, requesting values and waiting for a response after each command can reduce the
+                    responsiveness of the arena controllers. Therefore, you might want to set this to False
+                    when sending multiple commands over a short time period or when the interface has no value.
+    """
     if args is None:
         js = json.dumps([command, interface])
     else:
         js = json.dumps([command, interface] + args)
 
-    mqtt.client.publish(_config.arena["command_topic"], js)
+    mqtt.client.publish(get_config().arena["command_topic"], js)
     if update_value:
         request_values(interface)
 
 
 def request_values(interface=None):
+    """
+    Request the current value of an interface or of all interfaces (when interface=None).
+
+    Args:
+    - interface: Interface name (str) or None for requesting values from all interfaces.
+    """
+    topic = get_config().arena["command_topic"]
     if interface is None:
-        mqtt.client.publish(_config.arena["command_topic"], json.dumps(["get", "all"]))
+        mqtt.client.publish(topic, json.dumps(["get", "all"]))
     else:
         mqtt.client.publish(
-            _config.arena["command_topic"], json.dumps(["get", interface])
+            topic, json.dumps(["get", interface])
         )
 
 
-def get_value(interface):
-    return _arena_state["values", interface]
-
-
 def has_trigger():
+    """Return True if a camera trigger arena interface is defined, or False otherwise"""
     return _trigger_interface is not None
 
 
 def start_trigger(update_state=True):
+    """
+    Start the camera trigger if a trigger interface is defined.
+
+    Args:
+    - update_state: Whether to update the state store under ("video", "record", "ttl_trigger") to True (regardless of the actual trigger state).
+    """
     if _trigger_interface is None:
         _log.warn("No trigger interface was found.")
         return
@@ -91,6 +116,12 @@ def start_trigger(update_state=True):
 
 
 def stop_trigger(update_state=True):
+    """
+    Stop the camera trigger if a trigger interface is defined.
+
+    Args:
+    - update_state: Whether to update the state store under ("video", "record", "ttl_trigger") to False (regardless of the actual trigger state).
+    """
     if _trigger_interface is None:
         _log.warn("No trigger interface was found.")
         return
@@ -102,12 +133,18 @@ def stop_trigger(update_state=True):
 
 
 def get_interfaces_config():
+    """
+    Return a list of all configured arena interfaces (a list of dicts). This is a single
+    list of all interfaces configured over all Arduinos.
+    """
     return _interfaces_config
 
 
 def poll(callback_once=None):
     """
     Poll the arena controller state.
+
+    Args:
     - callback_once: A function with a single argument that will be called once
                      the values arrive.
     """
@@ -117,7 +154,7 @@ def poll(callback_once=None):
     request_values()
 
 
-def flatten(d, parent_key="", sep="_"):
+def _flatten(d, parent_key="", sep="_"):
     if isinstance(d, collections.MutableMapping):
         items = []
         for k, v in d.items():
@@ -125,7 +162,7 @@ def flatten(d, parent_key="", sep="_"):
             if isinstance(v, collections.MutableMapping) or isinstance(
                 v, collections.MutableSequence
             ):
-                items.extend(flatten(v, new_key, sep=sep).items())
+                items.extend(_flatten(v, new_key, sep=sep).items())
             else:
                 items.append((new_key, v))
 
@@ -138,7 +175,7 @@ def flatten(d, parent_key="", sep="_"):
             if isinstance(v, collections.MutableMapping) or isinstance(
                 v, collections.MutableSequence
             ):
-                items.extend(flatten(v, new_key, sep=sep).items())
+                items.extend(_flatten(v, new_key, sep=sep).items())
             else:
                 items.append((new_key, v))
         return dict(items)
@@ -157,10 +194,11 @@ def _on_all_values(_, values):
         _values_once_callback(values)
         _values_once_callback = None
 
-    if "data_log" in _config.arena:
-        flat_values = flatten(values)
+    data_log_config = get_config().arena.get("data_log", None)
+    if data_log_config is not None:
+        flat_values = _flatten(values)
         log_values = [timestamp]
-        log_conf = _config.arena["data_log"]
+        log_conf = data_log_config
         for col in log_conf["columns"]:
             if col[0] in flat_values:
                 log_values.append(flat_values[col[0]])
@@ -183,32 +221,29 @@ def _on_error(topic, msg):
     _log.error(f"[{topic}] {msg}")
 
 
-def init(logger, state, config):
+def init(state):
     """
     Initialize the arena module.
-    Connects to MQTT, inits sensor data logger, sends arena defaults, and subscribes for
-    sensor updates.
-
-    - arena_defaults: A dict with signal_led and day_lights keys with default values.
     """
-    global _state, _log, _arena_log, _config, _arena_state, _interfaces_config, _trigger_interface
+    global _state, _log, _arena_log, _arena_state, _interfaces_config, _trigger_interface
     _state = state
-    _log = logger
-    _config = config
+    _log = get_main_logger()
     _arena_state = state.get_cursor("arena")
+
+    displays = get_config().arena["displays"]
     _arena_state.set_self(
         {
             "values": {},
             "timestamp": None,
-            "displays": dict([(d, False) for d in config.arena["displays"].keys()]),
+            "displays": dict([(d, False) for d in displays.keys()]),
         }
     )
 
-    for display in config.arena["displays"].keys():
+    for display in displays.keys():
         switch_display(False, display)
 
     try:
-        with open(config.arena_config_path, "r") as f:
+        with open(get_config().arena_config_path, "r") as f:
             arena_config = json.load(f)
             interfaces_config = []
             for interfaces in arena_config.values():
@@ -225,12 +260,12 @@ def init(logger, state, config):
             _trigger_interface = ifs["name"]
             break
 
-    if "data_log" in config.arena:
-        log_conf = config.arena["data_log"]
+    data_log_config = get_config().arena.get("data_log", None)
+    if data_log_config is not None:
+        log_conf = data_log_config
         columns = [("time", "timestamptz not null")] + log_conf["columns"]
         _arena_log = data_log.QueuedDataLogger(
-            table_name=log_conf["table_name"],
-            log_to_db=True,
+            db_table_name=log_conf["table_name"],
             columns=columns,
         )
         _arena_log.start()
@@ -238,7 +273,7 @@ def init(logger, state, config):
     while not mqtt.client.is_connected:
         time.sleep(0.01)
 
-    topic = config.arena["receive_topic"]
+    topic = get_config().arena["receive_topic"]
     mqtt.client.subscribe_callback(
         f"{topic}/all_values", mqtt.mqtt_json_callback(_on_all_values)
     )
@@ -249,11 +284,14 @@ def init(logger, state, config):
     )
 
     poll()
-    schedule.repeat(poll, config.arena["poll_interval"], pool="arena")
+    schedule.repeat(poll, get_config().arena["poll_interval"], pool="arena")
 
 
 def shutdown():
-    topic = _config.arena["receive_topic"]
+    """
+    Shutdown the arena module.
+    """
+    topic = get_config().arena["receive_topic"]
     mqtt.client.unsubscribe_callback(f"{topic}/all_values")
     mqtt.client.unsubscribe_callback(f"{topic}/info/#")
     mqtt.client.unsubscribe_callback(f"{topic}/error/#")

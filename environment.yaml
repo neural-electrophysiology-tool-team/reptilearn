@@ -20,4 +20,4 @@ dependencies:
     - pyserial
     - python-dotenv
     - Pillow
-
+    

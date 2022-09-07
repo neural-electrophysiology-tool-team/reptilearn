@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+The main module. Start all system components and shutdown gracefully.
 
+Author: Tal Eisenberg, 2021
+"""
 import multiprocessing
 import threading
 import logging
@@ -10,10 +14,9 @@ from flask_socketio import SocketIO, emit
 import json
 import sys
 import argparse
-import importlib
-import traceback
 from dotenv import load_dotenv
 
+import configure
 import rl_logging
 import mqtt
 import arena
@@ -37,18 +40,15 @@ arg_parser.add_argument(
 )
 args = arg_parser.parse_args()
 
-print("🦎 Loading Reptilearn")
+print("🦎 Loading ReptiLearn")
 
 # Import configuration module
-try:
-    config = importlib.import_module(f"config.{args.config}")
-except Exception:
-    traceback.print_exc()
-    sys.exit(1)
+config = configure.load_config(args.config)
 
+# Set process start method according to the config module
 multiprocessing.set_start_method(config.process_start_method)
 
-# Initialize Flask REST app
+# Initialize the flask app for the REST API
 app = flask.Flask(
     "reptiLearnAPI",
     static_folder=config.static_web_path,
@@ -62,8 +62,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 state_store = managed_state.StateStore(
     address=config.state_store_address, authkey=config.state_store_authkey
 )
+
+# Create a Cursor pointing to the root of the state. It can be used only from the main process.
 state = None
-while state is None:  # wait until the store server is running
+while state is None:  # retry until the store server is running
     try:
         state = managed_state.Cursor(
             (), address=config.state_store_address, authkey=config.state_store_authkey
@@ -72,9 +74,10 @@ while state is None:  # wait until the store server is running
         time.sleep(0.01)
 
 
-_dispatcher = managed_state.StateDispatcher(state)
-_dispatcher_thread = threading.Thread(target=_dispatcher.listen)
-_dispatcher_thread.start()
+# Run a state dispatcher thread. This is can be used anywhere on the main process.
+dispatcher = managed_state.StateDispatcher(state)
+dispatcher_thread = threading.Thread(target=dispatcher.listen)
+dispatcher_thread.start()
 
 # Setup Logging
 stderr_handler = logging.StreamHandler(sys.stderr)
@@ -88,23 +91,22 @@ log = rl_logging.init(
         stderr_handler,
         rl_logging.SessionLogHandler(state),
     ),
-    log_buffer=rl_logging.LogBuffer(config.log_buffer_size),
     extra_loggers=(app_log, app.logger),
     extra_log_level=logging.WARNING,
     default_level=config.log_level,
 )
 
 # Initialize all other modules
-mqtt.init(log, config)
-task.init(log, config)
-arena.init(log, state, config)
-video_system.init(log, state, config)
-experiment.init(log, state, config)
+mqtt.init()
+task.init()
+arena.init(state)
+video_system.init(state)
+experiment.init(state)
 
 # Setup flask http routes
-routes.add_routes(app, config, log)
+routes.add_routes(app)
 
-# Load image sources and observers
+# Start the video system
 video_system.start()
 
 
@@ -125,10 +127,7 @@ threading.Thread(target=state_listen).start()
 
 
 # Run Flask server
-try:
-    socketio.run(app, use_reloader=False, host="0.0.0.0", port=config.api_port)
-except KeyboardInterrupt:
-    pass
+socketio.run(app, port=config.api_port)
 
 
 # Shutdown (flask server was terminated)
@@ -141,7 +140,7 @@ def shutdown():
     log.info("Shutting down logging and state store...")
     rl_logging.shutdown()
     stop_state_emitter()
-    _dispatcher.stop()
+    dispatcher.stop()
     state_store.shutdown()
 
 

@@ -1,3 +1,8 @@
+"""
+A data logger for logging experiment events.
+
+Author: Tal Eisenberg, 2021
+"""
 import multiprocessing as mp
 import functools
 import threading
@@ -10,14 +15,40 @@ from json_convert import json_convert
 
 
 class EventDataLogger(DataLogger):
-    def __init__(self, config, table_name="events", *args, **kwargs):
+    """
+    The EventDataLogger is a DataLogger (running on a child process) that logs experiment events.
+    The logger is started whenever a session is loaded, and it is stopped when the session is closed (see experiment.py).
+    It can be set up to log MQTT messages and state store updates, as well as custom experiment events.
+    The logger can be configured in the config module under the event_log dictionary.
+
+    Events can be stored in a .csv file or a TimescaleDB hypertable (or both), and uses the following columns:
+    - time: Event timestamp in seconds since epoch
+    - event: The event name (up to 128 characters for the db table)
+    - value: A JSON blob containing more information about the event
+
+    config.event_log options:
+    - default_events: A list of MQTT or state update events that will be logged in every experiment.
+                      Each element should be a tuple.
+                      - To add an MQTT default event use: ('mqtt', mqtt_topic), for example
+                        ("mqtt", "arena_command") will log all arena commands.
+                      - To log every update to a specific state path use: ("state", state_path), for example
+                        ("state", ("session", "cur_trial"))
+    - log_to_db: Whether to log events to the database.
+    - log_to_csv: Whether to log events to csv files.
+    - table_name: The name of the database table where events will be stored.
+
+    MQTT and state events can be added or removed after the logger is started. See methods below
+    To log custom events the log method can be used.
+    """
+
+    def __init__(self, config, db_table_name="events", *args, **kwargs):
         super().__init__(
             columns=(
                 ("time", "timestamptz not null"),
                 ("event", "varchar(128)"),
                 ("value", "json"),
             ),
-            table_name=table_name,
+            db_table_name=db_table_name,
             *args,
             **kwargs,
         )
@@ -91,28 +122,43 @@ class EventDataLogger(DataLogger):
         elif src == "state":
             self._state_dispatcher.remove_callback(key)
 
-    def add_mqtt_event(self, topic):
-        self.add_event("mqtt", topic)
-
-    def add_state_event(self, path):
-        self.add_event("state", path)
-
     def add_event(self, src, key):
+        """
+        Start logging when an MQTT or state event occurs.
+
+        Args:
+        - src: Either "mqtt" or "state" for listening to MQTT messages or state store updates, respectively.
+        - key: In the case of an "mqtt" src. the key is an MQTT topic (a string. may include wildcards). In the case of a "state"
+               src, the key is a state store path (any state path type, see dicttools.py).
+        """
         self._add_event_q.put((src, key))
 
     def log(self, event, value):
+        """
+        Add a log record (row) with current time, and the supplied event and value.
+        """
         self._event_q.put((time.time(), event, value))
 
     def stop(self):
+        """
+        Shutdown the logger process.
+        """
         self._event_q.put(None)
 
-    def remove_mqtt_event(self, topic):
-        self.remove_event("mqtt", topic)
+    def remove_mqtt_event(self, topic: str):
+        """
+        Unsubscribe from MQTT `topic`.
+        Stop logging when something publishes to `topic`.
+        """
+        self._remove_event("mqtt", topic)
 
     def remove_state_event(self, path):
-        self.remove_event("state", path)
+        """
+        Stop logging when the supplied state store path updates.
+        """
+        self._remove_event("state", path)
 
-    def remove_event(self, src, key):
+    def _remove_event(self, src, key):
         self._remove_event_q.put((src, key))
 
     def _get_data(self):

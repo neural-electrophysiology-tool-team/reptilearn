@@ -1,3 +1,8 @@
+"""
+Dynamic loading of python modules and classes
+
+Author: Tal Eisenberg, 2021
+"""
 import importlib
 from pathlib import Path
 import inspect

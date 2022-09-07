@@ -12,9 +12,13 @@ from collections import deque
 import multiprocessing as mp
 import threading
 import sys
+import logging
 import logging.handlers
 import traceback
 
+from configure import get_config
+
+_main_logger: logging.Logger = None
 _log_buffer = None
 _logger_configurer = None
 _log_listener = None
@@ -129,6 +133,13 @@ class LogBuffer(logging.Handler):
 
 
 class LoggerConfigurer:
+    """
+    A singleton class. Part of the mechanism for routing log messages from child processes to the main process.
+    Call get_logger_configurer() from the main process to get a global instance. This instance can be passed to
+    other processes (as function arguments or class fields). Other processes can then call the method
+    `configure_child` which will return a suitable logging.Logger.
+    """
+
     def __init__(self, default_level) -> None:
         self.default_level = default_level
         self.log_queue = mp.Queue(-1)
@@ -199,6 +210,7 @@ def _patch_threading_excepthook():
 
     Installs our exception handler into the threading modules Thread object
     Inspired by https://bugs.python.org/issue1230540
+    https://gist.github.com/TimCargan/adb6ded946997c409e3dc669444f13ad
     """
     old_init = threading.Thread.__init__
 
@@ -246,7 +258,22 @@ def clear_log_buffer():
         _log_buffer.clear()
 
 
-def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level):
+def get_logger_configurer() -> LoggerConfigurer:
+    """
+    Return the global LoggerConfigurer instance. This should only be called from the main
+    process (otherwise None is returned).
+    """
+    return _logger_configurer
+
+
+def get_main_logger() -> logging.Logger:
+    """
+    Return the main logger. This should only be called from the main process (otherwise None is returned).
+    """
+    return _main_logger
+
+
+def init(log_handlers, extra_loggers, extra_log_level, default_level):
     """
     Initializes the main logger that is used for exceptions, and the multiprocess
     listening logger.
@@ -256,10 +283,10 @@ def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level
     - extra_log_level: Log level of extra_loggers.
     - default_level: This will be the log level of each logger, including loggers on other processes.
     """
-    global _log_buffer, _logger_configurer
+    global _main_logger, _log_buffer, _logger_configurer
 
-    _log_buffer = log_buffer
-    log_handlers = list(log_handlers) + [log_buffer]
+    _log_buffer = LogBuffer(get_config().log_buffer_size)
+    log_handlers = list(log_handlers) + [_log_buffer]
 
     _logger_configurer = LoggerConfigurer(default_level)
     _log_listener = threading.Thread(
@@ -267,11 +294,11 @@ def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level
     )
     _log_listener.start()
 
-    main_logger = logging.getLogger("Main")
+    _main_logger = logging.getLogger("Main")
     for handler in log_handlers:
-        main_logger.addHandler(handler)
+        _main_logger.addHandler(handler)
 
-    main_logger.setLevel(default_level)
+    _main_logger.setLevel(default_level)
 
     sys.excepthook = _excepthook
     _patch_threading_excepthook()
@@ -283,7 +310,7 @@ def init(log_handlers, log_buffer, extra_loggers, extra_log_level, default_level
             el.addHandler(handler)
         el.setLevel(extra_log_level)
 
-    return main_logger
+    return _main_logger
 
 
 def shutdown():

@@ -1,11 +1,17 @@
+"""
+Task scheduling of dynamically loaded task functions.
+
+Author: Tal Eisenberg, 2021
+"""
 from dynamic_loading import load_modules
 import inspect
+from rl_logging import get_main_logger
 import schedule as sched
+from configure import get_config
 from dateutil import parser
 from datetime import datetime
 
 _log = None
-_config = None
 _tasks = {}
 _task_modules = []
 _task_names = {}
@@ -14,10 +20,10 @@ _scheduled_tasks = []
 _last_scheduled_task_id = 0
 
 
-def init(logger, config):
-    global _log, _config
-    _log = logger
-    _config = config
+def init():
+    global _log
+    _log = get_main_logger()
+
     all_tasks()
 
 
@@ -25,7 +31,7 @@ def all_tasks():
     global _tasks, _task_modules, _task_names
 
     _tasks = {}
-    _task_modules = load_modules(_config.tasks_modules_dir, _log)
+    _task_modules = load_modules(get_config().tasks_modules_dir, _log)
     _task_names = {}
 
     for k, (m, s) in _task_modules.items():

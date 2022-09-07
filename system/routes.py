@@ -1,23 +1,31 @@
+"""
+Flask REST API routes that can be used for controlling the system. These routes are called by the ui webapp.
+
+Author: Tal Eisenberg, 2021, 2022
+"""
 import flask
-import experiment
-import video_system
-import undistort
 import json
+from configure import get_config
 from json_convert import json_convert
-import image_utils
-import rl_logging
 
 import overlay
 import task
 import arena
+import experiment
+import video_system
+import undistort
+import image_utils
+import rl_logging
 
 
-def add_routes(app, config, log):
+def add_routes(app):
+    log = rl_logging.get_main_logger()
+
     # Flask REST API
     @app.route("/config/<attribute>")
     def route_config(attribute):
         return flask.Response(
-            json.dumps(getattr(config, attribute), default=json_convert),
+            json.dumps(getattr(get_config(), attribute), default=json_convert),
             mimetype="application/json",
         )
 
@@ -39,7 +47,7 @@ def add_routes(app, config, log):
             and "undistort" in src_config
         ):
             oheight, owidth = src_config["image_shape"][:2]
-            undistort_config = config.undistort[src_config["undistort"]]
+            undistort_config = get_config().undistort[src_config["undistort"]]
             undistort_mapping, _, _ = undistort.get_undistort_mapping(
                 owidth, oheight, undistort_config
             )
@@ -54,14 +62,14 @@ def add_routes(app, config, log):
 
         return image_utils.encode_image(
             img,
-            encoding=config.http_streaming["encoding"],
-            encode_params=config.http_streaming["encode_params"],
+            encoding=get_config().http_streaming["encoding"],
+            encode_params=get_config().http_streaming["encode_params"],
             shape=(width, height),
         )
 
     @app.route("/image_sources/<src_id>/get_image")
     def route_image_sources_get_image(src_id):
-        img, timestamp = video_system.image_sources[src_id].get_image(scale_to_8bit=True)
+        img, _ = video_system.image_sources[src_id].get_image(scale_to_8bit=True)
         enc_img = encode_image_for_response(img, *parse_image_request(src_id))
         return flask.Response(enc_img, mimetype="image/jpeg")
 
@@ -74,14 +82,14 @@ def add_routes(app, config, log):
 
         frame_rate = int(
             flask.request.args.get(
-                "frame_rate", default=config.http_streaming["frame_rate"]
+                "frame_rate", default=get_config().http_streaming["max_frame_rate"]
             )
         )
 
         enc_args = parse_image_request(src_id)
 
         def flask_gen():
-            # log.info(f"Starting new stream: {src_id}")
+            log.debug(f"Starting new stream over http: {src_id}")
             gen = img_src.stream_gen(frame_rate, scale_to_8bit=True)
 
             try:
@@ -99,7 +107,7 @@ def add_routes(app, config, log):
                     except StopIteration:
                         break
             finally:
-                # log.info("Stopping stream")
+                log.debug("Stopping http stream")
                 pass
 
         return flask.Response(
@@ -114,9 +122,9 @@ def add_routes(app, config, log):
             img_src.stop_streaming()
         return flask.Response("ok")
 
-    @app.route("/save_image/<src_id>")
-    def route_save_image(src_id):
-        video_system.capture_images([src_id])
+    @app.route("/save_image/<src_id>/<filename_prefix>")
+    def route_save_image(src_id, filename_prefix=""):
+        video_system.capture_images([src_id], filename_prefix)
         return flask.Response("ok")
 
     @app.route("/run_action/<label>")
@@ -425,7 +433,7 @@ def add_routes(app, config, log):
 
     @app.route("/arena/list_displays")
     def route_arena_list_displays():
-        return flask.jsonify(config.arena["display"].keys())
+        return flask.jsonify(get_config().arena["display"].keys())
 
     @app.route("/arena/switch_display/<int:on>")
     @app.route("/arena/switch_display/<int:on>/<display>")

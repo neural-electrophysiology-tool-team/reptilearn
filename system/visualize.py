@@ -1,6 +1,8 @@
 """
 This module is responsible for creating visualizations for images, videos, statistical plots and notebook widgets.
 Documented more loosely than the other modules, as it's less important
+
+Authors: Tal Eisenberg, Itai Turkenish, 2020
 """
 
 import os
@@ -162,7 +164,7 @@ def draw_sequences(
 """
 -------------------- Video closure functions ----------------------
 Functions in this part follow a closure pattern. The functions return a function that's passed to the process_video
-function. 
+function.
 """
 
 
@@ -335,6 +337,35 @@ def offline_centroid_visualizer(
     return fn
 
 
+def coords_visualizer(coords, color=(255, 0, 0), window_size=20, dot_radius=4):
+    """
+    Return a visualize function that draws a number of last bbox centroids on each frame
+    according to the bboxes array.
+
+    :param coords: Numpy array containing x and y coordinates for each frame
+    :param color: Centroid color as a BGR tuple
+    :param window_size: Number of previous centroids that will be drawn to the frame
+    :param dot_radius: Radius of the centroid dot
+    """
+
+    def fn(orig_frame, write_frame, frame_counter):
+        for i in range(window_size):
+            idx = max(frame_counter - i, 0)
+            point = coords[idx]
+            if not np.isnan(point[0]):
+                if is_point_in_bounds(point, write_frame):
+                    cv.circle(
+                        write_frame,
+                        center=tuple(point.astype(int)),
+                        radius=dot_radius,
+                        color=color,
+                        thickness=-1,
+                        lineType=cv.LINE_AA,
+                    )
+
+    return fn
+
+
 def draw_trajectory(
     write_frame,
     traj_bboxes,
@@ -360,7 +391,7 @@ def draw_trajectory(
             continue
 
         c = xyxy_to_centroid(bbox).astype(int)
-        p = (c[0], int(bbox[3]))
+        p = (c[0], c[1])
         if is_point_in_bounds(p, write_frame):
             cv.circle(
                 write_frame,
@@ -704,8 +735,6 @@ def process_video(
     if start_frame != 0:
         vcap.set(cv.CAP_PROP_POS_FRAMES, start_frame)
 
-    print(vcap.get(cv.CAP_PROP_FRAME_COUNT))
-    
     if num_frames is None:
         num_frames = int(vcap.get(cv.CAP_PROP_FRAME_COUNT)) - start_frame
 

@@ -1,12 +1,21 @@
-from dynamic_loading import instantiate_class, load_modules, find_subclasses
-import video_write
-from arena import has_trigger, start_trigger, stop_trigger
-from video_stream import ImageSource, ImageObserver
-import overlay
-import managed_state
+"""
+Manage the image processing system.
+
+Author: Tal Eisenberg, 2021
+"""
 from threading import Timer
 from pathlib import Path
 import json
+
+from configure import get_config
+from dynamic_loading import instantiate_class, load_modules, find_subclasses
+from rl_logging import get_main_logger
+import video_write
+from arena import has_trigger, start_trigger, stop_trigger
+from video_stream import ImageSource, ImageObserver
+import overlays.timestamp
+import overlay
+import managed_state
 
 video_config = None
 image_sources = {}
@@ -18,7 +27,6 @@ image_class_params = {}
 
 _state = None
 _log = None
-_config = None
 _rec_state = None
 _do_restore_trigger = False
 
@@ -28,11 +36,11 @@ def load_source(id, config):
         config["class"],
         id,
         config,
-        _config.state_store_address,
-        _config.state_store_authkey,
+        get_config().state_store_address,
+        get_config().state_store_authkey,
     )
 
-    overlay.overlays[id] = [overlay.TimestampVisualizer()]
+    overlay.overlays[id] = [overlays.timestamp.TimestampVisualizer({})]
 
 
 def load_observer(id, config):
@@ -41,33 +49,50 @@ def load_observer(id, config):
         id,
         config,
         image_sources[config["src_id"]],
-        _config.state_store_address,
-        _config.state_store_authkey,
+        get_config().state_store_address,
+        get_config().state_store_authkey,
     )
 
 
 def load_video_writers():
+    """
+    Create and start a video_write.VideoWriter for each of the currently loaded `ImageSource`s.
+    Each writer is responsible for recording videos from a single ImageSource.
+    """
     global video_writers
     video_writers = {}
 
     for src_id in image_sources.keys():
+        img_src = image_sources[src_id]
+        src_frame_rate = img_src.get_config("video_frame_rate")
+        frame_rate = (
+            src_frame_rate
+            if src_frame_rate is not None
+            else get_config().video_record["video_frame_rate"]
+        )
+
         video_writers[src_id] = video_write.VideoWriter(
-            id=src_id + ".writer",
-            config={
-                "src_id": src_id,
-                "frame_rate": _config.video_record["video_frame_rate"],
-                "queue_max_size": _config.video_record["max_write_queue_size"],
-            },
-            encoding_params=_config.video_record["encoding_configs"][
-                image_sources[src_id].get_config("encoding_config")
+            config={"src_id": src_id},
+            encoding_params=get_config().video_record["encoding_configs"][
+                img_src.get_config("encoding_config")
             ],
+            frame_rate=frame_rate,
+            queue_max_size=get_config().video_record["max_write_queue_size"],
+            media_dir=get_config().media_dir,
+            file_ext=get_config().video_record["file_ext"],
             image_source=image_sources[src_id],
-            state_store_address=_config.state_store_address,
-            state_store_authkey=_config.state_store_authkey,
+            state_store_address=get_config().state_store_address,
+            state_store_authkey=get_config().state_store_authkey,
         )
 
 
 def load_video_config(config: dict):
+    """
+    Initialize video state, and start processes of `ImageSource`s and `ImageObserver`s as specified in `config`. 
+
+    Args:
+    - config: Video configuration dict. See config/video_config.json for an example.
+    """
     overlay.overlays = {}
 
     if "video" not in _state:
@@ -80,7 +105,6 @@ def load_video_config(config: dict):
         {
             "selected_sources": [],
             "is_recording": False,
-            "write_dir": _config.media_dir,
             "filename_prefix": "",
         }
     )
@@ -101,9 +125,16 @@ def load_video_config(config: dict):
 
 
 def update_video_config(config: dict):
+    """
+    Shutdown video system and then restart it according to `config`.
+    After the system starts succesfully the new `config` is stored in the video config file.
+
+    Args:
+    - config: Video configuration dict. See config/video_config.json for an example.
+    """
     global image_sources, image_observers, video_config
 
-    ttl_trigger = has_trigger() and _rec_state.get("ttl_trigger", False) is True
+    ttl_trigger = has_trigger() and _rec_state.get("ttl_trigger", False)
 
     if len(image_sources) != 0:
         try:
@@ -124,17 +155,12 @@ def update_video_config(config: dict):
 
     start()
 
-    _log.info(f"Saving video config to '{_config.video_config_path.resolve()}'...")
+    _log.info(f"Saving video config to '{get_config().video_config_path.resolve()}'...")
 
-    with open(_config.video_config_path, "w") as f:
+    with open(get_config().video_config_path, "w") as f:
         json.dump(config, f, indent=4)
 
     video_config = config
-
-
-def restore_after_experiment_session():
-    _rec_state["write_dir"] = _config.media_dir
-    _rec_state["filename_prefix"] = ""
 
 
 def set_selected_sources(src_ids):
@@ -202,7 +228,7 @@ def stop_record(src_ids=None):
     Timer(0.5, stop).start()
 
 
-def capture_images(src_ids=None):
+def capture_images(src_ids=None, filename_prefix=""):
     if src_ids is None:
         src_ids = _rec_state["selected_sources"]
 
@@ -210,7 +236,8 @@ def capture_images(src_ids=None):
 
     for src in selected_sources:
         img, ts = src.get_image()  # NOTE: here we do not convert to uint8
-        p = video_write.save_image(img, ts, _rec_state, src.id)
+        write_dir = _state.get(("session", "data_dir"), get_config().media_dir)
+        p = video_write.save_image(img, src.id, write_dir, filename_prefix, ts)
         _log.info(f"Saved image from image_source '{src.id}' in {p}")
 
 
@@ -243,17 +270,22 @@ def _find_image_classes():
             image_class_params[name] = cls.default_params
 
 
-def init(log, state: managed_state.Cursor, config):
-    global _log, _state, _config, video_config, _rec_state
-    _log = log
+def init(state: managed_state.Cursor):
+    """
+    Initialize the video system. Find all ImageSource and ImageObserver classes. Read the
+    video config file, and setup the video system according to the configuration.
+
+    Args:
+    - state: A Cursor to the root of the main process state store.
+    """
+    global _log, _state, video_config, _rec_state
+    _log = get_main_logger()
     _state = state
-    _config = config
-    config_path = config.video_config_path
 
     _find_image_classes()
-
     _rec_state = state.get_cursor(("video", "record"))
 
+    config_path = get_config().video_config_path
     if not config_path.exists():
         video_config = {
             "image_sources": {},
@@ -264,19 +296,19 @@ def init(log, state: managed_state.Cursor, config):
             with open(config_path, "w") as f:
                 json.dump(video_config, f, indent=4)
         except Exception:
-            log.exception(f"Exception while writing to {str(config_path)}")
+            _log.exception(f"Exception while writing to {str(config_path)}")
     else:
         try:
             with open(config_path, "r") as f:
                 video_config = json.load(f)
         except Exception:
-            log.exception(f"Exception while reading {str(config_path)}")
+            _log.exception(f"Exception while reading {str(config_path)}")
             return
 
     load_video_config(video_config)
     load_video_writers()
 
-    ttl_trigger = _config.video_record["start_trigger_on_startup"]
+    ttl_trigger = get_config().video_record["start_trigger_on_startup"]
     if ttl_trigger:
         start_trigger()
     else:
@@ -284,6 +316,13 @@ def init(log, state: managed_state.Cursor, config):
 
 
 def update_acquire_callback(src_id):
+    """
+    Add a state store callback to automatically select and unselect an image source with id `src_id` when
+    it starts or stops acquiring images.
+
+    Args:
+    - src_id: The id of an existing `ImageSource`.
+    """
     def select_when_acquiring(old_val, new_val):
         nonlocal src_id
 
@@ -299,9 +338,8 @@ def update_acquire_callback(src_id):
 
 def start():
     """
-    Start processes of image writers, observers and sources
+    Start processes of image writers, observers and sources.
     """
-
     for w in video_writers.values():
         w.start()
 
@@ -320,6 +358,10 @@ def start():
 
 
 def shutdown_video():
+    """
+    Shutdown all ImageSource and ImageObserver processes. Blocks until
+    all processes terminate.
+    """
     for w in video_writers.values():
         try:
             w.stop_observing()
@@ -345,7 +387,7 @@ def shutdown_video():
 
     for img_src in image_sources.values():
         try:
-            img_src.stop_event.set()
+            img_src.shutdown()
         except Exception:
             _log.exception("Error while closing image sources:")
 
@@ -355,7 +397,9 @@ def shutdown_video():
     for img_src in image_sources.values():
         img_src.join()
 
-    _state.delete("video")
+    if "video" in _state:
+        _state.delete("video")
+
     image_sources.clear()
     image_observers.clear()
 
@@ -364,4 +408,7 @@ def shutdown_video():
 
 
 def shutdown():
+    """
+    Shutdown video system.
+    """
     shutdown_video()
