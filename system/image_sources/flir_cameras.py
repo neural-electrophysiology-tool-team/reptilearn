@@ -121,7 +121,7 @@ try:
         def _on_start(self):
             self.restart_requested = False
             try:
-                self.system = PySpin.System_GetInstance()
+                self.system: PySpin.SystemPtr = PySpin.System_GetInstance()
                 self.cam_list = self.system.GetCameras()
 
                 sn = str(self.get_config("serial_number"))
@@ -138,7 +138,10 @@ try:
                 self.update_time_delta()
 
                 self.cam.BeginAcquisition()
-                self.log.info("Camera initialized.")
+
+                v = self.system.GetLibraryVersion()
+                str_ver = f"{v.major}.{v.minor}.{v.type}.{v.build}"
+                self.log.info(f"Camera initialized. Using FLIR Spinnaker SDK {str_ver}")
                 self.image_result = None
 
                 self.prev_writing = self.state.get("writing", False)
@@ -190,9 +193,10 @@ try:
                         )
                         self.restart_requested = True
                         return None, None
-
+                else:
+                    self.log.exception("Error while acquiring next image:")
             except Exception:
-                self.log.exception("Error while retrieving next image:")
+                self.log.exception("Error while acquiring next image:")
                 return None, None
 
             if self.image_result is None or self.image_result.IsIncomplete():
@@ -212,17 +216,16 @@ try:
                 try:
                     if self.cam.IsStreaming():
                         self.cam.EndAcquisition()
-                        self.cam.DeInit()
+                    self.cam.DeInit()
+                    self.cam = None
                 except PySpin.SpinnakerException:
-                    pass
-
-                self.cam = None
+                    log.Exception("While shutting down camera:")
 
             self.image_result = None
 
             if self.cam_list is not None:
                 self.cam_list.Clear()
-                self.cam_list = None
+                # self.cam_list = None
 
             self.system.ReleaseInstance()
 
