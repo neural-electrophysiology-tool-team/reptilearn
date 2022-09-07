@@ -35,7 +35,7 @@ export const RLTooltip = ({ children, content, delay = 500 }) => {
                 leaveFrom="opacity-100 translate-y-0"
                 leaveTo="opacity-0 -translate-y-1">
 
-                <div className="h-full flex" onPointerEnter={handleEnter} onPointerLeave={handleLeave}>
+                <div className="h-full flex" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
                     {children}
                 </div>
 
