@@ -106,7 +106,7 @@ class AlliedVisionImageSource(ImageSource):
                         self.state["acquiring"] = False
                     self._on_stop()
 
-    def _frame_hander(self, cam: vimba.Camera, frame: vimba.Frame):
+    def _frame_hander(self, cam, frame):
         try:
             if self.prev_writing is False and self.state.get("writing", False) is True:
                 self.update_time_delta()
@@ -143,7 +143,7 @@ def factory_reset(cam_id):
     raise NotImplemented('No factory reset for allied-vision')
 
 
-def print_camera(cam: vimba.Camera):
+def print_camera(cam):
     print('/// Camera Name   : {}'.format(cam.get_name()))
     print('/// Model Name    : {}'.format(cam.get_model()))
     print('/// Camera ID     : {}'.format(cam.get_id()))
