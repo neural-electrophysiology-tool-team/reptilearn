@@ -127,7 +127,7 @@ threading.Thread(target=state_listen).start()
 
 
 # Run Flask server
-socketio.run(app, port=config.api_port)
+socketio.run(app, host="0.0.0.0", port=config.api_port)
 
 
 # Shutdown (flask server was terminated)
