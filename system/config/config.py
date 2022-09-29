@@ -50,7 +50,8 @@ archive_dirs = {
 
 # Image source streaming over HTTP settings
 http_streaming = {
-    "frame_rate": 15,
+    "frame_rate": 15,  # http streaming frame rate
+
     # See https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save
     # and https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
     "encoding": "WebP",
@@ -59,7 +60,7 @@ http_streaming = {
 
 
 video_record = {
-    "video_frame_rate": 60,
+    "video_frame_rate": 60,  # the default frame rate for recorded videos
     "file_ext": "mp4",
     "start_trigger_on_startup": False,
     "max_write_queue_size": 0,  # 0 means infinite queue.
@@ -91,7 +92,7 @@ video_record = {
     },
 }
 
-# MQTT server address
+# MQTT broker server address
 mqtt = {
     "host": "localhost",
     "port": 1883,
@@ -102,6 +103,7 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
+    # Uncomment the following lines to log values from the specified arena interfaces to a database table.
     # "data_log": {  # requires a database connection
     #     "table_name": "arena",
     #     "columns": [
@@ -109,8 +111,8 @@ arena = {
     #         ("Temp_1", "double precision"),
     #     ],
     # },
-    "command_topic": "arena_command",
-    "receive_topic": "arena",
+    "command_topic": "arena_command",  # Arena commands will be published to this MQTT topic
+    "receive_topic": "arena",  # Incoming arena messages will arrive on this MQTT topic
 }
 
 
@@ -142,7 +144,7 @@ event_log = {
 }
 
 
-# Lens correction values for various camera and lens combinations. Each dict value 
+# Lens correction values for various camera and lens combinations. Each dict value
 # should have "mtx" and "dist" keys.
 undistort = {
 }

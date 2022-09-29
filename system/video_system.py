@@ -1,7 +1,10 @@
 """
 Manage the image processing system.
-
 Author: Tal Eisenberg, 2021
+
+Start and stop the video system. 
+Create ImageSource and ImageObserver objects based on video configurations.
+Manage video recording and image capture.
 """
 from threading import Timer
 from pathlib import Path
@@ -17,12 +20,25 @@ import overlays.timestamp
 import overlay
 import managed_state
 
+# A dictionary containing the current video config
 video_config = None
+
+# A dictionary containing loaded ImageSources using source ids as keys.
 image_sources = {}
+
+# A dictionary containing loaded ImageObservers using observer ids as keys.
 image_observers = {}
+
+# A dictionary containing loaded VideoWriters using source ids as keys.
 video_writers = {}
+
+# A list of strings containing every known ImageSource class
 source_classes = []
+
+# A list of strings containing every known ImageObserver class
 observer_classes = []
+
+# A dict containing the default parameters for every known ImageObserver and ImageSource class using class names as keys.
 image_class_params = {}
 
 _state = None
@@ -31,7 +47,10 @@ _rec_state = None
 _do_restore_trigger = False
 
 
-def load_source(id, config):
+def _load_source(id, config):
+    """
+    Instantiate an ImageSource class according to the supplied config. Add the ImageSource to the global `image_sources` dict using `id` as key.
+    """
     image_sources[id] = instantiate_class(
         config["class"],
         id,
@@ -43,7 +62,10 @@ def load_source(id, config):
     overlay.overlays[id] = [overlays.timestamp.TimestampVisualizer({})]
 
 
-def load_observer(id, config):
+def _load_observer(id, config):
+    """
+    Instantiate an ImageObserver class according to the supplied config. Add the ImageObserver to the global `image_observers` dict using `id` as key.
+    """
     image_observers[id] = instantiate_class(
         config["class"],
         id,
@@ -54,9 +76,9 @@ def load_observer(id, config):
     )
 
 
-def load_video_writers():
+def _load_video_writers():
     """
-    Create and start a video_write.VideoWriter for each of the currently loaded `ImageSource`s.
+    Instantiate a video_write.VideoWriter for each of the currently loaded `ImageSource`s.
     Each writer is responsible for recording videos from a single ImageSource.
     """
     global video_writers
@@ -88,10 +110,11 @@ def load_video_writers():
 
 def load_video_config(config: dict):
     """
-    Initialize video state, and start processes of `ImageSource`s and `ImageObserver`s as specified in `config`. 
+    Setup the video system according to `config`.
+    Instantiate `ImageSource` and `ImageObserver` objects, and create the video state in the state store.
 
     Args:
-    - config: Video configuration dict. See config/video_config.json for an example.
+    - config: Video configuration dict. Usually the contents of config/video_config.json.
     """
     overlay.overlays = {}
 
@@ -112,25 +135,27 @@ def load_video_config(config: dict):
     if "image_sources" in config:
         for src_id, conf in config["image_sources"].items():
             try:
-                load_source(src_id, conf)
+                _load_source(src_id, conf)
             except Exception:
                 _log.exception(f"Exception while loading image source {src_id}:")
 
     if "image_observers" in config:
         for obs_id, conf in config["image_observers"].items():
             try:
-                load_observer(obs_id, conf)
+                _load_observer(obs_id, conf)
             except Exception:
                 _log.exception(f"Exception while loading image observer {obs_id}:")
 
 
 def update_video_config(config: dict):
     """
-    Shutdown video system and then restart it according to `config`.
+    Shutdown the video system and then restart it according to `config`. This includes stopping
+    all observer and source processes, and start new processes.
+
     After the system starts succesfully the new `config` is stored in the video config file.
 
     Args:
-    - config: Video configuration dict. See config/video_config.json for an example.
+    - config: Video configuration dict.
     """
     global image_sources, image_observers, video_config
 
@@ -146,7 +171,7 @@ def update_video_config(config: dict):
     image_observers = {}
 
     load_video_config(config)
-    load_video_writers()
+    _load_video_writers()
 
     if ttl_trigger:
         start_trigger()
@@ -164,22 +189,41 @@ def update_video_config(config: dict):
 
 
 def set_selected_sources(src_ids):
+    """
+    Sets which ImageSources will be recorded from when the next recording starts. Updates the state store.
+
+    - src_ids: A list of ImageSource id strings.
+    """
     _rec_state["selected_sources"] = src_ids
 
 
-def select_source(src_id):
+def select_source(src_id: str):
+    """
+    Add an ImageSource to the list of selected sources for recording. Updates the state store.
+    """
     if src_id in _rec_state["selected_sources"]:
         return
 
     _rec_state.append("selected_sources", src_id)
 
 
-def unselect_source(src_id):
+def unselect_source(src_id: str):
+    """
+    Remove an ImageSource from the list of selected sources for recording. Updates the state store.
+    """
     if src_id in _rec_state["selected_sources"]:
         _rec_state.remove("selected_sources", src_id)
 
 
 def start_record(src_ids=None):
+    """
+    Start recording video from each of the ImageSources in the src_ids list or from currently selected image sources.
+    When a camera trigger is used, if the trigger is already on, it is first stopped, then, after 0.5 seconds, recording starts, and
+    after an additional 0.5 seconds the trigger is started again.
+
+    Args:
+    - src_ids: a list of ImageSource ids to record from or None to use the list of currently selected sources.
+    """
     global _do_restore_trigger
 
     if _rec_state["is_recording"] is True:
@@ -205,6 +249,16 @@ def start_record(src_ids=None):
 
 
 def stop_record(src_ids=None):
+    """
+    Stop recording video from each of the ImageSources in the src_ids list or from currently selected image sources.
+    When a camera trigger is used, and the trigger was running before recording started, the trigger will first be stopped and then 0.5
+    seconds later recording will stop.
+
+    NOTE: There's always a 0.5 second delay between calling the function and actually stopping recording.
+
+    Args:
+    - src_ids: a list of ImageSource ids to stop recording from or None to use the list of currently selected sources.
+    """
     global _do_restore_trigger
     if _rec_state["is_recording"] is False:
         return
@@ -229,6 +283,16 @@ def stop_record(src_ids=None):
 
 
 def capture_images(src_ids=None, filename_prefix=""):
+    """
+    Save the latest image data of ImageSources to files. Images are stored
+    in the current session directory if one exists, or in the media directory otherwise.
+    An images with type `uint8` will be saved to jpeg files.
+    Any other array type will be saved to pickle files.
+
+    Args:
+    - src_ids: A list of ImageSource ids as they appear in the keys of the `video_system.image_sources`.
+    - filename_prefix: str. A prefix for the filenames of the created files.
+    """
     if src_ids is None:
         src_ids = _rec_state["selected_sources"]
 
@@ -242,6 +306,10 @@ def capture_images(src_ids=None, filename_prefix=""):
 
 
 def set_filename_prefix(prefix):
+    """
+    Set the filename prefix for any video or image files that will be saved in the future.
+    The prefix is stored in the state store.
+    """
     _state[("video", "record", "filename_prefix")] = prefix
 
 
@@ -306,7 +374,7 @@ def init(state: managed_state.Cursor):
             return
 
     load_video_config(video_config)
-    load_video_writers()
+    _load_video_writers()
 
     ttl_trigger = get_config().video_record["start_trigger_on_startup"]
     if ttl_trigger:
@@ -323,6 +391,7 @@ def update_acquire_callback(src_id):
     Args:
     - src_id: The id of an existing `ImageSource`.
     """
+
     def select_when_acquiring(old_val, new_val):
         nonlocal src_id
 

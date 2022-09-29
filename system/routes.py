@@ -99,10 +99,10 @@ def add_routes(app):
                         img = overlay.apply_overlays(img, timestamp, src_id)
                         enc_img = encode_image_for_response(img, *enc_args)
                         yield (
-                            b"--frame\r\n"
                             b"Content-Type: image\r\n\r\n"
                             + bytearray(enc_img)
-                            + b"\r\n\r\n"
+                            + b"--frame\r\n"
+                            # + b"\r\n\r\n"
                         )
                     except StopIteration:
                         break
