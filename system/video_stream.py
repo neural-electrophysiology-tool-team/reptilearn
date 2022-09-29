@@ -516,7 +516,7 @@ class ImageObserver(ConfigurableProcess):
 
     def shutdown(self):
         """
-        Shutdown the observer and its os process
+        Shutdown the observer and its OS process
 
         NOTE: Can only be called from the main process
         """
@@ -530,7 +530,7 @@ class ImageObserver(ConfigurableProcess):
             self.output_buf.get_obj(), dtype=self.output_dtype
         ).reshape(self.output_shape)
 
-        self.output_update_events = self.state.get_update_events(self.name)
+        self.output_update_events = self.state.get_events(self.name)
         on_update_events_changed = self.state.add_events_changed_event(self.name)
         self.state[self._running_state_key] = False
 
@@ -548,7 +548,7 @@ class ImageObserver(ConfigurableProcess):
 
             if on_update_events_changed.is_set():
                 on_update_events_changed.clear()
-                self.output_update_events = self.state.get_update_events(self.name)
+                self.output_update_events = self.state.get_events(self.name)
 
             if cmd == "shutdown":
                 self.log.info("Shutting down")
@@ -576,7 +576,7 @@ class ImageObserver(ConfigurableProcess):
 
                         if on_update_events_changed.is_set():
                             on_update_events_changed.clear()
-                            self.output_update_events = self.state.get_update_events(
+                            self.output_update_events = self.state.get_events(
                                 self.name
                             )
 
