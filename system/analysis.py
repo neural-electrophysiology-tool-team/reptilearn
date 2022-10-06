@@ -16,11 +16,12 @@ import moviepy.config
 import json
 import bbox
 import cv2
-
+import logging
 events_log_filename = "events.csv"
 session_state_filename = "session_state.json"
 name_locale = "Asia/Jerusalem"
 
+log = logging.getLogger()
 
 def split_name_datetime(s):
     """
@@ -53,6 +54,7 @@ def read_timeseries_csv(path: Path, time_col="time", tz="utc") -> pd.DataFrame:
 
     df.index = pd.to_datetime(df[time_col], unit="s").dt.tz_localize(tz)
     df.drop(columns=[time_col], inplace=True)
+    df = df.loc[df.index.dropna()]  # remove rows with NaT timestamps
     return df
 
 
@@ -286,11 +288,14 @@ class VideoInfo:
             self.timestamps = None
             self.frame_count = None
         else:
-            self.timestamps = read_timeseries_csv(
-                self.timestamp_path, time_col=["time", "timestamp"]
-            )
-            self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
-            self.frame_count = self.timestamps.shape[0]
+            try:
+                self.timestamps = read_timeseries_csv(
+                    self.timestamp_path, time_col=["time", "timestamp"]
+                )
+                self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
+                self.frame_count = self.timestamps.shape[0]
+            except:
+                log.exception(f"Error reading timestamps csv {self.timestamp_path}:")
 
         self.metadata_path = path.parent / (path.stem + ".json")
         if not self.metadata_path.exists():
