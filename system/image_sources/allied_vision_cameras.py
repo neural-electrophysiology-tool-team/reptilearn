@@ -4,8 +4,6 @@ except Exception:
     pass
 
 from video_stream import ImageSource
-import re
-import threading
 import time
 import numpy as np
 
@@ -18,7 +16,6 @@ class AlliedVisionImageSource(ImageSource):
         "exposure": 8000,
         "trigger": True,
         "frame_rate": None,
-        "pyspin": [],
         "cam_id": None,
         "trigger_source": "Line3",
     }

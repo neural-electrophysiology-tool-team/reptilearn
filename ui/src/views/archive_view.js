@@ -1,31 +1,21 @@
 import React from 'react';
 import RLModal from './ui/modal.js';
-import { api_url } from '../config.js';
 import { RLListbox } from './ui/list_box.js';
 import RLButton from './ui/button.js';
+import { api } from '../api.js';
 
 export const ArchiveView = ({ sessions, setOpen, open, close_session_list }) => {
     const [archives, setArchives] = React.useState(null);
     const [selection, setSelection] = React.useState([]);
 
     React.useEffect(() => {
-        fetch(api_url + "/config/archive_dirs")
+        api.get_config("archive_dirs")
             .then((res) => res.json())
             .then((res) => setArchives(res));
     }, [open]);
 
     const copy = () => {
-        fetch(api_url + "/sessions/archive/copy", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                archives: selection,
-                sessions: sessions,
-            })
-        })
+        api.sessions.archive.copy(sessions, selection)
             .then(() => {
                 setOpen(false);
                 if (close_session_list) {

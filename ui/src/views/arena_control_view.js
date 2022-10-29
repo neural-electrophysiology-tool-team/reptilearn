@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
+import { api } from '../api.js';
 
-import { api_url } from '../config.js';
 import RLIcon from './ui/icon.js';
 import RLMenu from './ui/menu.js';
 
@@ -10,17 +10,13 @@ export const ArenaControlView = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
     const [arenaConfig, setArenaConfig] = React.useState(null);
     React.useEffect(() => {
-        fetch(api_url + "/arena/config")
-            .then((res) => res.json())
+        api.arena.get_config()
             .then((arena_config) => setArenaConfig(arena_config));
     }, []);
 
     const toggle_display = (display) => {
-        fetch(api_url + `/arena/switch_display/${!ctrl_state.arena.displays[display] ? 1 : 0}`);
-    };
-
-    const poll_arena = () => {
-        fetch(api_url + "/arena/poll");
+        // TODO: test with multiple displays
+        api.arena.switch_display(!ctrl_state.arena.displays[display] ? 1 : 0, display);
     };
 
     const run_command = (command, iface, args, request_values) => {
@@ -28,19 +24,12 @@ export const ArenaControlView = () => {
         if (args && args.length > 0) {
             cmd_array = cmd_array.concat(args);
         }
-
-        fetch(api_url + "/arena/run_command", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(cmd_array)
-        }).then(() => {
-            if (request_values) {
-                fetch(api_url + "/arena/request_values/" + iface);
-            }
-        });
+        api.arena.run_command(cmd_array)
+            .then(() => {
+                if (request_values) {
+                    api.arena.request_values(iface);                
+                }
+            });
     };
 
     const get_toggle_icon = (dev) => {
@@ -143,7 +132,7 @@ export const ArenaControlView = () => {
                     {`Updated: ${update_time.toLocaleTimeString()}`}
                 </RLMenu.StaticItem>
             }
-            <RLMenu.ButtonItem onClick={poll_arena}>
+            <RLMenu.ButtonItem onClick={api.arena.poll}>
                 <RLIcon.MenuIcon icon="stethoscope" />
                 <span>Poll arena</span>
             </RLMenu.ButtonItem>

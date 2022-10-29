@@ -8,7 +8,8 @@ process_start_method = "spawn"
 # Logging level of process and main loggers.
 log_level = logging.INFO
 
-# Max number of recent log lines that will be stored in the log buffer.
+# Max number of recent log lines that will be stored in the log buffer. The log buffer contents
+# are sent to the web UI whenever a connection is established.
 log_buffer_size = 1000
 
 # A tuple (host, port) of the shared state store server

@@ -122,6 +122,7 @@ def add_routes(app):
             img_src.stop_streaming()
         return flask.Response("ok")
 
+    @app.route("/save_image/<src_id>")
     @app.route("/save_image/<src_id>/<filename_prefix>")
     def route_save_image(src_id, filename_prefix=""):
         video_system.capture_images([src_id], filename_prefix)

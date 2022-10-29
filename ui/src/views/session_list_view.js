@@ -1,4 +1,5 @@
 import React from 'react';
+import { api } from '../api.js';
 
 import { api_url } from '../config.js';
 import { ArchiveView } from './archive_view.js';
@@ -20,8 +21,7 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
 
         setReload(false);
         setSelectedSessions([]);
-        fetch(api_url + "/session/list")
-            .then(res => res.json())
+        api.session.get_list()
             .then((res) => {
                 setSessionList(res);
             });

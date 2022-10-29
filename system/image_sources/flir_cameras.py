@@ -219,7 +219,7 @@ try:
                     self.cam.DeInit()
                     self.cam = None
                 except PySpin.SpinnakerException:
-                    log.Exception("While shutting down camera:")
+                    self.log.Exception("While shutting down camera:")
 
             self.image_result = None
 

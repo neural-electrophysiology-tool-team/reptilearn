@@ -10,6 +10,7 @@ import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 import { classNames } from './ui/common.js';
+import { api } from '../api.js';
 
 const StreamImage = React.memo(({ src_id, width, height, is_streaming }) => {
     const stream_url = api_url
@@ -152,10 +153,6 @@ const StreamView = ({ idx }) => {
         }
     };
 
-    const save_image = () => {
-        return fetch(api_url + `/save_image/${src_id}`);
-    };
-
     const handle_drop = (e) => {
         e.preventDefault();
         dragCount.current = 0;
@@ -219,7 +216,7 @@ const StreamView = ({ idx }) => {
                         portal
                         setSelected={(new_src_id) => dispatch(updateStreamSources({ stream_idx: idx, new_src_id, old_src_id: src_id }))} />
                     <RLButton.BarButton onClick={toggle_stream} icon={stream_btn_icon} />
-                    <RLButton.BarButton onClick={save_image} title="Save image" icon="fa-solid fa-file-image" />
+                    <RLButton.BarButton onClick={() => api.save_image(src_id)} title="Save image" icon="fa-solid fa-file-image" />
                     <div className={classNames("h-4 w-4 my-auto ml-auto cursor-move", draggedOver && "pointer-events-none")} ref={dragHandle}>
                         <FontAwesomeIcon icon="grip-vertical" className="h-4 text-gray-600" transform="up-1" />
                     </div>

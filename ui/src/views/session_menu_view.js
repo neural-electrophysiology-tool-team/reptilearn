@@ -1,7 +1,6 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 
-import { api_url } from '../config.js';
 import { SessionListView } from './session_list_view.js';
 import { DeleteSessionModal } from './delete_session_view.js';
 import RLMenu from './ui/menu.js';
@@ -9,6 +8,7 @@ import RLModal from './ui/modal.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
 import RLButton from './ui/button.js';
 import RLInput from './ui/input.js';
+import { api } from '../api.js';
 
 export const SessionMenuView = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
@@ -22,8 +22,7 @@ export const SessionMenuView = () => {
     const [experimentIdInput, setExperimentIdInput] = React.useState('');
 
     const open_new_session_modal = () => {
-        fetch(api_url + "/experiment/list")
-            .then(res => res.json())
+        api.experiment.get_list()
             .then(
                 (res) => {
                     setExperimentList(res);
@@ -40,28 +39,12 @@ export const SessionMenuView = () => {
 
     const create_session = () => {
         setOpenNewSessionModal(false);
-
-        fetch(api_url + "/session/create", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                "id": experimentIdInput || selectedExperiment,
-                "experiment": selectedExperiment
-            })
-        });
-
+        api.session.create(experimentIdInput || selectedExperiment, selectedExperiment);
     };
 
     const continue_session = (session_name) => {
         setOpenSessionListModal(false);
-        fetch(api_url + "/session/continue/" + session_name);
-    };
-
-    const close_session = () => {
-        fetch(api_url + "/session/close");
+        api.session.continue(session_name);
     };
 
     if (!ctrl_state)
@@ -69,12 +52,10 @@ export const SessionMenuView = () => {
 
     const session = ctrl_state.session;
 
-    const reload_session = () => {
-        fetch(api_url + "/session/close")
-            .then(() => {
-                const split_dir = session.data_dir.split('/');
-                return fetch(api_url + "/session/continue/" + split_dir[split_dir.length - 1]);
-            });
+    const reload_session = async () => {
+        await api.session.close();
+        const split_dir = session.data_dir.split('/');
+        return api.session.continue(split_dir[split_dir.length - 1]);
     };
 
     const is_running = ctrl_state.session ? ctrl_state.session.is_running : false;
@@ -142,7 +123,7 @@ export const SessionMenuView = () => {
 
                 <RLMenu.ButtonItem
                     disabled={!session || is_running || is_recording}
-                    onClick={close_session}>Close session</RLMenu.ButtonItem>
+                    onClick={api.session.close}>Close session</RLMenu.ButtonItem>
                 <RLMenu.ButtonItem
                     disabled={!session || is_running || is_recording}
                     onClick={reload_session}>Reload session</RLMenu.ButtonItem>

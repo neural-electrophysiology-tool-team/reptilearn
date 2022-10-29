@@ -1,13 +1,13 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 
-import { api_url } from '../config.js';
 import { VideoSettingsView } from './video_settings_view.js';
 import RLMenu from './ui/menu.js';
 import RLButton from './ui/button.js';
 import RLIcon from './ui/icon.js';
 import RLInput from './ui/input.js';
 import { RLTooltip } from './ui/tooltip.js';
+import { api } from '../api.js';
 
 export const VideoRecordView = () => {
     const ctrlState = useSelector((state) => state.reptilearn.ctrlState);
@@ -22,22 +22,22 @@ export const VideoRecordView = () => {
     const is_recording = ctrlState.video?.record?.is_recording;
     const ttl_trigger_state = ctrlState.video?.record?.ttl_trigger;
 
-    const toggle_recording = (e) => {
+    const toggle_recording = async (e) => {
         if (is_recording) {
-            fetch(api_url + "/video_record/stop");
+            api.video_record.stop();
         }
         else {
-            fetch(api_url + `/video_record/set_prefix/${filePrefix}`)
-                .then(res => fetch(api_url + "/video_record/start"));
+            await api.video_record.set_prefix(filePrefix);
+            api.video_record.start();
         }
     };
 
     const toggle_ttl_trigger = (e) => {
         if (ctrlState.video.record.ttl_trigger) {
-            fetch(api_url + "/video_record/stop_trigger");
+            api.video_record.start_trigger();
         }
         else {
-            fetch(api_url + "/video_record/start_trigger");
+            api.video_record.stop_trigger();
         }
     };
 
@@ -50,10 +50,10 @@ export const VideoRecordView = () => {
 
     const src_changed = (src_id) => {
         if (ctrlState.video.record.selected_sources.includes(src_id)) {
-            fetch(api_url + `/video_record/unselect_source/${src_id}`);
+            api.video_record.unselect_source(src_id);
         }
         else {
-            fetch(api_url + `/video_record/select_source/${src_id}`);
+            api.video_record.select_source(src_id);
         }
     };
 

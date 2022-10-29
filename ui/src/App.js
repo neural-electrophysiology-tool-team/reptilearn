@@ -6,8 +6,8 @@ import { fas } from '@fortawesome/free-solid-svg-icons';
 import { far } from '@fortawesome/free-regular-svg-icons';
 
 import { setCtrlState, setVideoConfig } from './store/reptilearn_slice';
-import { api_url } from './config';
 import { MainView } from './views/main_view';
+import { api } from './api';
 
 library.add(fas, far);
 
@@ -18,6 +18,17 @@ const App = () => {
 
     const dispatch = useDispatch();
 
+    window.onbeforeunload = () => {
+        streams.forEach((stream) => {
+            if (stream.is_streaming) {
+                api.stop_stream(stream.src_id);
+            }
+        });
+
+        // Display confirmation dialog before unloading page.
+        // return true;
+    }
+
     const socket = React.useContext(SocketContext);
 
     const handle_new_state = React.useCallback(new_state => {
@@ -26,19 +37,8 @@ const App = () => {
 
     const handle_disconnect = React.useCallback(() => dispatch(setCtrlState(null)), [dispatch]);
 
-    
-    window.onbeforeunload = () => {
-        streams.forEach((stream) => {
-            if (stream.is_streaming) {
-                fetch(api_url + `/stop_stream/${stream.src_id}`);
-            }
-        });
-
-        // Display confirmation dialog before unloading page.
-        // return true;
-    }
-
-    React.useEffect(() => {
+    // socket.io callbacks for incoming reptilearn controller state and session connect and disconnect events.
+    React.useEffect(() => {        
         socket.on("state", handle_new_state);
         socket.on("disconnect", handle_disconnect);
         socket.on("connect", () => {
@@ -46,8 +46,7 @@ const App = () => {
     }, [handle_disconnect, handle_new_state, socket]);
 
     const fetch_video_config = React.useCallback(() => {
-        return fetch(api_url + '/video/get_config')
-            .then((res) => res.json())
+        return api.video.get_config()
             .then((config) => dispatch(setVideoConfig(config)))
             .catch(err => {
                 console.log(`Error while fetching video config: ${err}`);

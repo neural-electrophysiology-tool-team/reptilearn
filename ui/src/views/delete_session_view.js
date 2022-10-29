@@ -1,6 +1,6 @@
 import React from 'react';
+import { api } from '../api.js';
 
-import { api_url } from '../config.js';
 import RLButton from './ui/button.js';
 import RLModal from './ui/modal.js';
 
@@ -8,7 +8,7 @@ export const DeleteSessionModal = ({ session, sessions, open, setOpen, onDelete 
     const [dataRoot, setDataRoot] = React.useState(null);
 
     React.useEffect(() => {
-        fetch(api_url + "/config/session_data_root")
+        api.get_config("session_data_root")
             .then((res) => res.json())
             .then((res) => setDataRoot(res));
     }, [open]);
@@ -23,14 +23,7 @@ export const DeleteSessionModal = ({ session, sessions, open, setOpen, onDelete 
 
     const delete_sessions = () => {
         setOpen(false);
-        fetch(api_url + "/sessions/delete", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(sessions),
-        })
+        api.sessions.delete(sessions)
             .then(() => {
                 onDelete?.();
             });

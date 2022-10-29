@@ -2,11 +2,11 @@ import React from 'react';
 import { RLJSONEditor } from './ui/json_edit.js';
 import { useSelector } from 'react-redux';
 
-import { api_url } from '../config.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
 import { classNames } from './ui/common.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
+import { api } from '../api.js';
 
 
 export const BlockView = ({ idx }) => {
@@ -18,25 +18,10 @@ export const BlockView = ({ idx }) => {
     const blocks = session?.blocks;    
     const cur_block = session?.cur_block;
 
-    const reset_block = () => {
-        fetch(api_url + `/session/blocks/update/${idx}`, { method: "POST" });
-    };
-
-    const set_blocks = (blocks) => {
-        fetch(api_url + "/session/blocks/update", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(blocks)
-        });
-    };
-
     const remove_block = () => {
         const bs = [...blocks];
         bs.splice(idx, 1);
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     const add_block_param = (key) => {
@@ -49,7 +34,7 @@ export const BlockView = ({ idx }) => {
             bs[idx][key] = null;
         }
 
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     const shift_block_up = () => {
@@ -57,7 +42,7 @@ export const BlockView = ({ idx }) => {
         const b = blocks[idx];
         bs.splice(idx, 1);
         bs.splice(idx - 1, 0, b);
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     const shift_block_down = () => {
@@ -65,20 +50,20 @@ export const BlockView = ({ idx }) => {
         const b = blocks[idx];
         bs.splice(idx, 1);
         bs.splice(idx + 1, 0, b);
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     const duplicate_block = () => {
         const bs = [...blocks];
         const b = { ...blocks[idx] };
         bs.splice(idx + 1, 0, b);
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     const insert_block_after = () => {
         const bs = [...blocks];
         bs.splice(idx + 1, 0, {});
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     /*
@@ -92,7 +77,7 @@ export const BlockView = ({ idx }) => {
     const on_block_changed = (updatedContent, block_idx) => {
         const bs = blocks.map(s => ({ ...s }));
         bs[block_idx] = updatedContent.json;
-        set_blocks(bs);
+        api.session.blocks.update(bs);
     };
 
     const block_override_selector = (idx) => {
@@ -149,7 +134,7 @@ export const BlockView = ({ idx }) => {
                     icon="add"/>
 
                 {block_override_selector(idx)}
-                <RLButton.BarButton onClick={(e) => reset_block(idx)}
+                <RLButton.BarButton onClick={(e) => api.session.blocks.reset_block(idx)}
                     disabled={is_running}
                     title="Reset block" icon="undo"/>
             </Bar>

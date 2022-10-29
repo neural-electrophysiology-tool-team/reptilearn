@@ -1,8 +1,8 @@
 import React from 'react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { api } from '../api.js';
 
-import { api_url } from '../config.js';
 import RLButton from './ui/button.js';
 import RLInput from './ui/input.js';
 import { RLListbox, RLSimpleListbox } from './ui/list_box.js';
@@ -28,17 +28,12 @@ export const TasksView = () => {
 
     const load_task_list = () => {
         // setLoading(true);
-        fetch(api_url + "/task/list")
-            .then(res => res.json())
+        api.task.get_list()
             .then(tasks => {
                 setTaskList(tasks);
                 // setLoading(false);
             });
     };
-
-    // const run_task = (mod, task) => {
-    //     fetch(api_url + `/task/run/${mod}/${task}`);
-    // };
 
     const schedule_task = (mod, task) => {
         let args;
@@ -69,14 +64,7 @@ export const TasksView = () => {
         }
 
         setShowScheduleModal(false);
-        fetch(api_url + `/task/schedule/${mod}/${task}`, {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(args)
-        });
+        api.task.schedule(mod, task, args)
     };
 
     const open_schedule_modal = async () => {
@@ -87,8 +75,7 @@ export const TasksView = () => {
 
     const open_task_list_modal = () => {
         // setLoadingScheduledTasks(true);
-        fetch(api_url + '/task/scheduled_tasks')
-            .then(res => res.json())
+        api.task.get_scheduled_tasks()
             .then(tasks => {
                 for (let task of Object.values(tasks)) {
                     task.checked = false;
@@ -117,7 +104,7 @@ export const TasksView = () => {
 
     const cancel_checked_tasks = () => {
         get_checked_tasks().forEach(t => {
-            fetch(api_url + `/task/cancel/${t.task_id}`)
+            api.task.cancel(t.task_id)            
                 .then(open_task_list_modal);
         });
     };

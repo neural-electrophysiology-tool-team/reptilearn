@@ -1,7 +1,6 @@
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
-import { api_url } from '../config.js';
 import { setVideoConfig } from '../store/reptilearn_slice';
 import RLModal from './ui/modal.js';
 import RLTabs from './ui/tabs.js';
@@ -11,6 +10,7 @@ import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
 import RLInput from './ui/input.js';
 import { classNames } from './ui/common.js';
+import { api } from '../api';
 
 export const VideoSettingsView = ({ setOpen, open }) => {
     const dispatch = useDispatch();
@@ -32,8 +32,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
 
     // TODO: this is copied from App.js. should be somewhere else...
     const fetch_video_config = React.useCallback(() => {
-        return fetch(api_url + '/video/get_config')
-            .then((res) => res.json())
+        return api.video.get_config()
             .then((config) => dispatch(setVideoConfig(config)))
             .catch(err => {
                 console.log(`Error while fetching video config: ${err}`);
@@ -42,8 +41,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
     }, [dispatch]);
 
     React.useEffect(() => {
-        fetch(api_url + '/video/list_image_classes')
-            .then((res) => res.json())
+        api.video.list_image_classes()
             .then(setImageClasses);
     }, [setImageClasses]);
 
@@ -79,26 +77,14 @@ export const VideoSettingsView = ({ setOpen, open }) => {
 
     const shutdown = () => {
         setOpen(false)
-
-        fetch(api_url + '/video/shutdown')
-            .catch((e) => {
-                console.log('Error while shutting down video system:', e);
-            })
+        api.video.shutdown();
 
     }
     const apply = () => {
         setOpen(false);
-
-        fetch(api_url + '/video/update_config', {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                "image_sources": sourcesConfig,
-                "image_observers": observersConfig
-            })
+        api.video.update_config({
+            "image_sources": sourcesConfig,
+            "image_observers": observersConfig
         })
             .then((resp) => {
                 if (fetch_video_config) {
@@ -126,7 +112,7 @@ export const VideoSettingsView = ({ setOpen, open }) => {
     const add_object = async () => {
         const cfg = (activeTabIdx === 0) ? { ...sourcesConfig } : { ...observersConfig };
 
-        const default_params = await fetch(`${api_url}/video/image_class_params/${addClassInput}`).then((resp) => resp.json())
+        const default_params = await api.video.image_class_params(addClassInput);
 
         cfg[addIdInput] = {
             ...default_params,

@@ -2,8 +2,8 @@ import React from 'react';
 import { SocketContext } from '../socket.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
-import { api_url } from '../config.js';
 import { RLSpinner } from './ui/spinner.js';
+import { api } from '../api.js';
 
 export const LogView = () => {
     const socket = React.useContext(SocketContext);
@@ -45,8 +45,7 @@ export const LogView = () => {
         socket.on('log', listener);
         socket.on('disconnect', () => socket.off('log'));
 
-        fetch(api_url + '/log/get_buffer')
-            .then((res) => res.json())
+        api.log.get_buffer()
             .then((log_buffer) => {
                 log.current = log_buffer;
                 // scroll to top after loading log buffer
@@ -54,7 +53,7 @@ export const LogView = () => {
                     textarea_ref.current.scrollTop = textarea_ref.current.scrollHeight;
                 }
 
-                return fetch(api_url + '/config/log_buffer_size')
+                return api.get_config('log_buffer_size')
             })
             .then((res) => res.json())
             .then((val) => {
@@ -71,7 +70,7 @@ export const LogView = () => {
     }, [listenerSetup, textarea_ref]);
 
     const clear_log = async () => {
-        await fetch(api_url + '/log/clear_buffer');
+        await api.log.clear_buffer();        
         log.current = [];
         setLogUpdated(new Date());
     };
