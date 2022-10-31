@@ -1,3 +1,8 @@
+"""
+Serial-MQTT Bridge
+author: Tal Eisenberg <eisental@gmail.com>
+"""
+
 import paho.mqtt.client as mqtt
 import logging
 import queue
@@ -5,11 +10,6 @@ from serial.tools import list_ports
 from serial import Serial
 import threading
 import json
-
-"""
-Serial-MQTT Bridge
-author: Tal Eisenberg <eisental@gmail.com>
-"""
 
 
 def serial_port_by_id(id):

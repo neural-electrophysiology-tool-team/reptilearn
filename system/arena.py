@@ -38,7 +38,11 @@ def _run_shell_command(cmd):
 def switch_display(on, display=None):
     """Switch an external display on or off. Requires xrandr and an X server"""
     displays = get_config().arena["displays"]
+
     if display is None:
+        if len(displays) == 0:
+            _log.warn("Can't switch display on or off. No displays are defined.")
+            return
         display_id = list(displays.values())[0]
         display = list(displays.keys())[0]
     else:

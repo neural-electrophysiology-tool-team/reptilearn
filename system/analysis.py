@@ -322,7 +322,6 @@ class VideoPosition:
     timestamp: The time of the video position
     frame: The frame number of the video position (based on the timestamp)
     """
-
     video: VideoInfo
     timestamp: pd.Timestamp
     frame: int = None

@@ -1,3 +1,10 @@
+"""
+Serial-MQTT Bridge.
+author: Tal Eisenberg <eisental@gmail.com>
+
+Run `python main.py --help` for more information.
+"""
+
 import logging
 import sys
 import subprocess
@@ -7,13 +14,6 @@ import threading
 from serial.tools import list_ports
 from serial_mqtt import SerialMQTTBridge, serial_port_by_id
 import config
-
-"""
-Serial-MQTT Bridge.
-author: Tal Eisenberg <eisental@gmail.com>
-
-Run `python main.py --help` for more information.
-"""
 
 
 def run_shell_command(log, cmd):

@@ -1,6 +1,6 @@
 /* ReptiLearn Arena Arduino Code
  * -----------------------------
- * @author Tal Eisenberg <eisental@gmail.com>
+ * @author Tal Eisenberg
  * 
  * This Arduino code can be used to control various hardware components through the ReptiLearn MQTT-Serial bridge. 
  * After uploading the code to any number of Arduino microprocessors, each Arduino can be configured with different 
