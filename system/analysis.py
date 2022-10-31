@@ -1,3 +1,8 @@
+"""
+Classes and function to help with offline analysis of data that was collected using the system.
+
+Author: Tal Eisenberg, 2021
+"""
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List
@@ -11,16 +16,12 @@ import moviepy.config
 import json
 import bbox
 import cv2
-
-# TODO:
-# - option to choose locale
-# - docstrings
-# - support for undistort
-
+import logging
 events_log_filename = "events.csv"
 session_state_filename = "session_state.json"
 name_locale = "Asia/Jerusalem"
 
+log = logging.getLogger()
 
 def split_name_datetime(s):
     """
@@ -53,6 +54,7 @@ def read_timeseries_csv(path: Path, time_col="time", tz="utc") -> pd.DataFrame:
 
     df.index = pd.to_datetime(df[time_col], unit="s").dt.tz_localize(tz)
     df.drop(columns=[time_col], inplace=True)
+    df = df.loc[df.index.dropna()]  # remove rows with NaT timestamps
     return df
 
 
@@ -110,8 +112,14 @@ def format_timestamp(ts: pd.Timestamp, fmt="%m-%d %H:%M:%S", tz="Asia/Jerusalem"
 
 def background_for_ts(info, ts, infix):
     imgs = [p for p in info.images if infix in p.name]
-    im_tss = [split_name_datetime(p.stem)[1].tz_localize("Asia/Jerusalem").tz_convert("utc") for p in imgs]
-    df = pd.DataFrame(data={'ts': im_tss, 'ts_diff': pd.Series(im_tss) - ts, 'path': imgs}, columns=['ts', 'ts_diff', 'path'])
+    im_tss = [
+        split_name_datetime(p.stem)[1].tz_localize("Asia/Jerusalem").tz_convert("utc")
+        for p in imgs
+    ]
+    df = pd.DataFrame(
+        data={"ts": im_tss, "ts_diff": pd.Series(im_tss) - ts, "path": imgs},
+        columns=["ts", "ts_diff", "path"],
+    )
     row = df[df.ts_diff < pd.Timedelta(0)].max()
     return cv2.imread(str(row.path))
 
@@ -280,11 +288,14 @@ class VideoInfo:
             self.timestamps = None
             self.frame_count = None
         else:
-            self.timestamps = read_timeseries_csv(
-                self.timestamp_path, time_col=["time", "timestamp"]
-            )
-            self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
-            self.frame_count = self.timestamps.shape[0]
+            try:
+                self.timestamps = read_timeseries_csv(
+                    self.timestamp_path, time_col=["time", "timestamp"]
+                )
+                self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
+                self.frame_count = self.timestamps.shape[0]
+            except:
+                log.exception(f"Error reading timestamps csv {self.timestamp_path}:")
 
         self.metadata_path = path.parent / (path.stem + ".json")
         if not self.metadata_path.exists():
@@ -519,7 +530,9 @@ class SessionInfo:
         if len(bbox_csvs) == 0:
             return None
 
-        self._head_bbox = pd.concat([read_timeseries_csv(bbox_csv) for bbox_csv in bbox_csvs], axis=0)
+        self._head_bbox = pd.concat(
+            [read_timeseries_csv(bbox_csv) for bbox_csv in bbox_csvs], axis=0
+        )
         self._head_bbox = self._head_bbox[~self._head_bbox.index.duplicated()]
         return self._head_bbox
 

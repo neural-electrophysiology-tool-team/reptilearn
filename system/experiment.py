@@ -1,3 +1,10 @@
+"""
+Session and experiment management
+Author: Tal Eisenberg, 2021
+
+Responsible for creating/continuing/deleting sessions and loading, running, and managing the
+lifecycle of experiment modules.
+"""
 from datetime import datetime
 import re
 import json
@@ -21,11 +28,16 @@ class ExperimentException(Exception):
 
 log = None
 
+# Latest list of experiment modules
 experiment_specs = None
+
+# Reference to the session Experiment class or None if there is no current session.
 cur_experiment = None
+
+# Reference to the session event_log.EventDataLogger or None if there is no session.
 event_logger = None
 
-# Cursors
+# State cursors
 state: managed_state.Cursor = None
 session_state: managed_state.Cursor = None
 params: managed_state.Cursor = None
@@ -34,6 +46,9 @@ actions: managed_state.Cursor = None
 
 
 def init(state_obj):
+    """
+    Initialize module.
+    """
     global log, session_state, params, blocks, actions, state
 
     state = state_obj
@@ -47,6 +62,9 @@ def init(state_obj):
 
 
 def shutdown():
+    """
+    Shutdown module. Stop experiment and close session if necessary.
+    """
     if session_state.exists(()):
         if session_state["is_running"]:
             stop_experiment()
@@ -94,7 +112,7 @@ def create_session(session_id, experiment):
     Create and activate a new session.
 
     session_id: String used as the base of the session directory name.
-    experiment: An experiment module name
+    experiment: An experiment module name string.
 
     Creates a session directory, loads the experiment, updates session state,
     and calls init_session().
@@ -199,8 +217,11 @@ def continue_session(session_name):
 
 def init_session(continue_session=False):
     """
-    Initialize the session event logger (stored as a global event_logger object),
+    Initialize the session event logger (referenced from the global event_logger attribute),
     calls the experiment class setup() hook, and creates session_state.json file.
+
+    Args:
+    - continue_session: Whether the loaded session is a continued session that was created previously.
     """
     global event_logger
 
@@ -230,6 +251,10 @@ def init_session(continue_session=False):
 
 
 def refresh_actions():
+    """
+    Refresh the list of available actions according to the current
+    value of the actions dict attribute of the session experiment class.
+    """
     actions.set_self(cur_experiment.actions.keys())
 
 
@@ -276,6 +301,14 @@ def close_session():
 
 
 def archive_sessions(sessions, archives, move=False):
+    """
+    Copy or move a list of sessions into archive directories.
+
+    Args:
+    - sessions: A list of session dicts as returned from get_session_list().
+    - archives: A list of strings of archive names - keys of config.archive_dirs.
+    - move: Whether to move or copy the sessions. Moving sessions is not currently supported.
+    """
     sessions_fmt = ", ".join(map(lambda s: s[2], sessions))
     archives_fmt = ", ".join(archives)
 
@@ -315,6 +348,12 @@ def archive_sessions(sessions, archives, move=False):
 
 
 def delete_sessions(sessions):
+    """
+    Delete all files and directories of a list of sessions
+
+    Args:
+    - sessions: A list of session dicts as returned from get_session_list()
+    """
     if session_state.exists(()) and session_state["is_running"] is True:
         raise ExperimentException(
             "Can't delete session while an experiment is running."
@@ -337,7 +376,7 @@ def delete_sessions(sessions):
 def run_experiment():
     """
     Run the experiment of the current session. Calls the experiment class run() hook, and starts
-    trial 0 of block 0. Updates the session state file.
+    trial 0 of block 0. Updates the session state file and log to the events log.
     """
     global cached_params, cached_params_block
 
@@ -370,6 +409,8 @@ def run_experiment():
 def stop_experiment():
     """
     Stop the currently running experiment.
+    Calls the experiment class hooks end_trial(), end_block(), end() in this order.
+    Update session state file and log to the events log.
     """
     if session_state["is_running"] is False:
         raise ExperimentException("Session is not running.")
@@ -398,11 +439,12 @@ def stop_experiment():
 def set_phase(block, trial, force_run=False):
     """
     Set the current block and trial numbers.
-    Calls the run_block() and run_trial() experiment class hooks.
+    Calls the run_block() and run_trial() experiment class hooks when applicable.
 
-    block, trial: int indices (starting with 0).
-    force_run: When True, the hooks will be called even when the parameters are
-    the same as the current phase.
+    Args:
+    - block, trial: int indices (starting with 0).
+    - force_run: When True, the hooks will be called even when the parameters are
+                 the same as the current phase.
     """
     if blocks.exists(()):
         if len(blocks.get_self()) <= block and block != 0:
@@ -515,7 +557,7 @@ def load_experiment(experiment_name):
     cur_experiment = cls(log)
 
 
-def can_update_params():
+def _can_update_params():
     if not session_state.exists(()):
         raise ExperimentException("Can't update params before starting a session")
 
@@ -524,30 +566,48 @@ def can_update_params():
 
 
 def update_params(new_params):
+    """
+    Update the experiment parameters of the currently loaded session (if there is one).
+
+    - new_params: The new parameters dict or None to use the experiment default parameters.
+    """
     if new_params is None:
         return update_params(cur_experiment.get_default_params())
 
-    can_update_params()
+    _can_update_params()
     session_state["params"] = new_params
 
 
 def update_blocks(new_blocks):
+    """
+    Update the experiment block parameters of the currently loaded session (if there is one).
+
+    - new_blocks: A list of parameter dicts for each block or None to use the experiment default
+                  block parameters.
+    """
     if new_blocks is None:
         return update_blocks(cur_experiment.get_default_blocks())
 
-    can_update_params()
+    _can_update_params()
     session_state["blocks"] = new_blocks
 
 
 def update_block(block_idx, new_block):
+    """
+    Update the experiment block parameters for a single block.
+
+    Args:
+    - block_idx: The index of the updated block (int).
+    - new_block: The new parameters dict for this block, or None to use the experiment default block parameters.
+    """
     if new_block is None:
         if len(cur_experiment.default_blocks) > block_idx:
             return update_block(block_idx, cur_experiment.default_blocks[block_idx])
         else:
-            can_update_params()
+            _can_update_params()
             return remove_block(block_idx)
 
-    can_update_params()
+    _can_update_params()
     num_blocks = len(session_state["blocks"])
 
     if block_idx < num_blocks:
@@ -561,10 +621,18 @@ def update_block(block_idx, new_block):
 
 
 def remove_block(block_idx):
+    """
+    Remove the block at the supplied index.
+    """
     session_state.delete(("blocks", block_idx))
 
 
 def run_action(label):
+    """
+    Run the "run" function of an experiment action.
+
+    - label: The action name (key of the current experiment actions dict).
+    """
     cur_experiment.actions[label]["run"]()
 
 
@@ -606,6 +674,9 @@ def get_params():
 
 
 def get_num_blocks():
+    """
+    Return the number of blocks defined in the current session.
+    """
     if "blocks" in session_state:
         return len(session_state["blocks"])
     else:
