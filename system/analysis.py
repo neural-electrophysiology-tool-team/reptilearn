@@ -270,6 +270,8 @@ class VideoInfo:
     path: Path
     timestamp_path: Path
     timestamps: pd.DataFrame
+    metadata_path: Path
+    metadata: dict
     frame_count: int
     duration: pd.Timestamp
     src_id: str
@@ -296,6 +298,8 @@ class VideoInfo:
                 self.frame_count = self.timestamps.shape[0]
             except:
                 log.exception(f"Error reading timestamps csv {self.timestamp_path}:")
+                self.duration = None
+                self.frame_count = None
 
         self.metadata_path = path.parent / (path.stem + ".json")
         if not self.metadata_path.exists():
@@ -315,7 +319,7 @@ class VideoInfo:
             ]  # NOTE: what happens when both src_id and name have underscores?
 
     def __repr__(self):
-        return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count},\n\tduration: {self.duration})"
+        return f"\nVideoInfo(name: {self.name},\n\ttime: {self.time},\n\tpath: {self.path},\n\ttimestamp_path: {self.timestamp_path},\n\tframe_count: {self.frame_count},\n\tduration: {self.duration})\n\tmetadata: {self.metadata}"
 
 
 @dataclass(init=False)
