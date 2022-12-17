@@ -60,7 +60,7 @@ def _module_tasks(module):
         (
             (name, func)
             for name, func in inspect.getmembers(module)
-            if not name.startswith("_") and callable(func) and type(func) is not type
+            if not name.startswith("_") and callable(func) and type(func) is not type and func.__module__ == module.__name__
         )
     )
     return public_fns
