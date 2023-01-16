@@ -4,7 +4,7 @@ import logging
 log_level = logging.INFO
 
 # Path of the arena configuration file. This is where the Arduinos behavior is configured.
-arena_config_path = "../system/config/arena_config_mac.json"
+arena_config_path = "../system/config/arena_config.json"
 
 serial = {
     "ports": {
