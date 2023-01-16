@@ -40,9 +40,11 @@ def upload_program(log, serial_ports_config):
 
             port = serial_port_by_id(pid)
             log.info(f"Uploading arena program to port '{port_name}' ({port}).")
-            ret = run_shell_command(log, ["stty", file_flag, port.device, "1200"])
-            if ret != 0:
-                return False
+
+            if platform.system() != "Windows":
+                ret = run_shell_command(log, ["stty", file_flag, port.device, "1200"])
+                if ret != 0:
+                    return False
 
             ret = run_shell_command(
                 log,
