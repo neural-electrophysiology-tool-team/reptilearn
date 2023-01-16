@@ -15,7 +15,6 @@
 
 #include <ArduinoJson.h>
 #include "send.h"
-#include "Feeder.h"
 #include "Interface.h"
 
 // To remove any unused interface type, simply comment its include line below:

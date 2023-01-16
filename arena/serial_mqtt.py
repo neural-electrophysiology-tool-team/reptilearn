@@ -294,7 +294,7 @@ class SerialMQTTBridge:
                     port_name = self.interface_dispatcher[cmd_interface]
 
                     if port_name not in self.serials.keys():
-                        self.log.error(f"Unknown interface: {cmd_interface}")
+                        self.log.error(f"Unknown serial port: {port_name}")
                         continue
 
                     port_conf = self.serial_config["ports"][port_name]
@@ -321,7 +321,7 @@ class SerialMQTTBridge:
 
         All commands are allowed by default. Currently, only the get command can be
         disallowed by adding the key value pair: `"allow_get": False` to the port
-        configuration.
+        configuration in config.py.
         """
         if (
             cmd_name == "get"
