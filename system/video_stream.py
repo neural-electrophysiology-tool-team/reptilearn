@@ -205,7 +205,7 @@ class ImageSource(ConfigurableProcess):
             text_size = cv2.getTextSize(text, font, font_scale, 10)[0]
 
         pos = ((im_w - text_size[0]) // 2, (im_h + text_size[1]) // 2)
-        img = np.zeros(shape)
+        img = np.zeros(shape, dtype="uint8")
 
         cv2.putText(
             img,
