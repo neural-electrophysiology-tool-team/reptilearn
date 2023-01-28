@@ -27,6 +27,9 @@ class VideoImageSource(ImageSource):
         self.repeat = self.get_config("repeat")
         self.is_color = self.get_config("is_color")
 
+        if self.start_frame is None:
+            self.start_frame = 0
+
         if not isinstance(self.video_path, int):
             src = str(self.video_path).strip()
         else:
@@ -58,7 +61,7 @@ class VideoImageSource(ImageSource):
         if self.start_frame != 0:
             self.vcap.set(cv2.CAP_PROP_POS_FRAMES, self.start_frame)
 
-        self.frame_num = self.start_frame if self.start_frame is not None else 0
+        self.frame_num = self.start_frame
         self.repeat_count = 0
         self.last_acquire_time = None
         return True
