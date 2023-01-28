@@ -7,7 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List
 import pandas as pd
-
+from tqdm.auto import tqdm
 import re
 import os
 import moviepy.editor as mpy
@@ -22,6 +22,7 @@ session_state_filename = "session_state.json"
 name_locale = "Asia/Jerusalem"
 
 log = logging.getLogger()
+
 
 def split_name_datetime(s):
     """
@@ -54,7 +55,8 @@ def read_timeseries_csv(path: Path, time_col="time", tz="utc") -> pd.DataFrame:
 
     df.index = pd.to_datetime(df[time_col], unit="s").dt.tz_localize(tz)
     df.drop(columns=[time_col], inplace=True)
-    df = df.loc[df.index.dropna()]  # remove rows with NaT timestamps
+    if df.index.isnull().any():
+        df = df.loc[df.index.dropna()]  # remove rows with NaT timestamps
     return df
 
 
@@ -296,7 +298,7 @@ class VideoInfo:
                 )
                 self.duration = self.timestamps.index[-1] - self.timestamps.index[0]
                 self.frame_count = self.timestamps.shape[0]
-            except:
+            except Exception:
                 log.exception(f"Error reading timestamps csv {self.timestamp_path}:")
                 self.duration = None
                 self.frame_count = None
@@ -391,20 +393,19 @@ class SessionInfo:
         self.time = self.time.tz_localize(name_locale).tz_convert("utc")
         self.dir = session_dir
 
-        self.videos = [
-            VideoInfo(p)
-            for p in list(session_dir.glob("*.mp4")) + list(session_dir.glob("*.avi"))
-        ]
+        self.videos = []
+        for p in tqdm(list(session_dir.glob("*.mp4")) + list(session_dir.glob("*.avi"))):
+            self.videos.append(VideoInfo(p))
 
         ts_paths = [v.timestamp_path for v in self.videos]
         self.csvs = []
-        for csv_path in [p for p in session_dir.glob("*.csv") if p not in ts_paths]:
+        for csv_path in tqdm([p for p in session_dir.glob("*.csv") if p not in ts_paths]):
             if events_log_filename in csv_path.name:
                 self.event_log_path = csv_path
             else:
                 self.csvs.append(csv_path)
 
-        self.images = list(session_dir.glob("*.jpg")) + list(session_dir.glob("*.png"))
+        self.images = list(session_dir.glob("*.jpg")) + list(session_dir.glob("*.png")) + list(session_dir.glob("*.pickle"))
 
         self.session_state_path = session_dir / "session_state.json"
         if not self.session_state_path.exists():
