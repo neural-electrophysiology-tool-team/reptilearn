@@ -5,15 +5,31 @@ author: Tal Eisenberg <eisental@gmail.com>
 Run `python main.py --help` for more information.
 """
 
+import importlib
 import logging
 import sys
 import subprocess
 import argparse
 import platform
 import threading
+import traceback
 from serial.tools import list_ports
 from serial_mqtt import SerialMQTTBridge, serial_port_by_id
-import config
+
+
+def load_config(config_name: str):
+    """
+    Loads a config module from <config_name>.py.
+
+    Return the new global config module.
+    """
+    try:
+        config = importlib.import_module(config_name)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
+
+    return config
 
 
 def run_shell_command(log, cmd):
@@ -28,6 +44,10 @@ def run_shell_command(log, cmd):
 
 
 def upload_program(log, serial_ports_config):
+    if len(serial_ports_config) == 0:
+        log.error("Nothing to upload. Please define your Arduino serial ports in the config module")
+        return False
+
     for port_name, port_conf in serial_ports_config.items():
         pid = port_conf["id"]
 
@@ -52,7 +72,7 @@ def upload_program(log, serial_ports_config):
                     "arduino-cli",
                     "compile",
                     "--fqbn",
-                    port_conf["fqbn"],
+                    str(port_conf["fqbn"]).strip(),
                     "arduino_arena",
                 ],
             )
@@ -67,7 +87,7 @@ def upload_program(log, serial_ports_config):
                     "-p",
                     port.device,
                     "--fqbn",
-                    port_conf["fqbn"],
+                    str(port_conf["fqbn"]).strip(),
                     "arduino_arena",
                 ],
             )
@@ -83,13 +103,6 @@ def upload_program(log, serial_ports_config):
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger("Arena")
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=config.log_level,
-        format="[%(levelname)s] - %(asctime)s: %(message)s",
-    )
-
     arg_parser = argparse.ArgumentParser(
         description="Serial-MQTT Bridge",
         epilog="Routes messages between mqtt clients and arduino devices over serial ports.",
@@ -102,7 +115,21 @@ if __name__ == "__main__":
         help="Upload arena program to all devices. Requires arduino-cli.",
         action="store_true",
     )
+    arg_parser.add_argument(
+        "--config",
+        help="Config module name",
+        default="config",
+    )
     args = arg_parser.parse_args()
+
+    config = load_config(args.config)
+
+    logger = logging.getLogger("Arena")
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=config.log_level,
+        format="[%(levelname)s] - %(asctime)s: %(message)s",
+    )
 
     if args.list_ports:
         ports = list_ports.comports()

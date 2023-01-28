@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
 import logging
 import queue
 from serial.tools import list_ports
-from serial import Serial
+from serial import Serial, SerialException
 import threading
 import json
 
@@ -176,10 +176,12 @@ class SerialMQTTBridge:
                 if self.shutdown_event.is_set():
                     break
 
-                if s.fd is None:
-                    break
+                try:
+                    line = s.readline()
+                except SerialException:
+                    self.log.exception(f"(SERIAL) Error reading from serial port {port_name}:")
+                    continue
 
-                line = s.readline()
                 if len(line) == 0:
                     continue
 
