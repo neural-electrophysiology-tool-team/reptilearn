@@ -17,6 +17,13 @@ In any case, some attributes you may want to change at this point are:
 
 ## Running ReptiLearn
 
+The ReptiLearn system is made of three parts: 
+- Main system in the `system` directory
+- Web server running the user interface in the `ui` directory
+- Arena hardware control in the `arena` directory (optional)
+Each of these needs to be run independently
+
+To run ReptiLearn follow these steps:
 1. Run the MQTT broker (refer to the documentation of the MQTT broker you installed previously)
 2. Run the database (optional)
 3. Open a terminal (Anaconda powershell prompt on windows) and go to the directory where the repository was cloned
@@ -38,7 +45,7 @@ cd system
 python main.py --config config-module
 ```
 where `config-module` is the name of a python module inside the `config` directory without the .py extension.
-For example, ```python main.py --config config2``` will start the system configured according to `config/config.py`.
+For example, ```python main.py --config config2``` will start the system configured according to `config/config2.py`.
 
 5. Start the UI server. Open a new terminal, go to the repository directory, and enter:
 ```bash
@@ -53,7 +60,6 @@ cd ui
 PORT=3001 npm start
 ```
 
-
 6. Start the Arena MQTT-Serial bridge (optional). From another terminal window go again to the repository directory and enter:
 ```bash
 conda activate reptilearn
@@ -61,8 +67,16 @@ cd arena
 python arena.py
 ```
 
+OR if you want to use a different config module than the default (the default is at arena/config.py):
+
+```bash
+conda activate reptilearn
+cd arena
+python arena.py --config config-module
+```
+
+where `config-module` is the name of a python module containing the config values without the .py extension.
+
 NOTE: Using the Arena MQTT-Serial bridge to communicate with Arduino boards requires additional configuration and setup. Please refer to the [MQTT-Serial bridge documentation](mqtt_serial_bridge.md) for more information.
 
 7. Open a recent version of a modern web browser and point it to the address of the UI server. This would be `http://localhost:3000` by default. If you started the server using another port in step 5, use that port instead of 3000.
-
-TO BE CONTINUED...

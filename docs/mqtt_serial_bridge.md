@@ -2,11 +2,11 @@
 
 The ReptiLearn system can control and monitor various electronic devices by communicating with any number of Arduino boards. Some examples include lights, cue LEDS, temperature sensors, reward feeders, and camera triggers. 
 
-It's possible to control custom hardware configurations that fit your specific needs without writing a single line of Arduino code. This is accomplished by using a single Arduino program that can interface with any number of different components. Each Arduino board is automatically programmed with the same generic program, and once communication between the board and the computer software is established, each board is configured based on its individual settings.
+It's possible to control custom hardware configurations that fit your specific needs without writing a single line of Arduino code. This is accomplished by using a single Arduino program that can interface with any number of different components. Each Arduino board is automatically programmed with the same generic program, and once communication between the board and computer software is established, each board is configured based on its individual settings.
 
-Communication with, and programming of the boards is handled by the [arena.py](../arena/arena.py) program in the arena directory of the ReptiLearn repository. The main ReptiLearn system communicates with `arena.py` using the [MQTT protocol](https://mqtt.org/) using a specific message format. In turn `arena.py` contains an MQTT-Serial bridge that provides bi-directional message routing between MQTT and connected Arduino boards that are running the generic program. 
+Communication with, and programming of the boards is handled by the [arena.py](../arena/arena.py) program in the arena directory of the ReptiLearn repository. The main ReptiLearn system communicates with `arena.py` using the [MQTT protocol](https://mqtt.org/) and a specific message format. In turn `arena.py` contains an MQTT-Serial bridge that provides bi-directional message routing between MQTT and connected Arduino boards. 
 
-The ReptiLearn system can send commands to individual interfaces on individual boards and get back the interfaces current values. The system can also poll every board for its current state. This is usually done once a minute, but can be changed in the main ReptiLearn config file. In addition, the bridge can also send log messages and errors from the Arduino boards to the ReptiLearn log.
+The ReptiLearn system can send commands to individual interfaces on individual boards and get back the current values or state of each interface. The system can also poll each board for its current state. This is usually done automatically once a minute, but can be changed in the main ReptiLearn config file. In addition, the bridge can also send log messages and errors from the Arduino boards to the ReptiLearn data logger.
 
 Setting up the hardware requires first identifying each individual board, and then configuring the various interfaces (i.e. electronic devices) you want to use. This is currently done by modifying two configuration files, as explained below.
 
@@ -26,9 +26,7 @@ For programming the Arduino boards you need to install
 Once installed, run these commands to install the necessary Arduino libraries:
 ```
 arduino-cli core update-index
-arduino-cli lib install AccelStepper
-arduino-cli lib install ArduinoJson
-arduino-cli lib install OneWire
+arduino-cli lib install AccelStepper ArduinoJson OneWire DallasTemperature
 ```
 
 Finally, install the software for your specific Arduino board model. For example for an Arduino Nano Every or UNO WiFi Rev 2 run:
@@ -48,46 +46,53 @@ arduino-cli core install <board ID>
 
 # Configuration
 
-The arena program configuration file can be found in [arena/config.py](../arena/config.py). Open the file in a text editor.
+The arena program configuration file template can be found in [arena/config.py](../arena/config.py). It's recommended to copy this file with a new filename under the arena directory and make changes to the copy. You can also edit the config file directly, however this might make it harder to update ReptiLearn later using git. In any case, start by opening the configuration file (copy or original) in a text editor.
 
 ## Identifying and configuring Arduino boards
 To configure individual Arduino boards you need to identify them by their `hwid` string and set their `fqbn` board id.
 
 Open a terminal and point it to the repilearn repository directory (use Anaconda powershell on Windows). Switch to the reptilearn anaconda environment (e.g. `conda activate reptilearn`) and run:
-```
+
+```bash
+cd arena
 python arena.py --list-ports
 ```
+
 The output should look something like this (if you have any boards already connected):
+
 ```
 Available serial ports:
 
         /dev/cu.Bluetooth-Incoming-Port: n/a, hwid="n/a"
-        /dev/cu.usbserial-A800eFFZ: FT232R USB UART, hwid="USB VID:PID=0403:6001 SER=A800eFFZ LOCATION=1-1.2"
+        /dev/cu.usbmodem101: Arduino Nano Every, hwid="USB VID:PID=2341:0058 SER=897A8E135153543553202020FF170823 LOCATION=0-1"
 ```
-Connect each of the Arduino boards you plan to use, one by one, run the command again for each one, and write down their `hwid` string. 
+
+Disconnect any arduino boards from your computer, and connect each of the Arduino boards you plan to use one by one. For each board run the command again and write down its `hwid` string. Any part of the string can be used. It's recommended to use the part after SER= ("897A8E135153543553202020FF170823" in the example above) as this value will stay fixed for this specific board. Ignore any serial ports in the list that correspond to unrelated devices (a bluetooth port in the example above).
 
 We also need the `fqbn` identifier of each board. To find it run:
-```
+
+```bash
 arduino-cli board listall
 ```
+
 For example for Arduio Nano Every the `fqbn` is `arduino:megaavr:nona4809`.
-Add this information to the ports dictionary in the config file. For each arduino board, add a port dictionary like so:
+Add this information to the ports dictionary in the config file. For each arduino board, add a port dictionary. It should look like this:
 
 ```python
 ...
 serial = {
     "ports": {
         "<port name>": {
-            "id": "<hwid>",
-            "fqbn": "<arduino FQBN>"
+            "id": "<porthwid>",
+            "fqbn": "<fqbn>"
         },
-        "<another port name>": {
+        "<port name>": {
             "id": "<hwid>",
             "fqbn": "<fqbn>"
         },
 
         # The camera trigger port and other time sensitive boards should disallow get commands, for example:
-        "camera_trigger": {
+        "<camera_trigger_port_name>": {
             "id": "<hwid>",
             "fqbn": "<fqbn>",
             "allow_get": False,
@@ -96,7 +101,12 @@ serial = {
 }
 ...
 ```
-The `"allow_get"` attribute determines whether get commands will be passed to this board or not. The `get` command causes the board to send its current state. This might take some time, and so should be avoided for time-sensitive functions, such as the camera trigger.
+
+- `<port name>`: any string describing the board function (e.g. "camera_trigger" or "arena").
+- `<hwid>`: the port `hwid` string
+- `<fqbn>`: the Arduino `fqbn` string for this port
+
+The `"allow_get"` attribute determines whether `get` commands will be passed to this board or not. The `get` command causes the board to send its current state. This might take some time, and so should be avoided for time-sensitive functions, such as the camera trigger.
 
 ## MQTT
 You may want to change the host and port settings of the MQTT broker. The default values assume the broker is on the same machine and uses the default port 1883. 
@@ -105,8 +115,8 @@ It's also possible to change the MQTT topics used to receive commands and publis
 
 # Uploading the Arduino program
 
-The last setup step is to program the Arduino boards. Once all the boards are configured with correct `hwid` and `fqbn` values, connect all of them and run:
-```
+The last setup step is to program the Arduino boards. Once all the boards are configured with correct `hwid` and `fqbn` values, connect all of them and run (assuming your terminal working directory is `reptilearn/arena` as before):
+```bash
 python arena.py --upload
 ```
 This will upload the program to every board defined in the configuration file.
@@ -118,7 +128,9 @@ In most cases getting a supported board model should solve this problem, however
 
 # Configuring interfaces
 
-The Arduino program can interface with different electronic devices. The file [system/config/arena_config.json](../system/config/arena_config.json) defines which interfaces will be used with each Arduino board. It uses the JSON format. Unfortunately, you have to edit it by hand. The basic structure is an object with a key for each arduino. The keys should be the same as the ones you used in the arena config.py file. 
+The Arduino program can interface with different electronic devices. The file [system/config/arena_config.json](../system/config/arena_config.json) defines which interfaces will be used with each Arduino board. It uses the JSON format. Unfortunately, you have to edit it by hand. As with the arena.py config file, you may want to first make a copy of this file and edit the copy instead. In your arena.py config file update the value of `arena_config_path` to reflect the path of the copied file.
+
+The basic structure is an object with a key for each arduino. The keys should be the same as the ones you used in the arena config.py file. 
 
 For example, a setup with two boards, one for controlling two LEDs, and one to trigger the cameras could look like this:
 
@@ -160,7 +172,7 @@ More information about the various interfaces can be found below in the interfac
 
 Once everything is configured you can run the bridge. Follow the instruction in the [user guide](user_guide.md) on how to run all parts of the system. Pressing Ctrl-C should stop the bridge.
 
-When the bridge is starting up the Arduino boards should send setup requests and you should see messages in the ReptiLearn log detailing the connected interfaces. If everything went well you should see your interfaces in this list. The arena menu in the ReptiLearn UI should also show and allow you to control the defined interfaces.
+When the bridge is starting up the Arduino boards should send setup requests and you should see messages in the ReptiLearn log detailing the connected interfaces. If everything went well you should see your interfaces in this list. The arena menu in the ReptiLearn UI should also display and allow you to control the defined interfaces.
 
 # Interface documentation
 
