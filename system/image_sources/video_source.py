@@ -1,6 +1,7 @@
 from video_stream import ImageSource, AcquireException
 import cv2
 import time
+from pathlib import Path
 
 
 class VideoImageSource(ImageSource):
@@ -27,7 +28,7 @@ class VideoImageSource(ImageSource):
         self.is_color = self.get_config("is_color")
 
         if not isinstance(self.video_path, int):
-            src = str(self.video_path)
+            src = str(self.video_path).strip()
         else:
             src = self.video_path
 
@@ -48,13 +49,16 @@ class VideoImageSource(ImageSource):
         super()._init()
 
     def _on_start(self):
+        if not Path(self.video_path).exists():
+            raise Exception(f"File not found: {self.video_path}")
+
         self.vcap = cv2.VideoCapture(self.video_path)
         if self.end_frame is None:
             self.end_frame = self.vcap.get(cv2.CAP_PROP_FRAME_COUNT) - 1
         if self.start_frame != 0:
             self.vcap.set(cv2.CAP_PROP_POS_FRAMES, self.start_frame)
 
-        self.frame_num = self.start_frame
+        self.frame_num = self.start_frame if self.start_frame is not None else 0
         self.repeat_count = 0
         self.last_acquire_time = None
         return True
