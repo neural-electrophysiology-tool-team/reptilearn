@@ -21,7 +21,7 @@ class YOLOv4Detector:
         meta_path="image_observers/YOLOv4/obj.data",
         conf_thres=0.9,
         nms_thres=0.6,
-        return_neareast_detection=False,
+        return_nearest_detection=False,
     ):
         """
         Initialize detector.
@@ -30,14 +30,14 @@ class YOLOv4Detector:
         :param meta_path: Path to yolo metadata file (pretty useless for inference but necessary)
         :param conf_thres: float in (0,1), confidence threshold for bounding box detections
         :param nms_thres: float in (0,1), Non-max suppression threshold. Suppresses multiple detections for the same object.
-        :param return_neareast_detection: When true, only the detection nearest to the previous one is returned.
+        :param return_nearest_detection: When true, only the detection nearest to the previous one is returned.
         """
         self.cfg_path = cfg_path
         self.weights_path = weights_path
         self.meta_path = meta_path
         self.conf_thres = conf_thres
         self.nms_thres = nms_thres
-        self.return_neareast_detection = return_neareast_detection
+        self.return_nearest_detection = return_nearest_detection
 
     def load(self):
         self.curr_img = None
@@ -109,7 +109,7 @@ class YOLOv4Detector:
         if res.shape[0] == 0:
             return None
 
-        if self.return_neareast_detection:
+        if self.return_nearest_detection:
             if self.prev_bbox is None:
                 self.prev_bbox = res[np.argmax(res[:, 4])]
             else:

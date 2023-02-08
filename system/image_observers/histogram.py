@@ -15,8 +15,7 @@ class HistogramObserver(ImageObserver):
     def _on_image_update(self, img, timestamp):
         bins = self.config["bin_count"]
         hist, bins = np.histogram(img, bins=bins)
-        self.output[:] = hist
-        self._notify_listeners()
+        self._update_output(hist)
 
     def _get_buffer_opts(self):
         bins = self.config["bin_count"]

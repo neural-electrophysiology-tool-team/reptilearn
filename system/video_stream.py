@@ -611,10 +611,20 @@ class ImageObserver(ConfigurableProcess):
                     except Exception:
                         self.log.exception("Exception while stopping observer:")
 
+    def _update_output(self, output):
+        """
+        Update observer's output with the supplied value, and notify any listeners.
+        """
+        self.output[:] = output
+        self._notify_listeners()
+
     def _notify_listeners(self):
         """
         Notify listeners that the output buffer was updated.
-        Should be called by the inheriting class after new data was written to the output buffer.
+        Can be called by the inheriting class after new data was written to the output buffer to let
+        listeners know about it.
+
+        NOTE: _update_output takes care of notifying listeners and doesn't require using this method.
         """
         for evt in self.output_update_events.values():
             evt.set()

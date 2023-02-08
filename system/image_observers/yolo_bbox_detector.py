@@ -24,7 +24,7 @@ class YOLOv4ImageObserver(ImageObserver):
         del yolo_config["src_id"]
         del yolo_config["class"]
 
-        self.detector = YOLOv4Detector(**yolo_config, return_neareast_detection=True)
+        self.detector = YOLOv4Detector(**yolo_config, return_nearest_detection=True)
 
     def _setup(self):
         self.detector.load()
@@ -41,18 +41,11 @@ class YOLOv4ImageObserver(ImageObserver):
         self.log.info("Stopping object detection.")
 
     def _on_image_update(self, img, _):
-        # TODO: more intelligent 8bit conversion?
         if img.dtype == "uint16":
             img = (img / 256.0).astype("uint8")
 
         det = self.detector.detect_image(img)
-
-        if det is not None:
-            self.output[:] = det
-        else:
-            self.output[:] = self.nan_det
-
-        self._notify_listeners()
+        self._update_output(det if det is not None else self.nan_det)
 
     def _release(self):
         pass
