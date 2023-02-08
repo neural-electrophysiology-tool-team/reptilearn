@@ -50,6 +50,9 @@ def load_modules(modules_dir, logger=None):
         try:
             module, spec = load_module(py, package=modules_dir.stem)
             modules[py.stem] = module, spec
+        except ModuleNotFoundError as e:
+            if logger:
+                logger.warn(f"Can't load {py}. Missing dependency: {e.msg}")
         except Exception:
             if logger:
                 logger.exception(f"While loading module {py}:")

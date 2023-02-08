@@ -1,7 +1,4 @@
-try:
-    import vimba
-except Exception:
-    pass
+import vimba
 
 from video_stream import ImageSource
 import time
@@ -23,25 +20,25 @@ class AlliedVisionImageSource(ImageSource):
     def configure_camera(self):
         """Configure camera for trigger mode before acquisition"""
         try:
-            self.cam.ExposureAuto.set('Off')
-            self.cam.ExposureMode.set('Timed')
+            self.cam.ExposureAuto.set("Off")
+            self.cam.ExposureMode.set("Timed")
             self.cam.ExposureTime.set(self.get_config("exposure"))
             self.cam.DeviceLinkThroughputLimit.set(450000000)
             # self.cam.set_pixel_format(vimba.PixelFormat.Mono8)
 
             if self.get_config("trigger") is True:
                 self.cam.AcquisitionFrameRateEnable.set(False)
-                self.cam.TriggerMode.set('Off')
-                self.cam.TriggerSelector.set('FrameStart')
+                self.cam.TriggerMode.set("Off")
+                self.cam.TriggerSelector.set("FrameStart")
                 self.cam.LineSelector.set(self.get_config("trigger_source"))
-                self.cam.LineMode.set('Input')
+                self.cam.LineMode.set("Input")
                 self.cam.TriggerSource.set(self.get_config("trigger_source"))
 
-                self.cam.TriggerMode.set('On')
-                self.cam.TriggerActivation.set('FallingEdge')
+                self.cam.TriggerMode.set("On")
+                self.cam.TriggerActivation.set("FallingEdge")
 
             elif self.get_config("frame_rate") is not None:
-                self.cam.TriggerMode.set('Off')
+                self.cam.TriggerMode.set("Off")
                 self.cam.AcquisitionFrameRateEnable.set(True)
                 self.cam.AcquisitionFrameRate.set(self.get_config("frame_rate"))
             else:
@@ -50,7 +47,7 @@ class AlliedVisionImageSource(ImageSource):
                 )
                 return
 
-            self.cam.AcquisitionMode.set('Continuous')
+            self.cam.AcquisitionMode.set("Continuous")
         except Exception:
             self.log.exception("Exception while configuring camera:")
 
@@ -73,7 +70,9 @@ class AlliedVisionImageSource(ImageSource):
             self.prev_writing = self.state.get("writing", False)
 
         except vimba.VimbaCameraError:
-            self.log.error('Failed to access Camera {}. Abort.'.format(self.get_config("cam_id")))
+            self.log.error(
+                "Failed to access Camera {}. Abort.".format(self.get_config("cam_id"))
+            )
 
         return True
 
@@ -82,7 +81,7 @@ class AlliedVisionImageSource(ImageSource):
         self.system = vimba.Vimba.get_instance()
         with self.system as v:
             cams = v.get_all_cameras()
-            print('Cameras found: {}'.format(len(cams)))
+            print("Cameras found: {}".format(len(cams)))
             for cam in cams:
                 print_camera(cam)
             self.cam = v.get_camera_by_id(self.get_config("cam_id"))
@@ -123,12 +122,14 @@ class AlliedVisionImageSource(ImageSource):
                 for obs in self.observer_events:
                     obs.set()
         except Exception:
-            self.log.exception("Exception while getting image from alliedVision camera:")
+            self.log.exception(
+                "Exception while getting image from alliedVision camera:"
+            )
         finally:
             cam.queue_frame(frame)
 
     def _acquire_image(self):
-        raise NotImplemented('')
+        raise NotImplementedError("")
 
     def _on_stop(self):
         if self.cam.is_streaming():
@@ -137,22 +138,22 @@ class AlliedVisionImageSource(ImageSource):
 
 def factory_reset(cam_id):
     """not tested"""
-    raise NotImplemented('No factory reset for allied-vision')
+    raise NotImplementedError("No factory reset for allied-vision")
 
 
 def print_camera(cam):
-    print('/// Camera Name   : {}'.format(cam.get_name()))
-    print('/// Model Name    : {}'.format(cam.get_model()))
-    print('/// Camera ID     : {}'.format(cam.get_id()))
-    print('/// Serial Number : {}'.format(cam.get_serial()))
-    print('/// Interface ID  : {}\n'.format(cam.get_interface_id()))
+    print("/// Camera Name   : {}".format(cam.get_name()))
+    print("/// Model Name    : {}".format(cam.get_model()))
+    print("/// Camera ID     : {}".format(cam.get_id()))
+    print("/// Serial Number : {}".format(cam.get_serial()))
+    print("/// Interface ID  : {}\n".format(cam.get_interface_id()))
 
 
 if __name__ == "__main__":
     with vimba.Vimba.get_instance() as v:
         cams = v.get_all_cameras()
 
-        print('Cameras found: {}'.format(len(cams)))
+        print("Cameras found: {}".format(len(cams)))
 
         for cam in cams:
             print_camera(cam)
