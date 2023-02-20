@@ -28,15 +28,20 @@ static const int MAX_INTERFACES = 32;
 
 Interface *interfaces[MAX_INTERFACES];
 int num_interfaces = 0;
+unsigned long last_config_request_time = 0;
 
 void setup() {
   Serial.begin(115200);
 
   while (!Serial) continue;
-  send_message("status", "Waiting for configuration...");
+  request_configuration();
 }
 
 void loop() {
+  if (num_interfaces == 0 && (millis() - last_config_request_time > 5000)) {
+    request_configuration();
+  }
+  
   if (Serial.available() > 0) {
     StaticJsonDocument<2048> json;  
     DeserializationError error = deserializeJson(json, Serial);
@@ -87,6 +92,11 @@ void run_all(JsonArray cmd) {
   else {
     send_message("error/run_all", "Unknown command");
   }
+}
+
+void request_configuration() {
+  send_message("status", "Waiting for configuration...");  
+  last_config_request_time = millis();
 }
 
 void load_config(JsonObject conf) {

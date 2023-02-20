@@ -2,9 +2,13 @@ import React from "react";
 import { Popover } from "@headlessui/react";
 import { Float } from '@headlessui-float/react';
 
-export const RLTooltip = ({ children, content, delay = 500 }) => {
+export const RLTooltip = ({ children, content, disabled, delay = 500 }) => {
     const [open, setOpen] = React.useState(false);
     const [timeoutId, setTimeoutId] = React.useState(null);
+
+    if (disabled) {
+        return children;
+    }
 
     const handleEnter = () => {
         const id = setTimeout(() => setOpen(true), delay);

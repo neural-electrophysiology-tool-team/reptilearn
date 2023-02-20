@@ -6,9 +6,11 @@ This module provides convenience functions for communicating with the arena hard
 over MQTT. It allows sending commands, and also stores sensor readings in the global state.
 """
 
+import shutil
+import threading
 import mqtt
 import time
-from subprocess import Popen, PIPE
+from subprocess import STDOUT, Popen, PIPE
 import collections
 import data_log
 import json
@@ -22,17 +24,33 @@ _values_once_callback = None
 _log: logging.Logger = None
 _arena_log: data_log.DataLogger = None
 _arena_state = None
+_arena_config: dict = None
 _interfaces_config: list = None
 _trigger_interface: dict = None
+_arena_process = None
+_arena_process_thread = None
+_is_uploading = threading.Event()
 
 
-def _run_shell_command(cmd):
-    """Execute shell command"""
-    process = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = process.communicate()
-    if stderr:
-        _log.info(f'Error running cmd: "{cmd}"; {stderr}')
-    return stdout.decode("ascii")
+def _execute(command, cwd=None, shell=False, log=True):
+    """Run external program as a subprocess"""
+    process = Popen(command, shell=shell, cwd=cwd, universal_newlines=True, stdout=PIPE, stderr=STDOUT)
+    output = ""
+
+    # Poll process for new output until finished
+    for line in process.stdout:
+        if line:
+            line = line.rstrip()
+            if log:
+                _log.info(line)
+            output += line
+
+    process.wait()
+
+    if (process.returncode == 0):
+        return output
+    else:
+        raise Exception(command, process.returncode, output)
 
 
 def switch_display(on, display=None):
@@ -52,9 +70,9 @@ def switch_display(on, display=None):
     _state["arena", "displays", display] = on
 
     if on:
-        _run_shell_command(DISPLAY_CMD.format("auto"))
+        _execute(DISPLAY_CMD.format("auto"), shell=True)
     else:
-        _run_shell_command(DISPLAY_CMD.format("off"))
+        _execute(DISPLAY_CMD.format("off"), shell=True)
 
 
 def run_command(command, interface, args=None, update_value=True):
@@ -136,12 +154,32 @@ def stop_trigger(update_state=True):
     run_command("set", _trigger_interface, [0])
 
 
+def get_arena_config():
+    """
+    Return a dictionary containing the arena config as read from the config file.
+    """
+    return _arena_config
+
+
 def get_interfaces_config():
     """
     Return a list of all configured arena interfaces (a list of dicts). This is a single
-    list of all interfaces configured over all Arduinos.
+    list of all interfaces configured over all Arduino boards.
     """
     return _interfaces_config
+
+
+def update_arena_config(arena_conf):
+    """
+    Update the arena config file with the supplied dictionary.
+    On success reload the configuration from the config file.
+    """
+    shutil.move(get_config().arena_config_path, get_config().arena_config_path.parent / f"{get_config().arena_config_path.name}.OLD")
+
+    with open(get_config().arena_config_path, "w") as f:
+        json.dump(arena_conf, f, indent=4)
+
+    load_config()
 
 
 def poll(callback_once=None):
@@ -216,6 +254,9 @@ def _on_value(_, msg):
     interface, value = list(msg.items())[0]
     _arena_state["values", interface] = value
 
+    timestamp = time.time()
+    _arena_state["timestamp"] = timestamp
+
 
 def _on_info(topic, msg):
     _log.info(f"[{topic}] {msg}")
@@ -225,15 +266,101 @@ def _on_error(topic, msg):
     _log.error(f"[{topic}] {msg}")
 
 
-def init(state):
-    """
-    Initialize the arena module.
-    """
-    global _state, _log, _arena_log, _arena_state, _interfaces_config, _trigger_interface
-    _state = state
-    _log = get_main_logger()
-    _arena_state = state.get_cursor("arena")
+def _on_listening_status(_, is_listening):
+    _init_arena_state()
+    _arena_state["listening"] = is_listening
 
+
+def _on_done_configuring(_, port_name):
+    for ifs in _arena_config[port_name]["interfaces"]:
+        request_values(ifs["name"])
+
+
+def run_mqtt_serial_bridge():
+    """
+    Run and start communication with the arena controller on a separate thread.
+    """
+    global _arena_process_thread
+
+    if _arena_process is not None:
+        _log.error("Can't run arena controller. It is already running.")
+        return
+
+    dir = get_config().arena_controller_path
+    cmd = ["python", "arena.py"]
+
+    def bridge_comm_thread():
+        global _arena_process
+        _log.info("Running arena controller...")
+        _arena_process = Popen(cmd, cwd=dir, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        _log.info(f"Arena controller is running. pid: {_arena_process.pid}")
+        stdout, stderr = _arena_process.communicate()
+
+        _log.info(f"Arena controller terminated (exit code {_arena_process.returncode})")
+        if len(stderr) > 0:
+            _log.warn(f"STDERR: {stderr}")
+        if _arena_process.returncode != 0 and _arena_process.returncode != -15:
+            if len(stdout) > 0:
+                _log.warn(f"STDERR: {stdout}")
+            
+        _arena_process = None
+
+    _arena_process_thread = threading.Thread(target=bridge_comm_thread)
+    _arena_process_thread.start()
+
+
+def stop_mqtt_serial_bridge():
+    """
+    Stop the arena controller subprocess.
+    """
+    global _arena_process, _arena_process_thread
+    if _arena_process is not None:
+        run_command("terminate", "bridge", [], False)
+        _arena_process_thread.join(timeout=4)
+
+        if _arena_process_thread.is_alive():
+            _log.warn("Arena controller graceful termination was unsuccessful. Terminating process directly...")
+            _arena_process.terminate()
+            _arena_process_thread.join()
+            _log.info("Arena controller process terminated.")
+
+        _arena_process_thread = None
+
+
+def get_ports():
+    """
+    Return a list containing all available serial ports. Each port is represented by a dictionary
+    with `description, device, serial_number` keys
+    """
+    ret = _execute(["python", "arena.py", "--list-ports-json"], cwd=get_config().arena_controller_path, log=False)
+    return json.loads(ret)
+
+
+def upload_program(port_name=None):
+    """
+    Upload the Arduino program over serial port `port_name`. If `port_name` is None
+    Upload to all configured ports.
+    """
+    if _is_uploading.is_set():
+        raise Exception("Can't upload program. Already uploading.")
+
+    def upload_thread():
+        _log.info("Uploading program to Arduino boards...")
+        _is_uploading.set()
+        
+        if port_name is not None:
+            cmd = ["python", "arena.py", "--upload", port_name]
+        else:
+            cmd = ["python", "arena.py", "--upload"]
+
+        _execute(cmd, cwd=get_config().arena_controller_path)
+        _is_uploading.clear()
+        _log.info("Done uploading.")
+
+    threading.Thread(target=upload_thread).start()
+
+
+def _init_arena_state():
     displays = get_config().arena["displays"]
     _arena_state.set_self(
         {
@@ -246,20 +373,46 @@ def init(state):
     for display in displays.keys():
         switch_display(False, display)
 
+
+def load_config():
+    """
+    Load arena config from file.
+    """
+    global _interfaces_config, _arena_config
+
     try:
         with open(get_config().arena_config_path, "r") as f:
             arena_config = json.load(f)
             interfaces_config = []
-            for interfaces in arena_config.values():
-                interfaces_config += interfaces
+            for port_config in arena_config.values():
+                interfaces_config += port_config["interfaces"]
 
     except json.JSONDecodeError:
         _log.exception("Exception while parsing arena config:")
         return
 
     _interfaces_config = interfaces_config
+    _arena_config = arena_config
 
-    for ifs in interfaces_config:
+
+def init(state):
+    """
+    Initialize the arena module.
+    """
+    global _state, _log, _arena_log, _arena_state, _trigger_interface
+    _state = state
+    _log = get_main_logger()
+    _arena_state = state.get_cursor("arena")
+    
+    _init_arena_state()
+
+    if not get_config().arena_config_path.exists():
+        with open(get_config().arena_config_path, "w") as f:
+            json.dump({}, f)
+
+    load_config()
+
+    for ifs in _interfaces_config:
         if ifs["type"] == "trigger":
             _trigger_interface = ifs["name"]
             break
@@ -286,8 +439,12 @@ def init(state):
     mqtt.client.subscribe_callback(
         f"{topic}/error/#", mqtt.mqtt_json_callback(_on_error)
     )
+    mqtt.client.subscribe_callback(f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status))
+    mqtt.client.subscribe_callback(f"{topic}/done_configuring", mqtt.mqtt_json_callback(_on_done_configuring))
 
-    poll()
+    if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:
+        run_mqtt_serial_bridge()
+
     schedule.repeat(poll, get_config().arena["poll_interval"], pool="arena")
 
 
@@ -302,3 +459,5 @@ def shutdown():
     if _arena_log:
         _arena_log.stop()
         _arena_log.join()
+
+    stop_mqtt_serial_bridge()

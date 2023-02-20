@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import { api } from '../api.js';
+import { ArenaSettingsView } from './arena_settings_view.js';
 
 import RLIcon from './ui/icon.js';
 import RLMenu from './ui/menu.js';
@@ -8,11 +9,9 @@ import RLMenu from './ui/menu.js';
 
 export const ArenaControlView = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
-    const [arenaConfig, setArenaConfig] = React.useState(null);
-    React.useEffect(() => {
-        api.arena.get_config()
-            .then((arena_config) => setArenaConfig(arena_config));
-    }, []);
+    const [showArenaSettingsModal, setShowArenaSettingsModal] = React.useState(false);
+
+    const arena_config = useSelector((state) => state.reptilearn.arenaConfig);
 
     const toggle_display = (display) => {
         // TODO: test with multiple displays
@@ -94,7 +93,8 @@ export const ArenaControlView = () => {
         else return null;
     };
 
-    const items = !arenaConfig ? null : arenaConfig.map((ifs) => get_interface_ui(ifs));
+    const interfaces_config = arena_config && Object.values(arena_config).map((port_conf) => port_conf.interfaces).flat()
+    const items = !interfaces_config ? null : interfaces_config.map((ifs) => get_interface_ui(ifs));
 
     const update_time = ((t) => {
         if (t) {
@@ -120,22 +120,37 @@ export const ArenaControlView = () => {
             ))
         : null;
 
+    const bridge_button_label = ctrl_state.arena.listening ? "Restart arena" : "Start arena";
+    const bridge_button_action = () => {
+        if (ctrl_state.arena.listening) {
+            api.arena.restart_bridge();
+        } else {
+            api.arena.run_bridge();
+        }
+    }
+        
     return (
-        <RLMenu button={<RLMenu.TopBarMenuButton title="Arena" />}>
-            {items}
-            <RLMenu.HeaderItem>Displays</RLMenu.HeaderItem>
-            {display_toggles}
-            <RLMenu.SeparatorItem />
-            {!update_time
-                ? null
-                : <RLMenu.StaticItem key={update_time}>
-                    {`Updated: ${update_time.toLocaleTimeString()}`}
-                </RLMenu.StaticItem>
-            }
-            <RLMenu.ButtonItem onClick={api.arena.poll}>
-                <RLIcon.MenuIcon icon="stethoscope" />
-                <span>Poll arena</span>
-            </RLMenu.ButtonItem>
-        </RLMenu>
-    )
+        <>
+            <ArenaSettingsView setOpen={setShowArenaSettingsModal} open={showArenaSettingsModal} />        
+            <RLMenu button={<RLMenu.TopBarMenuButton title="Arena" />}>
+                {items}
+                {display_toggles.length > 0 && <RLMenu.HeaderItem>Displays</RLMenu.HeaderItem>}
+                {display_toggles}
+                <RLMenu.SeparatorItem />
+                {!update_time
+                    ? null
+                    : <RLMenu.StaticItem key={update_time}>
+                        {`Updated: ${update_time.toLocaleTimeString()}`}
+                    </RLMenu.StaticItem>
+                }
+                <RLMenu.ButtonItem onClick={api.arena.poll}>
+                    <RLIcon.MenuIcon icon="stethoscope" />
+                    <span>Poll arena</span>
+                </RLMenu.ButtonItem>
+                <RLMenu.ButtonItem onClick={() => setShowArenaSettingsModal(true)} disabled={false} key="Arena settings">Arena settings...</RLMenu.ButtonItem>
+                <RLMenu.SeparatorItem />
+                <RLMenu.ButtonItem onClick={bridge_button_action} disabled={false} key="bridge_button">{bridge_button_label}</RLMenu.ButtonItem>
+                <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.listening} key="stop_bridge_button">Stop arena</RLMenu.ButtonItem>
+            </RLMenu>
+        </>);
 };

@@ -10,7 +10,7 @@ export const AddStreamButton = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
 
     return (
-        <RLTooltip content="Add video stream">
+        <RLTooltip content="Add video stream" disabled={!ctrl_state?.video || streamless_src_ids.length === 0}>
             <RLButton.TopBarButton disabled={!ctrl_state?.video || streamless_src_ids.length === 0} onClick={() => dispatch(addStream({ src_id: streamless_src_ids[0] }))}>
                 <span className="fa-layers fa-fw fa-lg">
                     <FontAwesomeIcon icon="fa-solid fa-video" />
