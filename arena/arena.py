@@ -187,7 +187,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     if len(arena_conf) == 0:
-        logger.Error("There are no configured serial ports. Exiting.")
+        logger.error("There are no configured serial ports. Exiting.")
 
     try:
         bridge = SerialMQTTBridge(config, arena_conf, logger)

@@ -26,7 +26,7 @@ _arena_log: data_log.DataLogger = None
 _arena_state = None
 _arena_config: dict = None
 _interfaces_config: list = None
-_trigger_interface: dict = None
+_trigger_interface: str = None
 _arena_process = None
 _arena_process_thread = None
 _is_uploading = threading.Event()
@@ -179,7 +179,7 @@ def update_arena_config(arena_conf):
     with open(get_config().arena_config_path, "w") as f:
         json.dump(arena_conf, f, indent=4)
 
-    load_config()
+    load_arena_config()
 
 
 def poll(callback_once=None):
@@ -374,11 +374,11 @@ def _init_arena_state():
         switch_display(False, display)
 
 
-def load_config():
+def load_arena_config():
     """
     Load arena config from file.
     """
-    global _interfaces_config, _arena_config
+    global _interfaces_config, _arena_config, _trigger_interface
 
     try:
         with open(get_config().arena_config_path, "r") as f:
@@ -394,12 +394,26 @@ def load_config():
     _interfaces_config = interfaces_config
     _arena_config = arena_config
 
+    had_trigger = has_trigger()
+
+    _trigger_interface = None
+    for ifs in _interfaces_config:
+        if ifs["type"] == "trigger":
+            _trigger_interface = ifs["name"]
+            break
+
+    if _state.get(("video", "record"), default=None) is not None:
+        if _trigger_interface and not had_trigger:
+            stop_trigger()
+        elif _trigger_interface is None and had_trigger:
+            _state.delete(("video", "record", "ttl_trigger"))
+
 
 def init(state):
     """
     Initialize the arena module.
     """
-    global _state, _log, _arena_log, _arena_state, _trigger_interface
+    global _state, _log, _arena_log, _arena_state
     _state = state
     _log = get_main_logger()
     _arena_state = state.get_cursor("arena")
@@ -410,12 +424,7 @@ def init(state):
         with open(get_config().arena_config_path, "w") as f:
             json.dump({}, f)
 
-    load_config()
-
-    for ifs in _interfaces_config:
-        if ifs["type"] == "trigger":
-            _trigger_interface = ifs["name"]
-            break
+    load_arena_config()
 
     data_log_config = get_config().arena.get("data_log", None)
     if data_log_config is not None:

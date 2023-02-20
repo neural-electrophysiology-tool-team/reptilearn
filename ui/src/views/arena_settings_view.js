@@ -3,9 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 
 import { setArenaConfig } from '../store/reptilearn_slice';
 import RLModal from './ui/modal.js';
-import RLTabs from './ui/tabs.js';
 import { RLSimpleListbox } from './ui/list_box.js';
-import { LogView } from './log_view';
 import { RLJSONEditor } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
@@ -155,7 +153,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
     })) : null;
 
     const add_modal = openAddModal && (
-        <RLModal open={openAddModal} setOpen={setOpenAddModal} sizeClasses="w-2/6 h-1/3" header={<>Add Arduino port</>} actions={
+        <RLModal open={openAddModal} setOpen={setOpenAddModal} sizeClasses="w-3/6 h-1/3" header={<>Add Arduino port</>} actions={
             <>
                 <RLButton.ModalButton onClick={add_port} disabled={
                     !addSerialNumberInput || addSerialNumberInput.trim().length === 0 || !addPortInput ||
@@ -240,7 +238,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                         setSelected={setSelectedPort} />
                     <RLButton.BarButton onClick={open_add_modal} icon="add" />
                     <RLButton.BarButton onClick={remove_port} icon="xmark" disabled={!selectedPort} />
-                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1"/>
+                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={!selectedPort}/>
                 </Bar>
                 {selectedPort && <RLJSONEditor
                     mainMenuBar={false}
