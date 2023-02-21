@@ -286,7 +286,7 @@ def _on_listening_status(_, is_listening):
     _arena_state["listening"] = is_listening
 
 
-def _on_done_configuring(_, port_name):
+def _on_config_loaded(_, port_name):
     request_values(port_name=port_name)
 
 
@@ -494,7 +494,7 @@ def init(state):
         f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status)
     )
     mqtt.client.subscribe_callback(
-        f"{topic}/done_configuring", mqtt.mqtt_json_callback(_on_done_configuring)
+        f"{topic}/config_loaded", mqtt.mqtt_json_callback(_on_config_loaded)
     )
 
     if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:
