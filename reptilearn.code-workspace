@@ -1,0 +1,66 @@
+{
+	"folders": [
+		{
+			"path": "system"
+		},
+		{
+			"path": "ui"
+		},
+		{
+			"path": "arena"
+		},
+		{
+			"path": "analysis"
+		},
+		{
+			"path": "docs"
+		}
+	],
+	"settings": {
+		"cSpell.words": [
+			"arange",
+			"argmax",
+			"argmin",
+			"asize",
+			"astype",
+			"atype",
+			"conda",
+			"configurer",
+			"copyto",
+			"cumsum",
+			"darknet",
+			"dataframe",
+			"dataframes",
+			"dropna",
+			"dtype",
+			"Eisenberg",
+			"errorcode",
+			"fqbn",
+			"frombuffer",
+			"hwid",
+			"IMAGEIO",
+			"imread",
+			"Mosquitto",
+			"moviepy",
+			"MQTT",
+			"multiprocess",
+			"ndmin",
+			"paho",
+			"pathlib",
+			"POSIX",
+			"psql",
+			"psycopg",
+			"pyspin",
+			"Repti",
+			"reptilearn",
+			"subclip",
+			"Timeseries",
+			"timestamptz",
+			"tqdm",
+			"typecode",
+			"vcap",
+			"vectorize",
+			"yolo"
+		]		
+	}
+}
