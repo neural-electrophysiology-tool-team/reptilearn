@@ -395,8 +395,13 @@ def upload_program(port_name=None):
         else:
             cmd = ["python", "arena.py", "--upload"]
 
-        _execute(cmd, cwd=get_config().arena_controller_path)
-        _is_uploading.clear()
+        try:
+            _execute(cmd, cwd=get_config().arena_controller_path)
+        except Exception:
+            _log.exception("Exception while uploading program:")
+        finally:
+            _is_uploading.clear()
+        
         _log.info("Done uploading.")
 
     threading.Thread(target=upload_thread).start()
