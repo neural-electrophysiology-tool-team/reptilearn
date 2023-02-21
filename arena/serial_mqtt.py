@@ -235,22 +235,25 @@ class SerialMQTTBridge:
 
             topic = split_msg[0].strip()
             payload = "#".join(split_msg[1:]).strip()
-
-            if len(device_conf["interfaces"]) > 0 and topic == "status" and payload == "Waiting for configuration...":
-                try:
-                    with self.serial_write_locks[s.name]:
-                        s.write(
-                            json.dumps({port_name: device_conf["interfaces"]}).encode("utf-8")
+            
+            if topic == "status" and payload == "Waiting for configuration...":
+                if len(device_conf["interfaces"]) == 0:
+                    self.serial_configured_events[s.name].set()
+                else:
+                    try:
+                        with self.serial_write_locks[s.name]:
+                            s.write(
+                                json.dumps({port_name: device_conf["interfaces"]}).encode("utf-8")
+                            )
+                        self.log.info(
+                            f"(SERIAL) Done sending configuration to port {port_name}."
                         )
-                    self.log.info(
-                        f"(SERIAL) Done sending configuration to port {port_name}."
-                    )
-                except Exception:
-                    self.log.exception(
-                        "(SERIAL) Exception while sending device configuration file."
-                    )
-                finally:
-                    continue
+                    except Exception:
+                        self.log.exception(
+                            "(SERIAL) Exception while sending device configuration file."
+                        )
+                    finally:
+                        continue
 
             if (
                 topic.startswith("error/")
@@ -260,6 +263,7 @@ class SerialMQTTBridge:
                 ts = topic.split("/")
                 if (
                     ts[1] == "load_config"
+                    or ts[1] == "config_loaded"
                     or ts[1] == "run_command"
                     or ts[1] == "parse_json"
                 ):
