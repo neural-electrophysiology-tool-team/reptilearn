@@ -91,8 +91,9 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                 setAvailablePorts(ports)
                 setLoadingPorts(false)
 
-                if (ports.length) {
+                if (ports.length === 1) {
                     setAddPortInput(ports[0]);
+                    setAddSerialNumberInput(ports[0].serial_number);
                 }
             });
 
