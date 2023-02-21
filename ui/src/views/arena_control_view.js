@@ -131,7 +131,7 @@ export const ArenaControlView = () => {
         
     return (
         <>
-            <ArenaSettingsView setOpen={setShowArenaSettingsModal} open={showArenaSettingsModal} />        
+            <ArenaSettingsView setOpen={setShowArenaSettingsModal} open={showArenaSettingsModal} />
             <RLMenu button={<RLMenu.TopBarMenuButton title="Arena" />}>
                 {ctrl_state.arena?.listening && items}
                 {display_toggles.length > 0 && <RLMenu.HeaderItem>Displays</RLMenu.HeaderItem>}

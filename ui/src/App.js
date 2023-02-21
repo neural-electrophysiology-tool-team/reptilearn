@@ -65,6 +65,7 @@ const App = () => {
 
     React.useEffect(() => {
         fetch_video_config();
+        fetch_arena_config();
     }, [fetch_video_config]);
 
     if (ctrlState === null || videoConfig === null)
