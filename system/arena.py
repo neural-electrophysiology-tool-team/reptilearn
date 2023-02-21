@@ -34,7 +34,14 @@ _is_uploading = threading.Event()
 
 def _execute(command, cwd=None, shell=False, log=True):
     """Run external program as a subprocess"""
-    process = Popen(command, shell=shell, cwd=cwd, universal_newlines=True, stdout=PIPE, stderr=STDOUT)
+    process = Popen(
+        command,
+        shell=shell,
+        cwd=cwd,
+        universal_newlines=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+    )
     output = ""
 
     # Poll process for new output until finished
@@ -47,7 +54,7 @@ def _execute(command, cwd=None, shell=False, log=True):
 
     process.wait()
 
-    if (process.returncode == 0):
+    if process.returncode == 0:
         return output
     else:
         raise Exception(command, process.returncode, output)
@@ -99,20 +106,24 @@ def run_command(command, interface, args=None, update_value=True):
         request_values(interface)
 
 
-def request_values(interface=None):
+def request_values(interface=None, port_name=None):
     """
     Request the current value of an interface or of all interfaces (when interface=None).
 
     Args:
     - interface: Interface name (str) or None for requesting values from all interfaces.
+    - port_name: Request values from all interfaces defined on the specified port. Interface must be None.
     """
     topic = get_config().arena["command_topic"]
     if interface is None:
-        mqtt.client.publish(topic, json.dumps(["get", "all"]))
-    else:
         mqtt.client.publish(
-            topic, json.dumps(["get", interface])
+            topic,
+            json.dumps(
+                ["get", "all"] if port_name is None else ["get", "all", port_name]
+            ),
         )
+    else:
+        mqtt.client.publish(topic, json.dumps(["get", interface]))
 
 
 def has_trigger():
@@ -174,7 +185,11 @@ def update_arena_config(arena_conf):
     Update the arena config file with the supplied dictionary.
     On success reload the configuration from the config file.
     """
-    shutil.move(get_config().arena_config_path, get_config().arena_config_path.parent / f"{get_config().arena_config_path.name}.OLD")
+    shutil.move(
+        get_config().arena_config_path,
+        get_config().arena_config_path.parent
+        / f"{get_config().arena_config_path.name}.OLD",
+    )
 
     with open(get_config().arena_config_path, "w") as f:
         json.dump(arena_conf, f, indent=4)
@@ -272,8 +287,7 @@ def _on_listening_status(_, is_listening):
 
 
 def _on_done_configuring(_, port_name):
-    for ifs in _arena_config[port_name]["interfaces"]:
-        request_values(ifs["name"])
+    request_values(port_name=port_name)
 
 
 def run_mqtt_serial_bridge():
@@ -292,17 +306,25 @@ def run_mqtt_serial_bridge():
     def bridge_comm_thread():
         global _arena_process
         _log.info("Running arena controller...")
-        _arena_process = Popen(cmd, cwd=dir, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        _arena_process = Popen(
+            cmd, cwd=dir, stdout=PIPE, stderr=PIPE, universal_newlines=True
+        )
         _log.info(f"Arena controller is running. pid: {_arena_process.pid}")
         stdout, stderr = _arena_process.communicate()
 
-        _log.info(f"Arena controller terminated (exit code {_arena_process.returncode})")
+        if _arena_process.returncode != 0:
+            _log.info(
+                f"Arena controller terminated (exit code {_arena_process.returncode})"
+            )
+        else:
+            _log.info("Arena controller terminated")
+
         if len(stderr) > 0:
             _log.warn(f"STDERR: {stderr}")
         if _arena_process.returncode != 0 and _arena_process.returncode != -15:
             if len(stdout) > 0:
                 _log.warn(f"STDERR: {stdout}")
-            
+
         _arena_process = None
 
     _arena_process_thread = threading.Thread(target=bridge_comm_thread)
@@ -319,7 +341,9 @@ def stop_mqtt_serial_bridge():
         _arena_process_thread.join(timeout=4)
 
         if _arena_process_thread.is_alive():
-            _log.warn("Arena controller graceful termination was unsuccessful. Terminating process directly...")
+            _log.warn(
+                "Arena controller graceful termination was unsuccessful. Terminating process directly..."
+            )
             _arena_process.terminate()
             _arena_process_thread.join()
             _log.info("Arena controller process terminated.")
@@ -327,12 +351,30 @@ def stop_mqtt_serial_bridge():
         _arena_process_thread = None
 
 
+def restart_mqtt_serial_bridge():
+    trigger_on = has_trigger() and _state["video", "record", "ttl_trigger"]
+    stop_mqtt_serial_bridge()
+    run_mqtt_serial_bridge()
+
+    def on_running(old, new):
+        if new and trigger_on:
+            _log.info("Restarting trigger")
+            start_trigger()
+            _state.remove_callback(("arena", "listening"))
+
+    _state.add_callback(("arena", "listening"), on_running)
+
+
 def get_ports():
     """
     Return a list containing all available serial ports. Each port is represented by a dictionary
     with `description, device, serial_number` keys
     """
-    ret = _execute(["python", "arena.py", "--list-ports-json"], cwd=get_config().arena_controller_path, log=False)
+    ret = _execute(
+        ["python", "arena.py", "--list-ports-json"],
+        cwd=get_config().arena_controller_path,
+        log=False,
+    )
     return json.loads(ret)
 
 
@@ -347,7 +389,7 @@ def upload_program(port_name=None):
     def upload_thread():
         _log.info("Uploading program to Arduino boards...")
         _is_uploading.set()
-        
+
         if port_name is not None:
             cmd = ["python", "arena.py", "--upload", port_name]
         else:
@@ -417,7 +459,7 @@ def init(state):
     _state = state
     _log = get_main_logger()
     _arena_state = state.get_cursor("arena")
-    
+
     _init_arena_state()
 
     if not get_config().arena_config_path.exists():
@@ -448,8 +490,12 @@ def init(state):
     mqtt.client.subscribe_callback(
         f"{topic}/error/#", mqtt.mqtt_json_callback(_on_error)
     )
-    mqtt.client.subscribe_callback(f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status))
-    mqtt.client.subscribe_callback(f"{topic}/done_configuring", mqtt.mqtt_json_callback(_on_done_configuring))
+    mqtt.client.subscribe_callback(
+        f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status)
+    )
+    mqtt.client.subscribe_callback(
+        f"{topic}/done_configuring", mqtt.mqtt_json_callback(_on_done_configuring)
+    )
 
     if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:
         run_mqtt_serial_bridge()

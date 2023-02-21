@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 
 import { setArenaConfig } from '../store/reptilearn_slice';
 import RLModal from './ui/modal.js';
-import { RLSimpleListbox } from './ui/list_box.js';
+import { RLSimpleListbox, RLListbox } from './ui/list_box.js';
 import { RLJSONEditor } from './ui/json_edit.js';
 import RLButton from './ui/button.js';
 import { Bar } from './ui/bar.js';
@@ -11,6 +11,7 @@ import RLInput from './ui/input.js';
 import { classNames } from './ui/common.js';
 import { api } from '../api';
 import deep_equal from 'deep-equal';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 export const ArenaSettingsView = ({ setOpen, open }) => {
     const dispatch = useDispatch();
@@ -24,7 +25,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
     const [editedConfig, setEditedConfig] = React.useState(null);
     const [selectedPort, setSelectedPort] = React.useState(null);
     const [isLoadingConfig, setLoadingConfig] = React.useState(true);
-
+    const [isLoadingPorts, setLoadingPorts] = React.useState(false);
     const [availablePorts, setAvailablePorts] = React.useState(null);
 
     const arena_config = useSelector((state) => state.reptilearn.arenaConfig);
@@ -46,16 +47,6 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                 setTimeout(fetch_arena_config, 5000);
             });
     }, [dispatch]);
-    
-    React.useEffect(() => {
-        if (!openAddModal) {
-            return;
-        }
-
-        api.arena.get_ports()
-            .then((ports) => ports.filter((p) => !Object.values(editedConfig).map((c) => c.serial_number).includes(p.serial_number)))
-            .then(setAvailablePorts);
-    }, [openAddModal]);
 
     React.useEffect(() => {
         if (!open) {
@@ -94,12 +85,24 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
     };
 
     const open_add_modal = () => {
+        api.arena.get_ports()
+            .then((ports) => {
+                ports = ports.filter((p) => !Object.values(editedConfig).map((c) => c.serial_number).includes(p.serial_number))
+                setAvailablePorts(ports)
+                setLoadingPorts(false)
+
+                if (ports.length) {
+                    setAddPortInput(ports[0]);
+                }
+            });
+
         setAddNameInput('');
         setAddSerialNumberInput('');
         setAddFQBNInput('');
         setAddPortInput(null);
 
         setOpenAddModal(true);
+        setLoadingPorts(true);
     };
 
     const on_select_add_port = (c) => {
@@ -169,13 +172,33 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                     <tr>
                         <td>Port:</td>
                         <td>
-                            {availablePorts?.length ? <RLSimpleListbox
-                                className="w-full"
-                                placeholder={`Select Arduino port...`}
-                                setSelected={on_select_add_port}
-                                selected={addPortInput}
-                                options={availablePorts.map((c) => ({ label: `${c.description} (${c.device})`, key: c.serial_number, value: c }))} />
-                                : <div>No available ports</div>}
+                            { isLoadingPorts ? <div>Loading...</div> :
+                                availablePorts?.length ? <RLSimpleListbox
+                                    className="w-full"
+                                    placeholder={`Select Arduino port...`}
+                                    setSelected={on_select_add_port}
+                                    selected={addPortInput}
+                                    options={availablePorts.map((c) => ({ label: `${c.description} (${c.device})`, key: c.serial_number, value: c, title: c.serial_number }))}
+                                    optionComponent={((label, value, key) => (
+                                        <RLListbox.Option value={value} className="pl-10" key={key}>
+                                            {({ selected }) => (
+                                                <>
+                                                    {selected ? (
+                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-amber-600">
+                                                            <FontAwesomeIcon icon="check" className="h-5 w-5" aria-hidden="true" />
+                                                        </span>
+                                                    ) : null}
+                                                    <div>
+                                                        <span className={`block truncate ${selected ? "font-medium" : "font-normal"}`}>{label}</span>
+                                                        <span className="text-xs">SN: {key}</span>
+                                                    </div>
+                                                    
+                                                </>
+                                            )}
+                                        </RLListbox.Option>
+                                    ))} />
+        
+                                    : <div>No available ports</div>}
                         </td>
                     </tr>
                     <tr>
@@ -220,7 +243,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
     );
 
     const apply_label = ctrl_state.arena?.listening ? "Save & Restart" : "Save"
-    
+
     return (
         <RLModal open={open} setOpen={setOpen} header="Arena settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-hidden" actions={
             <>
@@ -238,7 +261,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                         setSelected={setSelectedPort} />
                     <RLButton.BarButton onClick={open_add_modal} icon="add" />
                     <RLButton.BarButton onClick={remove_port} icon="xmark" disabled={!selectedPort} />
-                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={!selectedPort}/>
+                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={!selectedPort} />
                 </Bar>
                 {selectedPort && <RLJSONEditor
                     mainMenuBar={false}

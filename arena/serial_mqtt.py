@@ -115,7 +115,8 @@ class SerialMQTTBridge:
         # init serial ports
         self.serials = {}
         self.serial_write_locks = {}
-
+        self.serial_configured_events = {}
+    
         errored_ports = []
 
         for port_name, port_conf in self.arena_conf.items():
@@ -136,9 +137,10 @@ class SerialMQTTBridge:
             self.log.info(
                 f"(SERIAL) Connecting to port {port_name} ({port.name}, serial_number:{port.serial_number})"
             )
-            ser = Serial(port.device, self.serial_config["baud_rate"])
+            ser = Serial(port.device, self.serial_config["baud_rate"], timeout=2)
             self.serials[port_name] = ser
             self.serial_write_locks[ser.name] = threading.Lock()
+            self.serial_configured_events[ser.name] = threading.Event()
 
         if len(self.serials) == 0:
             raise ValueError("No serial ports found")
@@ -162,6 +164,12 @@ class SerialMQTTBridge:
         for t in self.serial_listen_threads.values():
             t.start()
 
+        for e in self.serial_configured_events.values():
+            e.wait()
+
+        with self.mqtt_publish_lock:
+            self.mqtt.publish(f"{self.mqtt_config['publish_topic']}/listening", "true")
+
     def shutdown(self):
         """
         Stop listening threads.
@@ -175,6 +183,9 @@ class SerialMQTTBridge:
         self.shutdown_event.set()
         for s in self.serials.values():
             s.close()
+
+        for t in self.serial_listen_threads.values():
+            t.join()
 
         # stop mqtt client
         with self.mqtt_publish_lock:
@@ -193,6 +204,11 @@ class SerialMQTTBridge:
 
             try:
                 line = s.readline()
+            except TypeError:
+                if not s.is_open:
+                    break
+                self.log.error(f"(SERIAL) Error reading from serial port {port_name}.")
+
             except SerialException:
                 self.log.error(f"(SERIAL) Error reading from serial port {port_name}.")
                 break
@@ -229,9 +245,6 @@ class SerialMQTTBridge:
                     self.log.info(
                         f"(SERIAL) Done sending configuration to port {port_name}."
                     )
-                    with self.mqtt_publish_lock:
-                        self.mqtt.publish(f"{self.mqtt_config['publish_topic']}/done_configuring", port_name)
-
                 except Exception:
                     self.log.exception(
                         "(SERIAL) Exception while sending device configuration file."
@@ -252,6 +265,11 @@ class SerialMQTTBridge:
                 ):
                     topic = f"{ts[0]}/{port_name}/{ts[1]}"
 
+                if ts[1] == "config_loaded":
+                    with self.mqtt_publish_lock:
+                        self.mqtt.publish(f"{self.mqtt_config['publish_topic']}/config_loaded", port_name)
+                    self.serial_configured_events[s.name].set()
+
             if len(topic) > 0:
                 topic = f"{self.mqtt_config['publish_topic']}/{topic}"
             else:
@@ -266,9 +284,6 @@ class SerialMQTTBridge:
 
     def _mqtt_listen(self):
         self.log.info("(MQTT  ) Starting listening thread")
-
-        with self.mqtt_publish_lock:
-            self.mqtt.publish(f"{self.mqtt_config['publish_topic']}/listening", "true")
 
         while True:
             try:
@@ -296,18 +311,26 @@ class SerialMQTTBridge:
                 cmd_name = command[0]
                 cmd_interface = command[1]
                 if cmd_interface == "all":
-                    for s, conf in zip(
-                        self.serials.values(), self.arena_conf.values()
-                    ):
-                        if not self.is_command_allowed(cmd_name, conf):
-                            continue
+                    if len(command) == 2:
+                        for s, conf in zip(
+                            self.serials.values(), self.arena_conf.values()
+                        ):
+                            if self.is_command_allowed(cmd_name, conf):
+                                with self.serial_write_locks[s.name]:
+                                    s.write(msg.payload + b"\n")
 
-                        with self.serial_write_locks[s.name]:
-                            s.write(msg.payload + b"\n")
+                    elif len(command) >= 3:
+                        port_name = command[2]
+                        if self.is_command_allowed(cmd_name, self.arena_conf[port_name]):
+                            s = self.serials[port_name]
+                            with self.serial_write_locks[s.name]:
+                                s.write(msg.payload + b"\n")
+
                 elif cmd_interface == "bridge":
                     if cmd_name == "terminate":
                         self.shutdown()
                         continue
+
                 else:
                     if cmd_interface not in self.interface_dispatcher:
                         self.log.error(f"Unknown interface: {cmd_interface}")

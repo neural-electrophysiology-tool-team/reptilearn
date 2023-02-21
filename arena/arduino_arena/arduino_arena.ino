@@ -129,8 +129,9 @@ void load_config(JsonObject conf) {
     parse_interface_config(ifs_conf);
   }
   char msg[40];
+
   sprintf(msg, "Initialized %d interfaces", num_interfaces);
-  send_message("info/load_config", msg);
+  send_message("info/config_loaded", msg);
 }
 
 void parse_interface_config(JsonObject conf) {

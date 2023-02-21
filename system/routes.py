@@ -462,8 +462,7 @@ def add_routes(app):
     @app.route("/arena/restart_bridge")
     def route_arena_restart_bridge():
         try:
-            arena.stop_mqtt_serial_bridge()
-            arena.run_mqtt_serial_bridge()
+            arena.restart_mqtt_serial_bridge()
             return flask.Response("ok")
         except Exception as e:
             log.exception("Exception while restarting MQTT-Serial bridge:")
