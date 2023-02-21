@@ -284,10 +284,8 @@ def _on_error(topic, msg):
 def _on_listening_status(_, is_listening):
     _init_arena_state()
     _arena_state["listening"] = is_listening
-
-
-def _on_config_loaded(_, port_name):
-    request_values(port_name=port_name)
+    if is_listening:
+        poll()
 
 
 def run_mqtt_serial_bridge():
@@ -401,7 +399,7 @@ def upload_program(port_name=None):
             _log.exception("Exception while uploading program:")
         finally:
             _is_uploading.clear()
-        
+
         _log.info("Done uploading.")
 
     threading.Thread(target=upload_thread).start()
@@ -497,9 +495,6 @@ def init(state):
     )
     mqtt.client.subscribe_callback(
         f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status)
-    )
-    mqtt.client.subscribe_callback(
-        f"{topic}/config_loaded", mqtt.mqtt_json_callback(_on_config_loaded)
     )
 
     if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:
