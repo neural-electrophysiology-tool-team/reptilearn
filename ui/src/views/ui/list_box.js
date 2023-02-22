@@ -72,7 +72,7 @@ const HeaderOption = ({ children }) => (
     </Option>
 );
 
-const RLSimpleListbox = ({ placeholder, options, selected, setSelected, header, className, portal, checked=true }) => (
+const RLSimpleListbox = ({ placeholder, options, selected, setSelected, header, className, portal, checked=true, optionComponent=null }) => (
     <RLListbox
         header={selected ? options.filter(({ value }) => value === selected)[0]?.label : placeholder}
         value={selected}
@@ -80,8 +80,10 @@ const RLSimpleListbox = ({ placeholder, options, selected, setSelected, header, 
         portal={portal}
         className={className}>
         {header && <HeaderOption>{header}</HeaderOption>}
-        {options.map(({ label, value, key }) => (
-            checked ? <CheckedOption label={label} value={value} key={key}/> : <SimpleOption label={label} value={value} key={key}/>
+        {options.map(({ label, value, key, title }) => (
+            optionComponent ? optionComponent(label, value, key, title) : (
+                checked ? <CheckedOption label={label} title={title} value={value} key={key}/> : <SimpleOption label={label} title={title} value={value} key={key}/>
+            )
         ))}
     </RLListbox>
 );

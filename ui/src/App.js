@@ -5,7 +5,7 @@ import { library } from '@fortawesome/fontawesome-svg-core';
 import { fas } from '@fortawesome/free-solid-svg-icons';
 import { far } from '@fortawesome/free-regular-svg-icons';
 
-import { setCtrlState, setVideoConfig } from './store/reptilearn_slice';
+import { setCtrlState, setVideoConfig, setArenaConfig } from './store/reptilearn_slice';
 import { MainView } from './views/main_view';
 import { api } from './api';
 
@@ -54,8 +54,18 @@ const App = () => {
             });
     }, [dispatch]);
 
+    const fetch_arena_config = React.useCallback(() => {
+        return api.arena.get_config()
+            .then((config) => dispatch(setArenaConfig(config)))
+            .catch(err => {
+                console.log(`Error while fetching video config: ${err}`);
+                setTimeout(fetch_arena_config, 5000);
+            });
+    }, [dispatch]);
+
     React.useEffect(() => {
         fetch_video_config();
+        fetch_arena_config();
     }, [fetch_video_config]);
 
     if (ctrlState === null || videoConfig === null)

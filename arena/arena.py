@@ -6,12 +6,12 @@ Run `python main.py --help` for more information.
 """
 
 import importlib
+import json
 import logging
 import sys
 import subprocess
 import argparse
 import platform
-import threading
 import traceback
 from serial.tools import list_ports
 from serial_mqtt import SerialMQTTBridge, serial_port_by_id
@@ -43,13 +43,17 @@ def run_shell_command(log, cmd):
     return ret
 
 
-def upload_program(log, serial_ports_config):
+def upload_program(log, serial_ports_config, port_name=None):
     if len(serial_ports_config) == 0:
         log.error("Nothing to upload. Please define your Arduino serial ports in the config module")
         return False
 
-    for port_name, port_conf in serial_ports_config.items():
-        pid = port_conf["id"]
+    if port_name is not None and port_name not in serial_ports_config:
+        log.error(f"Unknown port name: {port_name}")
+        return False
+
+    def upload(port_name, port_conf):
+        pid = port_conf["serial_number"]
 
         if "fqbn" not in port_conf:
             log.error(f"Missing 'fqbn' key in port '{port_name}' config.")
@@ -91,15 +95,29 @@ def upload_program(log, serial_ports_config):
                     "arduino_arena",
                 ],
             )
-            if ret != 0:
-                return False
 
+            return ret == 0
         except Exception:
             log.exception("Exception while uploading program:")
             return False
 
-    log.info("Done uploading!")
-    return True
+    errored = False
+    if port_name is None:
+        for pn, pc in serial_ports_config.items():
+            if upload(pn, pc):
+                log.info("Upload successful!")
+            else:
+                log.error(f"Error uploading program over serial port {pn} (sn: {pc['serial_number']})")
+                errored = True
+    else:
+        port_conf = serial_ports_config[port_name]
+        if upload(port_name, port_conf):
+            log.info("Upload successful!")
+        else:
+            log.error(f"Error uploading program over serial port {port_name} (sn: {port_conf['serial_number']})")
+            errored = True
+
+    return not errored
 
 
 if __name__ == "__main__":
@@ -111,9 +129,13 @@ if __name__ == "__main__":
         "--list-ports", help="List available serial ports", action="store_true"
     )
     arg_parser.add_argument(
+        "--list-ports-json", help="List available serial ports in JSON format", action="store_true"
+    )
+    arg_parser.add_argument(
         "--upload",
         help="Upload arena program to all devices. Requires arduino-cli.",
-        action="store_true",
+        default="",
+        nargs="?",
     )
     arg_parser.add_argument(
         "--config",
@@ -121,7 +143,6 @@ if __name__ == "__main__":
         default="config",
     )
     args = arg_parser.parse_args()
-
     config = load_config(args.config)
 
     logger = logging.getLogger("Arena")
@@ -131,30 +152,52 @@ if __name__ == "__main__":
         format="[%(levelname)s] - %(asctime)s: %(message)s",
     )
 
+    # load arena config
+    arena_conf = None
+    try:
+        with open(config.arena_config_path, "r") as f:
+            arena_conf = json.load(f)
+    except json.JSONDecodeError as e:
+        logger.exception(f"While decoding {config.arena_config_path}:")
+        raise e
+
+    if type(arena_conf) is not dict:
+        raise ValueError("The arena config json root is expected to be an object.")
+
     if args.list_ports:
         ports = list_ports.comports()
         print("Available serial ports:\n")
         for port in ports:
-            print(f'\t{port.device}: {port.description}, hwid="{port.hwid}"')
-        print("\nPort id can be any unique string contained in the port's hwid string.")
+            if port.serial_number is None:
+                continue
+            print(f'\t{port.device}: {port.description}, serial number: "{port.serial_number}"')
+
         sys.exit(0)
 
-    if args.upload:
-        upload_ret = upload_program(logger, config.serial["ports"])
+    if args.list_ports_json:
+        ports = list_ports.comports()
+        print(json.dumps([{"device": p.device, "description": p.description, "serial_number": p.serial_number} for p in ports if p.serial_number is not None]))
+        sys.exit(0)
+
+    if args.upload is None or len(args.upload) > 0:
+        upload_ret = upload_program(logger, arena_conf, args.upload)
         if upload_ret is True:
             sys.exit(0)
         else:
             sys.exit(1)
 
+    if len(arena_conf) == 0:
+        logger.error("There are no configured serial ports. Exiting.")
+
     try:
-        bridge = SerialMQTTBridge(config, logger)
+        bridge = SerialMQTTBridge(config, arena_conf, logger)
     except Exception:
         logger.exception("Exception while initializing serial mqtt bridge:")
         sys.exit(1)
 
-    forever = threading.Event()
     try:
-        forever.wait()
+        bridge.wait()
     except KeyboardInterrupt:
-        logger.info("Shutting down...")
+        pass
+    finally:
         bridge.shutdown()

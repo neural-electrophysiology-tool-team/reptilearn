@@ -323,7 +323,7 @@ def add_routes(app):
     # Video Routes
 
     @app.route("/video/update_config", methods=["POST"])
-    def route_update_config():
+    def route_video_update_config():
         try:
             video_system.update_video_config(flask.request.json)
             return flask.Response("ok")
@@ -408,7 +408,65 @@ def add_routes(app):
 
     @app.route("/arena/config")
     def route_arena_config():
-        return flask.jsonify(arena.get_interfaces_config())
+        try:
+            return flask.jsonify(arena.get_arena_config())
+        except Exception as e:
+            log.exception("Exception while sending arena config:")
+            flask.abort(500, e)
+
+    @app.route("/arena/update_config", methods=["POST"])
+    def route_arena_update_config():
+        try:
+            arena.update_arena_config(flask.request.json)
+            return flask.Response("ok")
+        except Exception as e:
+            log.exception("Exception while updating arena config:")
+            flask.abort(500, e)
+
+    @app.route("/arena/ports")
+    def route_arena_ports():
+        try:
+            return flask.jsonify(arena.get_ports())
+        except Exception as e:
+            log.exception("Exception while getting arena ports:")
+            flask.abort(500, e)
+
+    @app.route("/arena/upload_program")
+    @app.route("/arena/upload_program/<port_sn>")
+    def route_arena_upload(port_sn=None):
+        try:
+            arena.upload_program(port_sn)
+            return flask.Response("ok")
+        except Exception as e:
+            log.exception("Exception while upload Arduino program:")
+            flask.abort(500, e)
+
+    @app.route("/arena/run_bridge")
+    def route_arena_run_bridge():
+        try:
+            arena.run_mqtt_serial_bridge()
+            return flask.Response("ok")
+        except Exception as e:
+            log.exception("Exception while running MQTT-Serial bridge:")
+            flask.abort(500, e)
+
+    @app.route("/arena/stop_bridge")
+    def route_arena_stop_bridge():
+        try:
+            arena.stop_mqtt_serial_bridge()
+            return flask.Response("ok")
+        except Exception as e:
+            log.exception("Exception while stopping MQTT-Serial bridge:")
+            flask.abort(500, e)
+
+    @app.route("/arena/restart_bridge")
+    def route_arena_restart_bridge():
+        try:
+            arena.restart_mqtt_serial_bridge()
+            return flask.Response("ok")
+        except Exception as e:
+            log.exception("Exception while restarting MQTT-Serial bridge:")
+            flask.abort(500, e)
 
     @app.route("/arena/run_command", methods=["POST"])
     def route_arena():

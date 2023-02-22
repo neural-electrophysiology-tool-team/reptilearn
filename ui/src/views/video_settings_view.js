@@ -11,6 +11,7 @@ import { Bar } from './ui/bar.js';
 import RLInput from './ui/input.js';
 import { classNames } from './ui/common.js';
 import { api } from '../api';
+import deep_equal from 'deep-equal';
 
 export const VideoSettingsView = ({ setOpen, open }) => {
     const dispatch = useDispatch();
@@ -100,11 +101,6 @@ export const VideoSettingsView = ({ setOpen, open }) => {
     };
 
     const open_add_modal = () => {
-        // const classes = imageClasses[cur_class_parent];
-        // if (classes && classes.length > 0) {
-        //     setAddClassInput(imageClasses[cur_class_parent][0]);
-        // }
-
         setAddIdInput('');
         setOpenAddModal(true);
     };
@@ -193,58 +189,40 @@ export const VideoSettingsView = ({ setOpen, open }) => {
         value: obs_id
     }));
 
-    const is_obj = (obj) => obj != null && typeof (obj) === 'object';
-
-    const deep_equals = (o1, o2) => {
-        const ks1 = Object.keys(o1);
-        const ks2 = Object.keys(o2);
-
-        if (ks1.length !== ks2.length) {
-            return false;
-        }
-
-        for (const k of ks1) {
-            const v1 = o1[k];
-            const v2 = o2[k];
-            const are_objs = is_obj(v1) && is_obj(v2);
-            if ((are_objs && !deep_equals(v1, v2)) || (!are_objs && v1 !== v2))
-                return false;
-        }
-
-        return true;
-    };
-
-    const dirty = !deep_equals(sourcesConfig, video_config.image_sources) ||
-        !deep_equals(observersConfig, video_config.image_observers);
+    const dirty = !deep_equal(sourcesConfig, video_config.image_sources) ||
+        !deep_equal(observersConfig, video_config.image_observers);
 
     const video_is_running = !!ctrl_state.video;
     const restart_label = dirty ?
         (video_is_running ? "Apply & restart" : "Apply & start")
         : (video_is_running ? "Restart" : "Start");
-
-    const tabPanel = (type) => ({
-        title: type === 'sources' ? 'Sources' : 'Observers',
-        panel: (
-            <div className='flex flex-col overflow-hidden'>
-                <Bar colors="bg-gray-100">
-                    <RLSimpleListbox
-                        options={type === 'sources' ? srcs_options : obs_options}
-                        selected={type === 'sources' ? selectedSource : selectedObserver}
-                        setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver} />
-                    <RLButton.BarButton onClick={open_add_modal} icon="add" />
-                    <RLButton.BarButton onClick={remove_object} icon="xmark" />
-                    <RLButton.BarButton onClick={reset_object} icon="undo" />
-                </Bar>
-                <RLJSONEditor
-                    mainMenuBar={false}
-                    navigationBar={false}
-                    className="p-1 overflow-y-auto flex-grow"
-                    content={{ json: type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver] }}
-                    onChange={(updatedContent) => type === 'sources' ? on_source_changed(updatedContent.json, selectedSource) : on_observer_changed(updatedContent.json, selectedObserver)} />
-
-            </div>
-        )
-    });
+    
+    const tabPanel = (type) => {
+        const selected_obj = type === 'sources' ? selectedSource : selectedObserver
+        return {
+            title: type === 'sources' ? 'Sources' : 'Observers',
+            panel: (
+                <div className='flex flex-col overflow-hidden'>
+                    <Bar colors="bg-gray-100">
+                        {selected_obj && <RLSimpleListbox
+                            options={type === 'sources' ? srcs_options : obs_options}
+                            selected={selected_obj}
+                            setSelected={type === 'sources' ? setSelectedSource : setSelectedObserver} />}
+                        <RLButton.BarButton onClick={open_add_modal} icon="add" />
+                        <RLButton.BarButton onClick={remove_object} icon="xmark" disabled={!selected_obj} />
+                        <RLButton.BarButton onClick={reset_object} icon="undo" disabled={!selected_obj} />
+                    </Bar>
+                    {selected_obj && <RLJSONEditor
+                        mainMenuBar={false}
+                        navigationBar={false}
+                        className="p-1 overflow-y-auto flex-grow"
+                        content={{ json: type === 'sources' ? sourcesConfig[selectedSource] : observersConfig[selectedObserver] }}
+                        onChange={(updatedContent) => type === 'sources' ? on_source_changed(updatedContent.json, selectedSource) : on_observer_changed(updatedContent.json, selectedObserver)} />
+                    }
+                </div>
+            )    
+        }
+    };
     return (
         <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-hidden" actions={
             <>
@@ -257,9 +235,9 @@ export const VideoSettingsView = ({ setOpen, open }) => {
                 ? (
                     <div className="flex flex-grow overflow-hidden">
                         <RLTabs onChange={(index) => setActiveTabIdx(index)} panelClassName="flex-col flex-1 overflow-hidden" tabs={[tabPanel('sources'), tabPanel('observers')]} />
-                        <RLModal open={openAddModal} setOpen={setOpenAddModal} className="w-2/6 h-1/4" header={<>Add {cur_object}</>} actions={
+                        <RLModal open={openAddModal} setOpen={setOpenAddModal} sizeClasses="w-2/6 h-1/4" header={<>Add {cur_object}</>} actions={
                             <>
-                                <RLButton.ModalButton onClick={add_object} disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0}>
+                                <RLButton.ModalButton onClick={add_object} disabled={add_object_exists() || !addIdInput || addIdInput.trim().length === 0 || !addClassInput}>
                                     Add
                                 </RLButton.ModalButton>
                                 <RLButton.ModalButton onClick={() => setOpenAddModal(false)}>Cancel</RLButton.ModalButton>

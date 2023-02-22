@@ -10,6 +10,7 @@
     "@headlessui-float/react": "^0.6.0",
     "@headlessui/react": "^1.6.1",
     "@reduxjs/toolkit": "^1.8.1",
+    "deep-equal": "~2.2.0",
     "react": "18.1.0",
     "react-datepicker": "4.8.0",
     "react-dom": "18.1.0",

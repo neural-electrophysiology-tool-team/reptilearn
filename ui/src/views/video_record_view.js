@@ -103,7 +103,7 @@ export const VideoRecordView = () => {
                 className='px-2 py-1'
             />
             {ctrlState.video?.record && (
-                <RLTooltip content={is_recording ? "Stop recording" : "Start recording"}>
+                <RLTooltip content={is_recording ? "Stop recording" : "Start recording"} disabled={recording_disabled}>
                     <RLButton.TopBarButton
                         onClick={toggle_recording}
                         icon={is_recording ? "stop-circle" : "circle"} iconClassName={is_recording ? "text-green-700" : recording_disabled ? "text-gray-500" : "text-red-500"}

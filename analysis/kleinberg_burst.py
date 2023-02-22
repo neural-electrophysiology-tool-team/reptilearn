@@ -1,5 +1,5 @@
 # Based on: https://github.com/sgoldenlab/simba/blob/c462b7aff1a63496438ff3d529d692bcb0264c74/simba/Kleinberg_burst_analysis.py
-### CODE MODIFID FROM PYBURST PACKAGE  https://pypi.org/project/pybursts/
+### CODE MODIFIED FROM PYBURST PACKAGE  https://pypi.org/project/pybursts/
 
 import numpy as np
 import math
@@ -14,7 +14,7 @@ else:
 
 def kleinberg(offsets, s=2, gamma=1):
     if s <= 1:
-        raise ValueError("s must be greater than 1'!")
+        raise ValueError("s must be greater than 1!")
     if gamma <= 0:
         raise ValueError("gamma must be positive!")
     if len(offsets) < 1:
