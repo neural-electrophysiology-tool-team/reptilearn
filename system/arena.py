@@ -29,7 +29,6 @@ _interfaces_config: list = None
 _trigger_interface: str = None
 _arena_process = None
 _arena_process_thread = None
-_is_uploading = threading.Event()
 
 
 def _execute(command, cwd=None, shell=False, log=True):
@@ -283,7 +282,7 @@ def _on_error(topic, msg):
 
 def _on_listening_status(_, is_listening):
     _init_arena_state()
-    _arena_state["listening"] = is_listening
+    _arena_state["bridge", "listening"] = is_listening
     if is_listening:
         poll()
 
@@ -305,10 +304,11 @@ def run_mqtt_serial_bridge():
         global _arena_process
         _log.info("Running arena controller...")
         _arena_process = Popen(
-            cmd, cwd=dir, stdout=PIPE, stderr=PIPE, universal_newlines=True
+            cmd, cwd=dir, stdout=PIPE, stderr=STDOUT, universal_newlines=True
         )
+        _arena_state["bridge", "running"] = True
         _log.info(f"Arena controller is running. pid: {_arena_process.pid}")
-        stdout, stderr = _arena_process.communicate()
+        stdout, _ = _arena_process.communicate()
 
         if _arena_process.returncode != 0:
             _log.info(
@@ -317,12 +317,7 @@ def run_mqtt_serial_bridge():
         else:
             _log.info("Arena controller terminated")
 
-        if len(stderr) > 0:
-            _log.warn(f"STDERR: {stderr}")
-        if _arena_process.returncode != 0 and _arena_process.returncode != -15:
-            if len(stdout) > 0:
-                _log.warn(f"STDERR: {stdout}")
-
+        _arena_state["bridge", "running"] = False
         _arena_process = None
 
     _arena_process_thread = threading.Thread(target=bridge_comm_thread)
@@ -354,13 +349,13 @@ def restart_mqtt_serial_bridge():
     stop_mqtt_serial_bridge()
     run_mqtt_serial_bridge()
 
-    def on_running(old, new):
+    def on_listening(_, new):
         if new and trigger_on:
             _log.info("Restarting trigger")
             start_trigger()
-            _state.remove_callback(("arena", "listening"))
+            _state.remove_callback(("arena", "bridge", "listening"))
 
-    _state.add_callback(("arena", "listening"), on_running)
+    _state.add_callback(("arena", "bridge", "listening"), on_listening)
 
 
 def get_ports():
@@ -381,12 +376,16 @@ def upload_program(port_name=None):
     Upload the Arduino program over serial port `port_name`. If `port_name` is None
     Upload to all configured ports.
     """
-    if _is_uploading.is_set():
+    if _arena_state["bridge", "uploading"]:
         raise Exception("Can't upload program. Already uploading.")
+    if _arena_state["bridge", "running"]:
+        was_running = True
+        stop_mqtt_serial_bridge()
+    else:
+        was_running = False
 
     def upload_thread():
         _log.info("Uploading program to Arduino boards...")
-        _is_uploading.set()
 
         if port_name is not None:
             cmd = ["python", "arena.py", "--upload", port_name]
@@ -394,11 +393,14 @@ def upload_program(port_name=None):
             cmd = ["python", "arena.py", "--upload"]
 
         try:
+            _arena_state["bridge", "uploading"] = True
             _execute(cmd, cwd=get_config().arena_controller_path)
         except Exception:
             _log.exception("Exception while uploading program:")
         finally:
-            _is_uploading.clear()
+            _arena_state["bridge", "uploading"] = False
+            if was_running:
+                run_mqtt_serial_bridge()
 
         _log.info("Done uploading.")
 
@@ -407,16 +409,22 @@ def upload_program(port_name=None):
 
 def _init_arena_state():
     displays = get_config().arena["displays"]
-    _arena_state.set_self(
-        {
-            "values": {},
-            "timestamp": None,
-            "displays": dict([(d, False) for d in displays.keys()]),
-        }
-    )
+    if not _arena_state.exists(()):
+        _arena_state.set_self({})
+    _arena_state["values"] = {}
+    _arena_state["timestamp"] = None
+    _arena_state["displays"] = dict([(d, False) for d in displays.keys()])
 
     for display in displays.keys():
         switch_display(False, display)
+
+
+def _init_bridge_state():
+    _arena_state["bridge"] = {
+        "running": False,
+        "listening": False,
+        "uploading": False,
+    }
 
 
 def load_arena_config():
@@ -498,6 +506,7 @@ def init(state):
     )
 
     if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:
+        _init_bridge_state()
         run_mqtt_serial_bridge()
 
     schedule.repeat(poll, get_config().arena["poll_interval"], pool="arena")

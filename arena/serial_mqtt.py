@@ -116,7 +116,7 @@ class SerialMQTTBridge:
         self.serials = {}
         self.serial_write_locks = {}
         self.serial_configured_events = {}
-    
+
         errored_ports = []
 
         for port_name, port_conf in self.arena_conf.items():
@@ -143,6 +143,7 @@ class SerialMQTTBridge:
             self.serial_configured_events[ser.name] = threading.Event()
 
         if len(self.serials) == 0:
+            self.mqtt_q.put_nowait(None)
             raise ValueError("No serial ports found")
 
         for port_name in errored_ports:
@@ -235,7 +236,7 @@ class SerialMQTTBridge:
 
             topic = split_msg[0].strip()
             payload = "#".join(split_msg[1:]).strip()
-            
+
             if topic == "status" and payload == "Waiting for configuration...":
                 if len(device_conf["interfaces"]) == 0:
                     self.serial_configured_events[s.name].set()

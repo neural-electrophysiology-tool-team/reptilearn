@@ -194,7 +194,7 @@ if __name__ == "__main__":
     except Exception:
         logger.exception("Exception while initializing serial mqtt bridge:")
         sys.exit(1)
-    
+
     try:
         bridge.wait()
     except KeyboardInterrupt:

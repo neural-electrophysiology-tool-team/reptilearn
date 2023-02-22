@@ -120,9 +120,9 @@ export const ArenaControlView = () => {
             ))
         : null;
 
-    const bridge_button_label = ctrl_state.arena.listening ? "Restart arena" : "Start arena";
+    const bridge_button_label = ctrl_state.arena?.bridge?.running ? "Restart arena" : "Start arena";
     const bridge_button_action = () => {
-        if (ctrl_state.arena.listening) {
+        if (ctrl_state.arena?.bridge?.running) {
             api.arena.restart_bridge();
         } else {
             api.arena.run_bridge();
@@ -133,7 +133,7 @@ export const ArenaControlView = () => {
         <>
             <ArenaSettingsView setOpen={setShowArenaSettingsModal} open={showArenaSettingsModal} />
             <RLMenu button={<RLMenu.TopBarMenuButton title="Arena" />}>
-                {ctrl_state.arena?.listening && items}
+                {ctrl_state.arena?.bridge?.listening && items}
                 {display_toggles.length > 0 && <RLMenu.HeaderItem>Displays</RLMenu.HeaderItem>}
                 {display_toggles}
                 <RLMenu.SeparatorItem />
@@ -150,7 +150,7 @@ export const ArenaControlView = () => {
                 <RLMenu.ButtonItem onClick={() => setShowArenaSettingsModal(true)} disabled={false} key="Arena settings">Arena settings...</RLMenu.ButtonItem>
                 <RLMenu.SeparatorItem />
                 <RLMenu.ButtonItem onClick={bridge_button_action} disabled={false} key="bridge_button">{bridge_button_label}</RLMenu.ButtonItem>
-                <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.listening} key="stop_bridge_button">Stop arena</RLMenu.ButtonItem>
+                <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.bridge?.running} key="stop_bridge_button">Stop arena</RLMenu.ButtonItem>
             </RLMenu>
         </>);
 };

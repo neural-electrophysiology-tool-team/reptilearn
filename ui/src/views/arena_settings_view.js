@@ -75,7 +75,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                 }
             })
             .then(() => {
-                if (ctrl_state.arena?.listening) {
+                if (ctrl_state.arena?.bridge?.running) {
                     api.arena.restart_bridge();
                 }
             })
@@ -142,9 +142,6 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
     };
 
     const upload_program = async (port_name) => {
-        if (ctrl_state.arena?.listening) {
-            await api.arena.stop_bridge();
-        }
         api.arena.upload_program(port_name);
     };
 
@@ -243,7 +240,8 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
         </RLModal>
     );
 
-    const apply_label = ctrl_state.arena?.listening ? "Save & Restart" : "Save"
+    const apply_label = ctrl_state.arena?.bridge?.running ? "Save & Restart" : "Save";
+    const upload_disabled = !selectedPort || ctrl_state.arena?.bridge?.uploading || !Object.keys(arena_config).includes(selectedPort);
 
     return (
         <RLModal open={open} setOpen={setOpen} header="Arena settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-hidden" actions={
@@ -262,7 +260,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                         setSelected={setSelectedPort} />
                     <RLButton.BarButton onClick={open_add_modal} icon="add" />
                     <RLButton.BarButton onClick={remove_port} icon="xmark" disabled={!selectedPort} />
-                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={!selectedPort} />
+                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={upload_disabled} />
                 </Bar>
                 {selectedPort && <RLJSONEditor
                     mainMenuBar={false}
