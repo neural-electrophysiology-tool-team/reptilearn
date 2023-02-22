@@ -182,6 +182,28 @@ export const api = {
         get_config() {
             return requestJSON("/arena/config");
         },
+        update_config(arena_config) {
+            return request('/arena/update_config', null, "POST", arena_config, true);
+        },
+        run_bridge() {
+            return request("/arena/run_bridge");
+        },
+        restart_bridge() {
+            return request("/arena/restart_bridge");
+        },
+        stop_bridge() {
+            return request("/arena/stop_bridge");
+        },
+        get_ports() {
+            return requestJSON("/arena/ports");
+        },
+        upload_program(port_name) {
+            if (port_name) {
+                return request(`/arena/upload_program/${port_name}`);
+            } else {
+                return request(`/arena/upload_program`);
+            }
+        },
         switch_display(value, display = null) {
             // TODO: test
             return request(`/arena/switch_display/${value}/${display}`);

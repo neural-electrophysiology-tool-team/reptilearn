@@ -20,3 +20,4 @@ dependencies:
     - pyserial
     - python-dotenv
     - Pillow
+    - simple-websocket

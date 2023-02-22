@@ -4,6 +4,7 @@ export const reptilearnSlice = createSlice({
     name: 'reptilearn',
     initialState: {
         ctrlState: null,
+        arenaConfig: null,
         videoConfig: null,
         streams: [],
     },
@@ -80,6 +81,9 @@ export const reptilearnSlice = createSlice({
             state.streams[idx].is_streaming = false;
             localStorage.setItem('streams', JSON.stringify(state.streams));
         },
+        setArenaConfig: (state, action) => {
+            state.arenaConfig = action.payload;
+        },
     },
 });
 
@@ -95,6 +99,6 @@ export const streamlessSrcIds = (state) => {
     return imageSourceIds(state)?.filter(src_id => !used_ids.includes(src_id));
 };
 
-export const { setCtrlState, setVideoConfig, setStreams, addStream, updateStreamSources, moveStream, removeStream, updateStream, stopStreaming, startStreaming } = reptilearnSlice.actions;
+export const { setCtrlState, setVideoConfig, setStreams, addStream, updateStreamSources, moveStream, removeStream, updateStream, stopStreaming, startStreaming, setArenaConfig } = reptilearnSlice.actions;
 
 export default reptilearnSlice.reducer;

@@ -40,6 +40,9 @@ video_config_path: Path = Path("./config/video_config.json")
 # Path to the arena hardware controller configuration file
 arena_config_path: Path = Path("./config/arena_config.json")
 
+# Path to the arena hardware controller directory
+arena_controller_path: Path = Path("../arena/")
+
 # Path to a folder containing static web assets. The url to access these assets will be: http://<api host>:<api_port>/<static folder name>/<filename> (e.g. http://localhost:5000/stimuli/x.mp4)
 static_web_path: Path = Path("../stimuli")
 
@@ -104,6 +107,10 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
+
+    # Set this to False if you don't want to run the MQTT-Serial bridge
+    "run_bridge_process": True,
+
     # Uncomment the following lines to log values from the specified arena interfaces to a database table.
     # "data_log": {  # requires a database connection
     #     "table_name": "arena",

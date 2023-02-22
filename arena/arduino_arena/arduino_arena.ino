@@ -28,15 +28,20 @@ static const int MAX_INTERFACES = 32;
 
 Interface *interfaces[MAX_INTERFACES];
 int num_interfaces = 0;
+unsigned long last_config_request_time = 0;
 
 void setup() {
   Serial.begin(115200);
 
   while (!Serial) continue;
-  send_message("status", "Waiting for configuration...");
+  request_configuration();
 }
 
 void loop() {
+  if (num_interfaces == 0 && (millis() - last_config_request_time > 5000)) {
+    request_configuration();
+  }
+  
   if (Serial.available() > 0) {
     StaticJsonDocument<2048> json;  
     DeserializationError error = deserializeJson(json, Serial);
@@ -89,6 +94,11 @@ void run_all(JsonArray cmd) {
   }
 }
 
+void request_configuration() {
+  send_message("status", "Waiting for configuration...");  
+  last_config_request_time = millis();
+}
+
 void load_config(JsonObject conf) {
   if (num_interfaces > 0) {
     send_message("error/load_config", "Port is already configured, reset the device and try again.");
@@ -119,8 +129,9 @@ void load_config(JsonObject conf) {
     parse_interface_config(ifs_conf);
   }
   char msg[40];
+
   sprintf(msg, "Initialized %d interfaces", num_interfaces);
-  send_message("info/load_config", msg);
+  send_message("info/config_loaded", msg);
 }
 
 void parse_interface_config(JsonObject conf) {
