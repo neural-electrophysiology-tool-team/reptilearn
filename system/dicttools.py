@@ -10,7 +10,7 @@ hierarchy, for example:
 getitem(d, ("x", "y")) is equivalent to d["x"]["y"].
 """
 
-from collections import Sequence
+from collections.abc import Sequence
 
 
 class _PathNotFound:

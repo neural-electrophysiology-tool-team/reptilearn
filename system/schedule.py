@@ -8,7 +8,7 @@ from datetime import datetime, time, timedelta
 import threading
 import logging
 import functools
-from collections import Sequence
+from collections.abc import Sequence
 
 _log = logging.getLogger("Main")
 _cancel_fns = {}
