@@ -505,9 +505,10 @@ def init(state):
         f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status)
     )
 
-    if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:
+    if get_config().arena["run_bridge_process"] is True:
         _init_bridge_state()
-        run_mqtt_serial_bridge()
+        if len(_arena_config) > 0:
+            run_mqtt_serial_bridge()
 
     schedule.repeat(poll, get_config().arena["poll_interval"], pool="arena")
 
