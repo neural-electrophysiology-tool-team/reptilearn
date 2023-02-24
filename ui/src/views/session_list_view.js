@@ -1,7 +1,6 @@
 import React from 'react';
-import { api } from '../api.js';
 
-import { api_url } from '../config.js';
+import { api } from '../api.js';
 import { ArchiveView } from './archive_view.js';
 import { DeleteSessionModal } from './delete_session_view.js';
 import RLButton from './ui/button.js';
@@ -34,9 +33,7 @@ export const SessionListView = ({ onSelect, setOpen, open, selectable, manageabl
 
         setReload(false);
         setSelectedSessions([]);
-        fetch(api_url + "/session/list")
-            .then(res => res.json())
-            .then((res) => {
+        api.session.get_list().then((res) => {
                 setSessionList(res);
             });
     }, [reload]);

@@ -30,10 +30,10 @@ def add_routes(app):
         )
 
     def parse_image_request(src_id):
-        swidth = flask.request.args.get("width")
-        width = None if swidth is None else int(swidth)
-        sheight = flask.request.args.get("height")
-        height = None if sheight is None else int(sheight)
+        s_width = flask.request.args.get("width")
+        width = None if s_width is None else int(s_width)
+        s_height = flask.request.args.get("height")
+        height = None if s_height is None else int(s_height)
 
         # TODO: don't use video_system here --v
         if video_system._state.exists(("video", "image_sources", src_id)):
@@ -46,10 +46,10 @@ def add_routes(app):
             and src_config is not None
             and "undistort" in src_config
         ):
-            oheight, owidth = src_config["image_shape"][:2]
+            o_height, o_width = src_config["image_shape"][:2]
             undistort_config = get_config().undistort[src_config["undistort"]]
             undistort_mapping, _, _ = undistort.get_undistort_mapping(
-                owidth, oheight, undistort_config
+                o_width, o_height, undistort_config
             )
         else:
             undistort_mapping = None
@@ -518,6 +518,21 @@ def add_routes(app):
         rl_logging.clear_log_buffer()
         return flask.Response("ok")
 
-    @app.route("/")
+    @app.route("/about")
     def root():
         return "ReptiLearn Controller"
+
+    @app.route("/" + str(get_config().static_web_path.name + "/<path:filename>"))
+    def static_route(filename):
+        if (get_config().static_web_path / filename).exists():
+            return flask.send_from_directory(str(get_config().static_web_path), filename)
+        else:
+            return "Page not found", 404
+
+    @app.route("/", defaults={'path': ''})
+    @app.route("/<path:path>")
+    def ui_route(path):
+        if path != "" and (get_config().ui_build_path / path).exists():
+            return flask.send_from_directory(app.static_folder, path)
+        else:
+            return flask.send_from_directory(app.static_folder, "index.html")

@@ -51,8 +51,7 @@ multiprocessing.set_start_method(config.process_start_method)
 # Initialize the flask app for the REST API
 app = flask.Flask(
     "reptiLearnAPI",
-    static_folder=config.static_web_path,
-    static_url_path="/" + str(config.static_web_path.name),
+    static_folder=config.ui_build_path,
 )
 app.config["SECRET_KEY"] = "reptilearn"
 flask_cors.CORS(app)
@@ -127,7 +126,7 @@ threading.Thread(target=state_listen).start()
 
 
 # Run Flask server
-socketio.run(app, host="0.0.0.0", port=config.api_port)
+socketio.run(app, host="0.0.0.0", port=config.http_port)
 
 
 # Shutdown (flask server was terminated)

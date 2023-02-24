@@ -32,7 +32,7 @@ def get_distortion_matrix(chkr_im_path: Path, rows=6, cols=9):
     :return: numpy array: camera matrix, numpy array: distortion coefficients
     """
     from tqdm.auto import tqdm
-    
+
     # termination criteria
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 

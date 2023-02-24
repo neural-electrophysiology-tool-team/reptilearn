@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 
-import { api_url } from '../config.js';
+import { api_url } from '../api.js';
 import { imageSourceIds, moveStream, removeStream, setStreams, startStreaming, stopStreaming, streamlessSrcIds, updateStream, updateStreamSources } from '../store/reptilearn_slice.js';
 import { Bar } from './ui/bar.js';
 import RLButton from './ui/button.js';
@@ -13,8 +13,7 @@ import { classNames } from './ui/common.js';
 import { api } from '../api.js';
 
 const StreamImage = React.memo(({ src_id, width, height, is_streaming }) => {
-    const stream_url = api_url
-        + `/image_sources/${src_id}/stream?width=${width}&ts=${Date.now()}`;
+    const stream_url = api_url + `/image_sources/${src_id}/stream?width=${width}&ts=${Date.now()}`;
 
     const stream_style = {
         width: width + "px",

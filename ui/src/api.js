@@ -1,4 +1,9 @@
-import { api_url } from "./config";
+// To run a separate development http server set this flag to true:
+const DEVELOPMENT_MODE = false;
+
+// If ReptiLearn API uses a different port change it here:
+export const api_url = DEVELOPMENT_MODE ? `http://${window.location.hostname}:3500` : '';
+export const socketio_url = DEVELOPMENT_MODE ? `${window.location.hostname}:3500` : '';
 
 export const request = async (route, params, method = "GET", body = null, json_body = false) => {
     if (!route.startsWith('/')) {
