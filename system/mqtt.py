@@ -11,6 +11,7 @@ import logging
 import json
 from configure import get_config
 from rl_logging import get_main_logger
+import threading
 
 
 class MQTTClient(paho.Client):
@@ -26,7 +27,7 @@ class MQTTClient(paho.Client):
         self.is_connected = False
         self.subscriptions = {}
         self.on_connect_callback = None
-
+        self.connection_failed = False
         self.last_msg_info = None
         self.log = logging.getLogger("MQTTClient")
 
@@ -142,24 +143,39 @@ def mqtt_json_callback(callback):
     return cb
 
 
-# Main process threaded MQTT client. 
+# Main process threaded MQTT client.
 # NOTE: This client can only be accessed from the main process.
 client: paho.Client = None
 
 
 def init():
     """
-    Create an MQTTClient and run it in a new thread.
+    Initialize module. Create an MQTTClient and run it in a new thread.
     The client is accessible through mqtt.client.
-
-    - logger: Client logger
     """
     global client
-    client = MQTTClient(get_config().mqtt["host"], get_config().mqtt["port"])
-    client.log = get_main_logger()
-    client.loop_start()
-    client.log.info("Connecting to MQTT server...")
-    client.connect()
+    done_connecting = threading.Event()
+
+    def client_connected():
+        done_connecting.set()
+
+    def on_connect_fail(self, client, userdata, flags, rc):
+        client.log.error("Error connecting to MQTT server")
+        client.connection_failed = True
+        done_connecting.set()
+
+    try:
+        client = MQTTClient(get_config().mqtt["host"], get_config().mqtt["port"])            
+        client.log = get_main_logger()
+        client.loop_start()
+        client.log.info("Connecting to MQTT server...")
+        client.on_connect_fail = on_connect_fail
+        client.connect(on_success=client_connected)
+        done_connecting.wait(timeout=10)
+        done_connecting.clear()
+    except Exception:
+        client.log.exception("Exception while connecting to MQTT server:")
+        client.connection_failed = True
 
 
 def shutdown():
