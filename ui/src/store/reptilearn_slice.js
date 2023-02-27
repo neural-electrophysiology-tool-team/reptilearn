@@ -7,10 +7,26 @@ export const reptilearnSlice = createSlice({
         arenaConfig: null,
         videoConfig: null,
         streams: [],
+        log: [],
+        logBufferLength: 1000, // maximum number of lines in the log buffer
     },
     reducers: {
         setCtrlState: (state, action) => {
             state.ctrlState = action.payload;
+        },
+        setLog: (state, action) => {
+            state.log = action.payload;
+        },
+        appendLog: (state, action) => {
+            const log_line = action.payload;
+            if (state.log.length >= state.logBufferLength) {
+                state.log = [state.log.slice(1), log_line];
+            } else {
+                state.log = [...state.log, log_line];
+            }            
+        },
+        setLogBufferLength: (state, action) => {
+            state.logBufferLength = action.payload;
         },
         setVideoConfig: (state, action) => {
             state.videoConfig = action.payload;
@@ -99,6 +115,6 @@ export const streamlessSrcIds = (state) => {
     return imageSourceIds(state)?.filter(src_id => !used_ids.includes(src_id));
 };
 
-export const { setCtrlState, setVideoConfig, setStreams, addStream, updateStreamSources, moveStream, removeStream, updateStream, stopStreaming, startStreaming, setArenaConfig } = reptilearnSlice.actions;
+export const { setCtrlState, setLog, appendLog, setLogBufferLength, setVideoConfig, setStreams, addStream, updateStreamSources, moveStream, removeStream, updateStream, stopStreaming, startStreaming, setArenaConfig } = reptilearnSlice.actions;
 
 export default reptilearnSlice.reducer;
