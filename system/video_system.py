@@ -86,12 +86,12 @@ def _load_video_writers():
 
     for src_id in image_sources.keys():
         img_src = image_sources[src_id]
-        src_frame_rate = img_src.get_config("video_frame_rate")
-        frame_rate = (
-            src_frame_rate
-            if src_frame_rate is not None
-            else get_config().video_record["video_frame_rate"]
-        )
+
+        frame_rate = img_src.get_config("video_frame_rate")
+        if not frame_rate:
+            frame_rate = img_src.get_config("frame_rate")
+        if not frame_rate:
+            frame_rate = get_config().video_record["video_frame_rate"]
 
         video_writers[src_id] = video_write.VideoWriter(
             config={"src_id": src_id},
