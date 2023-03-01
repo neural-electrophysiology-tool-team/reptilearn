@@ -415,9 +415,6 @@ def _init_arena_state():
     _arena_state["timestamp"] = None
     _arena_state["displays"] = dict([(d, False) for d in displays.keys()])
 
-    for display in displays.keys():
-        switch_display(False, display)
-
 
 def _init_bridge_state():
     _arena_state["bridge"] = {
