@@ -1,26 +1,26 @@
 # Reptilearn
 
-__ReptiLearn__ is an open-source software system made to simplify building automated behavioral arenas, running closed-loop experiments based on realtime video analysis, and collecting large amounts of time-accurate behavioral data. 
+__ReptiLearn__ is an open-source software system for building automated behavioral arenas, running closed-loop experiments based on realtime video analysis, and collecting large amounts of time-accurate behavioral data. 
 
 __ReptiLearn__ was created to help us run continuous, long-term, learning experiments tailored to the specific needs and challenges posed by reptile model animals. 
 
-![ReptiLearn user interface](/docs/reptilearn-ui.png)
+![ReptiLearn user interface](/docs/images/reptilearn-ui.png)
 
-The __ReptiLearn__ system consists of 3 main parts:
-- [system](system): Python software responsible for video acquisition, recording and realtime analysis, as well as controlling custom experiments, and collecting data. Controlling the system can be done over HTTP and Websocket.
-- [ui](ui): Web-based user interface for controlling and monitoring the system, written in JavaScript using React.js
-- [arena](arena): Python software for communication between the system and any number of arduino micro-controller boards. It provides a generic arduino program that can be configured to interface with a large range of electronic devices without writing a single line of Arduino code.
 
-There are several entry points for extending the system to fit your needs by writing Python modules:
-- Custom experiments
-- Support for additional image sources
-- Fast realtime analysis of image streams which can include machine learning models
-- General tasks that can be scheduled using the web based UI
+## Main Features
+- Synchronized video recording and real-time analysis from multiple video sources
+- Control of various arena hardware such as temperature sensors, lighting, and reward feeders
+- Automate and run closed-loop behavioral experiments
+- Control and monitor remotely using a web browser interface
+- Highly extendable. Written purely in Python.
 
-See the [programming guide](docs/programming_guide.md) for more details. 
+## Documentation
 
-## Getting started
+- [Getting started](docs/getting_started.md)
+- [Building an arena](docs/build_arena.md)
+- [Camera configuration](docs/camera_config.md)
+- [Programming experiments](docs/programming_experiments.md)
+- [Extending the video system](docs/programming_video_system.md)
+- [Scheduling tasks](docs/adding_tasks.md)
 
-- [Installation](docs/installation.md)
-- [User guide](docs/user_guide.md)
-- [Programming guide](docs/programming_guide.md)
+

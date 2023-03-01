@@ -1,0 +1,3 @@
+# Camera configuration
+
+Coming soon...
