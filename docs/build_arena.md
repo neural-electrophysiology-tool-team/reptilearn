@@ -1,10 +1,10 @@
 # How to build a ReptiLearn Arena
 
-This document describes the process of building an automated ReptiLearn arena. ReptiLearn is very customizable and supports many different hardware setups. This describes how we built our own arenas.
+This document describes how we built our automated arenas for studying various reptiles. We take no responsibility for any damage caused as a result of following this guide.
 
 ## Arena
 
-First build the Arena container. These are some general guidelines based on our experience. You may want to use different materials or dimensions. 
+First build the Arena container.
 
 1. Obtain and cut the wall sheets and frame as necessary (explained elsewhere).
 2. Stick anti-reflection wallpapers on the walls. We used black self-adhesive wallpaper rolls suitable to be used as a chalkboard. 
