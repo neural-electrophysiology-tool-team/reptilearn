@@ -86,12 +86,12 @@ def _load_video_writers():
 
     for src_id in image_sources.keys():
         img_src = image_sources[src_id]
-        src_frame_rate = img_src.get_config("video_frame_rate")
-        frame_rate = (
-            src_frame_rate
-            if src_frame_rate is not None
-            else get_config().video_record["video_frame_rate"]
-        )
+
+        frame_rate = img_src.get_config("video_frame_rate")
+        if not frame_rate:
+            frame_rate = img_src.get_config("frame_rate")
+        if not frame_rate:
+            frame_rate = get_config().video_record["video_frame_rate"]
 
         video_writers[src_id] = video_write.VideoWriter(
             config={"src_id": src_id},
@@ -159,8 +159,6 @@ def update_video_config(config: dict):
     """
     global image_sources, image_observers, video_config
 
-    ttl_trigger = has_trigger() and _rec_state.get("ttl_trigger", False)
-
     if len(image_sources) != 0:
         try:
             shutdown_video()
@@ -173,7 +171,7 @@ def update_video_config(config: dict):
     load_video_config(config)
     _load_video_writers()
 
-    if ttl_trigger:
+    if has_trigger() and _rec_state.get("ttl_trigger", False):
         start_trigger()
     else:
         stop_trigger()
@@ -376,8 +374,7 @@ def init(state: managed_state.Cursor):
     load_video_config(video_config)
     _load_video_writers()
 
-    ttl_trigger = get_config().video_record["start_trigger_on_startup"]
-    if ttl_trigger:
+    if has_trigger() and get_config().video_record["start_trigger_on_startup"]:
         start_trigger()
     else:
         stop_trigger()

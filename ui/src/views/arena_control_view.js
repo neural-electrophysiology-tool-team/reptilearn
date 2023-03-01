@@ -143,14 +143,23 @@ export const ArenaControlView = () => {
                         {`Updated: ${update_time.toLocaleTimeString()}`}
                     </RLMenu.StaticItem>
                 }
-                <RLMenu.ButtonItem onClick={api.arena.poll}>
+                <RLMenu.ButtonItem onClick={api.arena.poll} disabled={!ctrl_state.arena?.bridge?.listening}>
                     <RLIcon.MenuIcon icon="stethoscope" />
                     <span>Poll arena</span>
                 </RLMenu.ButtonItem>
-                <RLMenu.ButtonItem onClick={() => setShowArenaSettingsModal(true)} disabled={false} key="Arena settings">Arena settings...</RLMenu.ButtonItem>
+                <RLMenu.ButtonItem onClick={() => setShowArenaSettingsModal(true)} disabled={false} key="Arena settings">
+                    <RLIcon.MenuIcon icon="gear" />
+                    <span className="align-middle">Arena settings...</span>
+                </RLMenu.ButtonItem>
                 <RLMenu.SeparatorItem />
-                <RLMenu.ButtonItem onClick={bridge_button_action} disabled={false} key="bridge_button">{bridge_button_label}</RLMenu.ButtonItem>
-                <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.bridge?.running} key="stop_bridge_button">Stop arena</RLMenu.ButtonItem>
+                <RLMenu.ButtonItem onClick={bridge_button_action} disabled={false} key="bridge_button">
+                    <RLIcon.MenuIcon icon={ctrl_state.arena?.bridge?.running ? "undo" : "play"} />
+                    <span className="align-middle">{bridge_button_label}</span>
+                </RLMenu.ButtonItem>
+                <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.bridge?.running} key="stop_bridge_button">
+                <RLIcon.MenuIcon icon="stop" />
+                    <span className="align-middle">Stop arena</span>
+                </RLMenu.ButtonItem>
             </RLMenu>
         </>);
 };
