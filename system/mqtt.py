@@ -165,10 +165,12 @@ def init():
         done_connecting.set()
 
     try:
-        client = MQTTClient(get_config().mqtt["host"], get_config().mqtt["port"])            
+        host = get_config().mqtt["host"]
+        port = get_config().mqtt["port"]
+        client = MQTTClient(host, port)
         client.log = get_main_logger()
         client.loop_start()
-        client.log.info("Connecting to MQTT server...")
+        client.log.info(f"Connecting to MQTT server at {host}:{port}...")
         client.on_connect_fail = on_connect_fail
         client.connect(on_success=client_connected)
         done_connecting.wait(timeout=10)
