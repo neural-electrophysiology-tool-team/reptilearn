@@ -20,7 +20,7 @@ Follow these steps to install:
 
 - Install [Anaconda](https://www.anaconda.com/)
 
-- Run the following from the same directory, to create a reptilearn Python environment (on Windows use Anaconda Prompt):
+- Run the following from the same directory to create a reptilearn Python environment (on Windows use Anaconda Prompt):
 
 ```bash
 cd reptilearn
@@ -64,7 +64,7 @@ IMAGEIO_FFMPEG_EXE=/path/to/ffmpeg/executable
 
 ## Configuration
 
-The system uses python modules as configuration files. The default configuration can be found at [system/config/config.py](/system/config/config.py). You would probably want to make some changes before running for the first time. We recommend making a copy of this file (e.g. to system/config/my_config.py) and point to this file using `--config my_config` command line argument (see [Running](#running) below).
+The system uses python modules as configuration files. The default configuration can be found at [system/config/config.py](/system/config/config.py). You would probably want to make some changes before running for the first time. We recommend making a copy of this file (e.g. to system/config/my_config.py), and point to this file using `--config my_config` command line argument (see [Running](#running) below).
 
 Change directories for storing data:
 - `session_data_root`: This is where session data will be stored (each session is stored in its own subdirectory)
@@ -94,7 +94,7 @@ python main.py --config my_config
 where `my_config` is the name of a python module inside the `config` directory without the .py extension.
 For example, ```python main.py --config config2``` will start the system configured according to `system/config/config2.py`.
 
-- Open your a recent version of your favorite web browser, and go to [`http://localhost:3500`](http://localhost:3500). You can access the web app remotely by using an ssh tunnel or by using the computer's IP address instead of `localhost`.
+- Open a recent version of your favorite web browser, and go to [`http://localhost:3500`](http://localhost:3500). You can access the web app remotely by using an ssh tunnel or by using the computer's IP address instead of `localhost`.
 
 NOTE: We recommend using ssh tunnels and/or a VPN to securely access the web app. ReptiLearn has no support for user authentication or any other security measures.
 
@@ -118,7 +118,7 @@ CREATE DATABASE reptilearn;
 
 ## Real-time object detection using YOLOv4
 
-ReptiLearn currently supports real-time object detection using the YOLOv4 neural network model. YOLO can be used to obtain bounding boxes of relevant objects in image streams (such as your subject animals). YOLOv4 darknet requires a CUDA capable GPU and working installations of NVIDIA CUDA and cuDNN.
+ReptiLearn currently supports real-time object detection using the YOLOv4 neural network model. YOLO can be used to obtain bounding boxes of relevant objects in image streams (such as your subject animals). We use the original darknet version from [this](https://github.com/AlexeyAB/darknet) repository. Darknet requires a CUDA capable GPU, and working installations of NVIDIA CUDA, and cuDNN.
 
 First, configure your cameras or other image sources (see [Camera configuration](docs/camera_config.md) for more information), then follow these steps to setup the model:
 
@@ -140,7 +140,7 @@ First, configure your cameras or other image sources (see [Camera configuration]
 
 - Click the `Apply & Restart` button to restart the video system and load the new observer.
 
-Assuming everything worked, the YOLOv4 model should now be loaded and you should see a log message in the web app. If you don't see any message, check the terminal window where ReptiLearn is running for any errors from the YOLO model. 
+Assuming everything worked, the YOLOv4 model should now be loaded and you should see a log message in the web app. If you don't see any message, check the terminal window where ReptiLearn is running for any errors coming from the YOLO model. 
 
 NOTE: To use the detection data in real-time or store it you need to run the appropriate experiment. See [Programming experiments](docs/programming_experiments.md) for information about interfacing with image observers.
 
