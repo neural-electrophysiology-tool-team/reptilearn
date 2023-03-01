@@ -16,9 +16,9 @@ class YOLOv4Detector:
 
     def __init__(
         self,
-        cfg_path="image_observers/YOLOv4/yolo4_2306.cfg",
-        weights_path="image_observers/YOLOv4/yolo4_gs_best_2306.weights",
-        meta_path="image_observers/YOLOv4/obj.data",
+        cfg_path,
+        weights_path,
+        meta_path,
         conf_thres=0.9,
         nms_thres=0.6,
         return_nearest_detection=False,

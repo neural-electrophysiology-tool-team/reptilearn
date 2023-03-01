@@ -10,7 +10,7 @@ class YOLOv4ImageObserver(ImageObserver):
         **ImageObserver.default_params,
         "cfg_path": None,
         "weights_path": None,
-        "meta_path": None,
+        "meta_path": "image_observers/YOLOv4/obj.data",
         "conf_thres": 0.9,
         "nms_thres": 0.6,
     }
