@@ -166,13 +166,32 @@ Each board has its own array of interface objects. Each interface has various pr
 
 Here, LED1 uses digital pin 11 and LED2 uses digital pin 12. The camera trigger `trigger` interface will send a pulse every 17ms on digital pin 12.
 
-More information about the various interfaces can be found below in the interface documentation section.
+More information about the various interfaces can be found [below](#interface-documentation).
 
 # Running the MQTT-Serial bridge
 
-Once everything is configured you can run the bridge. Follow the instruction in the [user guide](user_guide.md) on how to run all parts of the system. Pressing Ctrl-C should stop the bridge.
+Once everything is configured you can run the bridge.
 
-When the bridge is starting up the Arduino boards should send setup requests and you should see messages in the ReptiLearn log detailing the connected interfaces. If everything went well you should see your interfaces in this list. The arena menu in the ReptiLearn UI should also display and allow you to control the defined interfaces.
+From another terminal window go again to the repository directory and enter:
+```bash
+conda activate reptilearn
+cd arena
+python arena.py
+```
+
+OR if you want to use a different config module than the default (the default is at arena/config.py):
+
+```bash
+conda activate reptilearn
+cd arena
+python arena.py --config config-module
+```
+
+where `config-module` is the name of a python module containing the config values without the .py extension.
+
+Pressing Ctrl-C should stop the bridge.
+
+When the bridge is starting up the Arduino boards should send setup requests and you should see log messages in the ReptiLearn web app. If everything went well you should see your interfaces in this list. The arena menu in the ReptiLearn UI should also display and allow you to control the defined interfaces.
 
 # Interface documentation
 
