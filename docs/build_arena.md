@@ -1,16 +1,16 @@
 # How to build a ReptiLearn Arena
 
-This document describes the process of building an automated ReptiLearn arena.
+This document describes the process of building an automated ReptiLearn arena. ReptiLearn is very customizable and supports many different hardware setups. This describes how we built our own arenas.
 
 ## Arena
 
-First build the Arena container. Here are some general guidelines based on our experience with building a number of arenas. You may want to use different materials or dimensions. 
+First build the Arena container. These are some general guidelines based on our experience. You may want to use different materials or dimensions. 
 
 1. Obtain and cut the wall sheets and frame as necessary (explained elsewhere).
 2. Stick anti-reflection wallpapers on the walls. We used black self-adhesive wallpaper rolls suitable to be used as a chalkboard. 
 3. Build a box. We used aluminum profiles for the frame and Alucobond sheets for the walls and floor. The floor size was 100x70 cm, and the walls height was 45cm. 
 4. To support the top-view camera and other devices (e.g. heat lamps), add another profile one meter above the floor, spanning along the long axis of the box. The profile can be supported by two more profiles connected to the short sides of the box.
-5. Connect adjustable camera arms to the top frame of the box, and optionally an additional one on the profile you added on the previous step. We used this product: [https://www.noga.com/Products/modu/Modular%20Holders/LC6100/LC_Arms_-_LC6100](https://www.noga.com/Products/modu/Modular%20Holders/LC6100/LC_Arms_-_LC6100). To connect the cameras we used a 3d-printed camera holder that connects the arms to the cameras with screws (STL file TBD).
+5. Connect adjustable camera arms to the top frame of the box, and optionally an additional one on the profile you added on the previous step. We used [this product](https://www.noga.com/Products/modu/Modular%20Holders/LC6100/LC_Arms_-_LC6100). To connect the cameras we used a 3d-printed camera holder that connects the arms to the cameras with screws (STL file TBD).
 
 ## Electronics
 
@@ -115,5 +115,5 @@ Once everything is built, follow these final steps:
 * Place Arduino boards and other electronic components in their final location (e.g. a box or plate)
 * Hide cables and make it look tidy and neat.
 * Connect power supplies
-* [Setup the ReptiLearn software](/getting_started.md)
+* [Setup the ReptiLearn software](getting_started.md)
 * Have fun
