@@ -14,9 +14,7 @@ First build the Arena container.
 
 ## Electronics
 
-```
-General soldering advice: Prevent short-circuits! Use heat shrink tubes for insulation and don't leave any uncovered wires.
-```
+`General soldering advice: Prevent short-circuits! Use heat shrink tubes for insulation and don't leave any uncovered wires.`
 
 * Decide where and how to place your electronics. This determines the length of the cables you will need to make. Some box or a plate to hold the components could be useful.
 * Electronic devices are controlled using Arduino boards. We use “Arduino Nano Every” boards. They are quite inexpensive, have a large enough memory to fit our program, and can be easily mounted on a prototyping breadboard. Other Arduino boards could be used as well but might have a different pinout and/or memory size. Some Arduino boards use 3V instead of 5V. _We didn’t test 3V boards, and some of the components described below might not work in 3V._
