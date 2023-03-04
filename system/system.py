@@ -92,7 +92,7 @@ log = rl_logging.init(
     ),
     extra_loggers=(app_log, app.logger),
     extra_log_level=logging.WARNING,
-    default_level=config.log_level,
+    default_level=logging.getLevelName(config.log_level),
 )
 
 # Initialize all other modules

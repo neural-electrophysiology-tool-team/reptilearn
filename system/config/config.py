@@ -6,7 +6,7 @@ import logging
 process_start_method = "spawn"
 
 # Logging level of process and main loggers.
-log_level = logging.INFO
+log_level = "INFO"
 
 # Max number of recent log lines that will be stored in the log buffer. The log buffer contents
 # are sent to the web UI whenever a connection is established.
@@ -50,14 +50,15 @@ static_web_path: Path = Path("../stimuli")
 
 # Available archive directories
 archive_dirs = {
-    "Archive1": Path("/path/to/archive/dir"),
-    "Archive2": Path("/path/to/another/archive/dir"),
+    # Examples:
+    #
+    # "Archive1": Path("/path/to/archive/dir"),
+    # "Archive2": Path("/path/to/another/archive/dir"),
 }
 
 # Image source streaming over HTTP settings
 http_streaming = {
     "frame_rate": 15,  # http streaming frame rate
-
     # See https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save
     # and https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
     "encoding": "WebP",
@@ -109,10 +110,8 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
-
     # Set this to False if you don't want to run the MQTT-Serial bridge
     "run_bridge_process": True,
-
     # Uncomment the following lines to log values from the specified arena interfaces to a database table.
     # "data_log": {  # requires a database connection
     #     "table_name": "arena",
@@ -156,5 +155,4 @@ event_log = {
 
 # Lens correction values for various camera and lens combinations. Each dict value
 # should have "mtx" and "dist" keys.
-undistort = {
-}
+undistort = {}
