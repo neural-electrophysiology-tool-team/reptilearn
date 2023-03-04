@@ -32,6 +32,7 @@
 			"darknet",
 			"dataframe",
 			"dataframes",
+			"dotenv",
 			"dropna",
 			"dtype",
 			"Eisenberg",
@@ -68,6 +69,7 @@
 			"undistort",
 			"vcap",
 			"vectorize",
+			"werkzeug",
 			"yolo"
 		]		
 	}

@@ -10,8 +10,19 @@ import RLMenu from './ui/menu.js';
 export const ArenaControlView = () => {
     const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
     const [showArenaSettingsModal, setShowArenaSettingsModal] = React.useState(false);
+    const [isManagingController, setManagingController] = React.useState(null);
 
     const arena_config = useSelector((state) => state.reptilearn.arenaConfig);
+
+    React.useEffect(() => {
+        if (isManagingController !== null) {
+            return;
+        }
+
+        api.get_config("arena").then((config) => {
+            setManagingController(config.run_bridge_process);
+        })
+    }, [setManagingController, isManagingController]);
 
     const toggle_display = (display) => {
         // TODO: test with multiple displays
@@ -128,18 +139,17 @@ export const ArenaControlView = () => {
             api.arena.run_bridge();
         }
     }
-        
+
     return (
         <>
-            <ArenaSettingsView setOpen={setShowArenaSettingsModal} open={showArenaSettingsModal} />
+            <ArenaSettingsView setOpen={setShowArenaSettingsModal} open={showArenaSettingsModal} isManagingController={isManagingController} />
             <RLMenu button={<RLMenu.TopBarMenuButton title="Arena" />}>
                 {ctrl_state.arena?.bridge?.listening && items}
                 {display_toggles.length > 0 && <RLMenu.HeaderItem>Displays</RLMenu.HeaderItem>}
                 {display_toggles}
                 <RLMenu.SeparatorItem />
-                {!update_time
-                    ? null
-                    : <RLMenu.StaticItem key={update_time}>
+                {update_time &&
+                    <RLMenu.StaticItem key={update_time}>
                         {`Updated: ${update_time.toLocaleTimeString()}`}
                     </RLMenu.StaticItem>
                 }
@@ -152,14 +162,14 @@ export const ArenaControlView = () => {
                     <span className="align-middle">Arena settings...</span>
                 </RLMenu.ButtonItem>
                 <RLMenu.SeparatorItem />
-                <RLMenu.ButtonItem onClick={bridge_button_action} disabled={false} key="bridge_button">
+                {isManagingController && <RLMenu.ButtonItem onClick={bridge_button_action} disabled={false} key="bridge_button">
                     <RLIcon.MenuIcon icon={ctrl_state.arena?.bridge?.running ? "undo" : "play"} />
                     <span className="align-middle">{bridge_button_label}</span>
-                </RLMenu.ButtonItem>
-                <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.bridge?.running} key="stop_bridge_button">
+                </RLMenu.ButtonItem>}
+                {isManagingController && <RLMenu.ButtonItem onClick={api.arena.stop_bridge} disabled={!ctrl_state.arena?.bridge?.running} key="stop_bridge_button">
                 <RLIcon.MenuIcon icon="stop" />
                     <span className="align-middle">Stop arena</span>
-                </RLMenu.ButtonItem>
+                </RLMenu.ButtonItem>}
             </RLMenu>
         </>);
 };

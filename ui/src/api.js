@@ -46,7 +46,7 @@ export const requestJSON = async (route, params, method = "GET", body = null) =>
 
 export const api = {
     get_config(key) {
-        return request(`/config/${key}`)
+        return requestJSON(`/config/${key}`)
     },
     stop_stream(src_id) {
         return request(`/stop_stream/${src_id}`);

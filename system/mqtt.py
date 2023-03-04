@@ -48,7 +48,8 @@ class MQTTClient(paho.Client):
         if on_success is not None:
             self.on_connect_callback = on_success
 
-        super().connect(self.host, self.port)
+        self.loop_start()
+        self.connect_async(self.host, self.port)
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == paho.MQTT_ERR_SUCCESS:
@@ -169,12 +170,19 @@ def init():
         port = get_config().mqtt["port"]
         client = MQTTClient(host, port)
         client.log = get_main_logger()
-        client.loop_start()
+
+        if len(host) == 0:
+            client.log.info("Not connecting to MQTT. Host is not defined.")
+            return
+
         client.log.info(f"Connecting to MQTT server at {host}:{port}...")
         client.on_connect_fail = on_connect_fail
         client.connect(on_success=client_connected)
-        done_connecting.wait(timeout=10)
+        did_set = done_connecting.wait(timeout=10)
         done_connecting.clear()
+        if not did_set:
+            client.connection_failed = True
+
     except Exception:
         client.log.exception("Exception while connecting to MQTT server:")
         client.connection_failed = True
@@ -184,5 +192,6 @@ def shutdown():
     """
     Disconnect the main process client and stop its thread.
     """
-    client.disconnect()
-    client.loop_stop()
+    if client.is_connected:
+        client.disconnect()
+        client.loop_stop()

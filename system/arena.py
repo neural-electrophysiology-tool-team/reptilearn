@@ -486,11 +486,10 @@ def init(state):
         )
         _arena_log.start()
 
-    if get_config().arena["run_bridge_process"] is True:
-        _init_bridge_state()
+    _init_bridge_state()
 
     if mqtt.client.connection_failed:
-        _log.warn("Can't initialize arena module. MQTT connection failed.")
+        _log.warn("MQTT connection failed. Can't connect to arena controller.")
         return
 
     topic = get_config().arena["receive_topic"]
@@ -506,8 +505,11 @@ def init(state):
         f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status)
     )
 
-    if get_config().arena["run_bridge_process"] is True and len(_arena_config) > 0:        
+    if len(_arena_config) > 0 and get_config().arena["run_bridge_process"] is True:
         run_mqtt_serial_bridge()
+
+    if _arena_state["bridge", "listening"] is False:
+        run_command("is_listening", "bridge", [], False)
 
     schedule.repeat(poll, get_config().arena["poll_interval"], pool="arena")
 

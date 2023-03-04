@@ -168,6 +168,9 @@ class SerialMQTTBridge:
         for e in self.serial_configured_events.values():
             e.wait()
 
+        self.publish_listening()
+
+    def publish_listening(self):
         with self.mqtt_publish_lock:
             self.mqtt.publish(f"{self.mqtt_config['publish_topic']}/listening", "true")
 
@@ -332,7 +335,9 @@ class SerialMQTTBridge:
                                 s.write(msg.payload + b"\n")
 
                 elif cmd_interface == "bridge":
-                    if cmd_name == "terminate":
+                    if cmd_name == "is_listening":
+                        self.publish_listening()
+                    elif cmd_name == "terminate":
                         self.shutdown()
                         continue
 

@@ -10,7 +10,6 @@ export const ArchiveView = ({ sessions, setOpen, open, close_session_list }) => 
 
     React.useEffect(() => {
         api.get_config("archive_dirs")
-            .then((res) => res.json())
             .then((res) => setArchives(res));
     }, [open]);
 

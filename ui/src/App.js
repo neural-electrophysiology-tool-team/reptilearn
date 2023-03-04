@@ -55,7 +55,6 @@ const App = () => {
                 dispatch(setLog(log_buffer));
                 return api.get_config('log_buffer_size');
             })
-            .then((res) => res.json())
             .then((val) => {
                 dispatch(setLogBufferLength(val));
             });

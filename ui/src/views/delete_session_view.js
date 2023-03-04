@@ -9,7 +9,6 @@ export const DeleteSessionModal = ({ session, sessions, open, setOpen, onDelete 
 
     React.useEffect(() => {
         api.get_config("session_data_root")
-            .then((res) => res.json())
             .then((res) => setDataRoot(res));
     }, [open]);
 

@@ -13,7 +13,7 @@ import { api } from '../api';
 import deep_equal from 'deep-equal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-export const ArenaSettingsView = ({ setOpen, open }) => {
+export const ArenaSettingsView = ({ setOpen, open, isManagingController }) => {
     const dispatch = useDispatch();
 
     const [openAddModal, setOpenAddModal] = React.useState(false);
@@ -157,7 +157,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
         <RLModal open={openAddModal} setOpen={setOpenAddModal} sizeClasses="w-3/6 h-1/3" header={<>Add Arduino port</>} actions={
             <>
                 <RLButton.ModalButton onClick={add_port} disabled={
-                    !addSerialNumberInput || addSerialNumberInput.trim().length === 0 || !addPortInput ||
+                    !addSerialNumberInput || addSerialNumberInput.trim().length === 0 ||
                     !addFQBNInput || addFQBNInput.trim().length === 0
                 }>
                     Add
@@ -167,7 +167,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
         }>
             <table className="border-separate [border-spacing:0.75rem] w-full">
                 <tbody>
-                    <tr>
+                    {isManagingController && <tr>
                         <td>Port:</td>
                         <td>
                             { isLoadingPorts ? <div>Loading...</div> :
@@ -198,7 +198,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
         
                                     : <div>No available ports</div>}
                         </td>
-                    </tr>
+                    </tr>}
                     <tr>
                         <td>
                             Name:
@@ -260,7 +260,7 @@ export const ArenaSettingsView = ({ setOpen, open }) => {
                         setSelected={setSelectedPort} />
                     <RLButton.BarButton onClick={open_add_modal} icon="add" />
                     <RLButton.BarButton onClick={remove_port} icon="xmark" disabled={!selectedPort} />
-                    <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={upload_disabled} />
+                    {isManagingController && <RLButton.BarButton onClick={() => upload_program(selectedPort)} icon="upload" text="Upload program" iconClassName="mr-1" disabled={upload_disabled} />}
                 </Bar>
                 {selectedPort && <RLJSONEditor
                     mainMenuBar={false}
