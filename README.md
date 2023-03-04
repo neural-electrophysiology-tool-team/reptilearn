@@ -8,10 +8,11 @@ __ReptiLearn__ was created to help us run continuous, long-term, learning experi
 
 
 ## Main Features
+
 - Synchronized video recording and real-time analysis from multiple video sources
 - Control of various arena hardware such as temperature sensors, lighting, and reward feeders
 - Automate and run closed-loop behavioral experiments
-- Control and monitor remotely using a web browser interface
+- Web based interface for remote monitoring and control
 - Highly extendable. Written purely in Python.
 
 ## Documentation
@@ -19,6 +20,7 @@ __ReptiLearn__ was created to help us run continuous, long-term, learning experi
 - [Getting started](docs/getting_started.md)
 - [Building an arena](docs/build_arena.md)
 - [Camera configuration](docs/camera_config.md)
+- [Setting up the arena controller](docs/arena_setup.md)
 - [Programming experiments](docs/programming_experiments.md)
 - [Extending the video system](docs/programming_video_system.md)
 - [Scheduling tasks](docs/adding_tasks.md)

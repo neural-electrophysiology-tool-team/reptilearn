@@ -114,8 +114,8 @@ arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
 
-    # Set this to False if you don't want to run the MQTT-Serial bridge
-    "run_bridge_process": True,
+    # Set this to False if you don't want to run the arena controller together with the system
+    "run_controller": True,
 
     # Uncomment the following lines to log values from the specified arena interfaces to a database table.
     # "data_log": {  # requires a database connection

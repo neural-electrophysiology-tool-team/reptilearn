@@ -154,7 +154,7 @@ export const ArenaSettingsView = ({ setOpen, open, isManagingController }) => {
     })) : null;
 
     const add_modal = openAddModal && (
-        <RLModal open={openAddModal} setOpen={setOpenAddModal} sizeClasses="w-3/6 h-1/3" header={<>Add Arduino port</>} actions={
+        <RLModal open={openAddModal} setOpen={setOpenAddModal} sizeClasses="w-3/6 h-1/3" header={<>Add Arduino</>} actions={
             <>
                 <RLButton.ModalButton onClick={add_port} disabled={
                     !addSerialNumberInput || addSerialNumberInput.trim().length === 0 ||
@@ -253,7 +253,7 @@ export const ArenaSettingsView = ({ setOpen, open, isManagingController }) => {
             {!isLoadingConfig ? <div className="flex flex-col w-100 overflow-hidden">
                 {add_modal}
                 <Bar colors="bg-gray-100">
-                    <span>Arduino port:</span>
+                    <span>Arduino board:</span>
                     <RLSimpleListbox
                         options={port_options}
                         selected={selectedPort}

@@ -133,7 +133,7 @@ if __name__ == "__main__":
     )
     arg_parser.add_argument(
         "--upload",
-        help="Upload arena program to all devices. Requires arduino-cli.",
+        help="Upload arena program to all devices or to the specified board name. Requires arduino-cli.",
         default="",
         nargs="?",
     )

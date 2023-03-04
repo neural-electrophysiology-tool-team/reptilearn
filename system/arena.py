@@ -505,7 +505,7 @@ def init(state):
         f"{topic}/listening", mqtt.mqtt_json_callback(_on_listening_status)
     )
 
-    if len(_arena_config) > 0 and get_config().arena["run_bridge_process"] is True:
+    if len(_arena_config) > 0 and get_config().arena["run_controller"] is True:
         run_mqtt_serial_bridge()
 
     if _arena_state["bridge", "listening"] is False:

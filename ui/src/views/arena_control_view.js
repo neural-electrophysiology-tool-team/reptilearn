@@ -20,7 +20,7 @@ export const ArenaControlView = () => {
         }
 
         api.get_config("arena").then((config) => {
-            setManagingController(config.run_bridge_process);
+            setManagingController(config.run_controller);
         })
     }, [setManagingController, isManagingController]);
 

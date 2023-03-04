@@ -54,7 +54,34 @@ NOTE: ReptiLearn doesn't currently support non-anonymous access to the MQTT brok
 allow_anonymous true
 ```
 
-### FFmpeg setup
+### Arduino-CLI (optional)
+
+For programming Arduino boards you need to install [arduino-cli](https://arduino.github.io/arduino-cli/latest/installation/).
+
+Once installed, run these commands to install the necessary Arduino libraries:
+```
+arduino-cli core update-index
+arduino-cli lib install AccelStepper ArduinoJson OneWire DallasTemperature
+```
+
+Finally, install the software for your specific Arduino board model(s). For example for an Arduino Nano Every or UNO WiFi Rev 2 run:
+```
+arduino-cli core install arduino:megaavr
+```
+
+For other models, the following command will list all available board IDs:
+```
+arduino-cli core list --all 
+```
+
+When you have your board ID, install the core for it using this command:
+```
+arduino-cli core install <board ID>
+```
+
+Repeat this for each type of board you intend to use.
+
+### FFmpeg setup (optional)
 
 [FFmpeg](https://ffmpeg.org/) is used to encode video files. Normally it should be installed together with the ImageIO library when creating the anaconda environment, however if you want to use a different installed version (for example one that supports encoding on a GPU), create the file `reptilearn/system/.env` with the following content:
 
@@ -64,9 +91,19 @@ IMAGEIO_FFMPEG_EXE=/path/to/ffmpeg/executable
 
 ## Configuration
 
-The system uses python modules as configuration files. The default configuration can be found at [system/config/config.py](/system/config/config.py). You would probably want to make some changes before running for the first time. We recommend making a copy of this file (e.g. to system/config/my_config.py), and point to this file using `--config my_config` command line argument (see [Running](#running) below).
+The system uses python modules as configuration files. The default configuration can be found at [system/config/config.py](/system/config/config.py). You would probably want to make some changes before running for the first time. It's possible to make changes directly in the default config file, but we recommend creating a new config file (e.g. system/config/my_config.py). 
 
-Change directories for storing data:
+Any values not defined in the new config file will be taken from the default config file. To use the new config, run with a `--config my_config` command line argument (see [Running](#running) below).
+
+For example, this is how a config file that only changes the web server port value would look like:
+```python
+web_ui = {
+    "port": 3501,
+}
+```
+
+You probably want to change the directories for storing data:
+
 - `session_data_root`: This is where session data will be stored (each session is stored in its own subdirectory)
 - `media_dir`: Videos and images are stored here when there's no open session
 
