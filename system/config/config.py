@@ -1,5 +1,4 @@
 from pathlib import Path
-import logging
 
 # Method for starting up child processes. Valid values are "spawn" and "fork".
 # See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
@@ -18,8 +17,12 @@ state_store_address = ("127.0.0.1", 50000)
 # Authkey of the shared state store
 state_store_authkey = "reptilearn"
 
-# Port number for the UI, REST and websocket server.
-http_port = 3500
+# Host and port number for the UI, REST and websocket server.
+web_ui = {
+    "host": "0.0.0.0",
+    "port": 3500,
+}
+
 
 # Where experiment python modules can be found.
 experiment_modules_dir: Path = Path("./experiments/")
@@ -110,8 +113,10 @@ mqtt = {
 arena = {
     "poll_interval": 60,
     "displays": {"touchscreen": ":0"},
+
     # Set this to False if you don't want to run the MQTT-Serial bridge
     "run_bridge_process": True,
+
     # Uncomment the following lines to log values from the specified arena interfaces to a database table.
     # "data_log": {  # requires a database connection
     #     "table_name": "arena",
@@ -120,6 +125,7 @@ arena = {
     #         ("Temp_1", "double precision"),
     #     ],
     # },
+
     "command_topic": "arena_command",  # Arena commands will be published to this MQTT topic
     "receive_topic": "arena",  # Incoming arena messages will arrive on this MQTT topic
 }
