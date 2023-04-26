@@ -21,3 +21,4 @@ dependencies:
     - python-dotenv
     - Pillow
     - simple-websocket
+    - psutil
