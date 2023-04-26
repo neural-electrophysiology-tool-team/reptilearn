@@ -16,6 +16,7 @@ import json
 import sys
 import argparse
 from dotenv import load_dotenv
+import psutil
 
 import configure
 import rl_logging
@@ -157,6 +158,12 @@ def shutdown():
     state_store.shutdown()
 
     if restart:
+        try:
+            p = psutil.Process(os.getpid())
+            for handler in p.open_files() + p.connections():
+                os.close(handler.fd)
+        except Exception as e:
+            print("Error cleaning up before restart:", e)
         os.execl(sys.executable, sys.executable, *sys.argv)
 
 
