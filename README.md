@@ -1,6 +1,6 @@
 # Reptilearn
 
-__ReptiLearn__ is an open-source software system for building automated behavioral arenas, running closed-loop experiments based on realtime video analysis, and collecting large amounts of time-accurate behavioral data. 
+__ReptiLearn__ is an open-source software system for building automated behavioral arenas, running closed-loop experiments based on realtime video analysis, and collecting  behavioral data. 
 
 __ReptiLearn__ was created to help us run continuous, long-term, learning experiments tailored to the specific needs and challenges posed by reptile model animals. 
 

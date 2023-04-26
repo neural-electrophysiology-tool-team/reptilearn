@@ -3,6 +3,7 @@ Flask REST API routes that can be used for controlling the system. These routes 
 
 Author: Tal Eisenberg, 2021, 2022
 """
+import os
 import flask
 import json
 from configure import get_config
@@ -18,10 +19,20 @@ import image_utils
 import rl_logging
 
 
-def add_routes(app):
+def add_routes(app, restart_hook):
     log = rl_logging.get_main_logger()
 
     # Flask REST API
+    @app.route("/system/shutdown")
+    def route_system_shutdown():
+        os.kill(os.getpid(), 2)
+        return flask.Response("ok")
+
+    @app.route("/system/restart")
+    def route_system_restart():
+        restart_hook()
+        return flask.Response("ok")
+
     @app.route("/config/<attribute>")
     def route_config(attribute):
         return flask.Response(

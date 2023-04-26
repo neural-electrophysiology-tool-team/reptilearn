@@ -63,6 +63,15 @@ export const api = {
         }        
     },
 
+    system: {
+        shutdown() {
+            return requestJSON('/system/shutdown');
+        },
+        restart() {
+            return requestJSON('/system/restart');
+        },
+    },
+
     video: {
         get_config() {
             return requestJSON('/video/get_config');

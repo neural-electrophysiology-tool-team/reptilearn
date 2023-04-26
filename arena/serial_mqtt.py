@@ -135,7 +135,7 @@ class SerialMQTTBridge:
                 continue
 
             self.log.info(
-                f"(SERIAL) Connecting to port {port_name} ({port.name}, serial_number:{port.serial_number})"
+                f"(SERIAL) Connecting to port {port_name} ({port.name}, serial_number: {port.serial_number})"
             )
             ser = Serial(port.device, self.serial_config["baud_rate"], timeout=2)
             self.serials[port_name] = ser
