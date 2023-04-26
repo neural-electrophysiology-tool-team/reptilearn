@@ -163,7 +163,7 @@ def shutdown():
             for handler in p.open_files() + p.connections():
                 os.close(handler.fd)
         except Exception as e:
-            print("Error cleaning up before restart:", e)
+            print("ERROR: While cleaning up before restart:", e)
         os.execl(sys.executable, sys.executable, *sys.argv)
 
 
