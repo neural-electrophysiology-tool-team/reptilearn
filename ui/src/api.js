@@ -1,5 +1,5 @@
 // To run a separate development http server set this flag to true:
-const DEVELOPMENT_MODE = false;
+const DEVELOPMENT_MODE = false; // don't forget to set back to false before building
 
 // If ReptiLearn API uses a different port change it here:
 export const api_url = DEVELOPMENT_MODE ? `http://${window.location.hostname}:3500` : '';
