@@ -10,11 +10,12 @@ import { ArenaControlView } from './arena_control_view.js';
 import { SessionMenuView } from './session_menu_view.js';
 import { TasksView } from './tasks_view.js';
 import { AddStreamButton } from './add_stream_button.js';
+import { MainMenu } from './main_menu.js';
 
 export const TopBar = () => {
     return (
         <div className='border-b-2 border-b-gray-400 bg-gray-200 flex w-full overflow-visible text-sm'>
-            <span className='px-2 font-bold flex items-center'>ReptiLearn</span>
+            <MainMenu/>
             <VideoRecordView/>
             <TasksView/>
             <ArenaControlView/>

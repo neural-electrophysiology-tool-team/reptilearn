@@ -96,7 +96,7 @@ export const VideoRecordView = () => {
             <VideoSettingsView open={openSettingsModal} setOpen={setOpenSettingsModal} />
             <RLInput.TopBarText
                 name="prefix_input"
-                placeholder="optional recording id"
+                placeholder="recording id"
                 value={filePrefix}
                 onChange={(e) => setFilePrefix(e.target.value)}
                 disabled={is_recording}

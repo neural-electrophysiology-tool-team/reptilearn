@@ -5,6 +5,7 @@ The main module. Start all system components and shutdown gracefully.
 Author: Tal Eisenberg, 2021
 """
 import multiprocessing
+import os
 import threading
 import logging
 import time
@@ -15,6 +16,7 @@ import json
 import sys
 import argparse
 from dotenv import load_dotenv
+import psutil
 
 import configure
 import rl_logging
@@ -95,6 +97,17 @@ log = rl_logging.init(
     default_level=logging.getLevelName(config.log_level),
 )
 
+# Setup restart command
+restart = False
+
+
+def restart_system():
+    global restart
+    log.info("Restarting system...")
+    restart = True
+    os.kill(os.getpid(), 2)
+
+
 # Initialize all other modules
 mqtt.init()
 task.init()
@@ -103,7 +116,7 @@ video_system.init(state)
 experiment.init(state)
 
 # Setup flask http routes
-routes.add_routes(app)
+routes.add_routes(app, restart_system)
 
 # Start the video system
 video_system.start()
@@ -143,6 +156,15 @@ def shutdown():
     stop_state_emitter()
     dispatcher.stop()
     state_store.shutdown()
+
+    if restart:
+        try:
+            p = psutil.Process(os.getpid())
+            for handler in p.open_files() + p.connections():
+                os.close(handler.fd)
+        except Exception as e:
+            print("ERROR: While cleaning up before restart:", e)
+        os.execl(sys.executable, sys.executable, *sys.argv)
 
 
 log.info("System is shutting down...")
