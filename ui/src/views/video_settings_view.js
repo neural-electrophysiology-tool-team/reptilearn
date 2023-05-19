@@ -72,11 +72,6 @@ export const VideoSettingsView = ({ setOpen, open }) => {
     const cur_object = activeTabIdx === 0 ? "source" : "observer";
     const cur_class_parent = activeTabIdx === 0 ? "image_sources" : "image_observers";
 
-    const shutdown = () => {
-        setOpen(false)
-        api.video.shutdown();
-
-    }
     const apply = () => {
         setOpen(false);
         api.video.update_config({
@@ -242,7 +237,6 @@ export const VideoSettingsView = ({ setOpen, open }) => {
     return (
         <RLModal open={open} setOpen={setOpen} header="Video settings" sizeClasses="w-3/6 h-4/6" contentOverflowClass="overflow-hidden" actions={
             <>
-                {video_is_running && <RLButton.ModalButton colorClasses="text-red-500" onClick={shutdown}>Shutdown</RLButton.ModalButton>}
                 {restart_label && <RLButton.ModalButton colorClasses="text-green-600" onClick={apply}>{restart_label}</RLButton.ModalButton>}
                 <RLButton.ModalButton onClick={() => setOpen(false)}>{dirty ? "Cancel" : "Close"}</RLButton.ModalButton>
             </>
