@@ -78,13 +78,26 @@ export const VideoRecordView = () => {
             })
             : null;
 
-
+        const video_is_running = !!ctrlState.video;
+        
         return (
             <RLMenu button={<RLMenu.TopBarMenuButton title="Video" />}>
                 <RLMenu.HeaderItem key="sources">Record sources</RLMenu.HeaderItem>
                 {src_items}
-                <RLMenu.SeparatorItem key="sep" />
-                <RLMenu.ButtonItem onClick={open_settings_modal} disabled={is_recording} key="Video settings">Video settings</RLMenu.ButtonItem>
+                <RLMenu.SeparatorItem key="sep1" />
+                <RLMenu.ButtonItem onClick={open_settings_modal} disabled={is_recording} key="Video settings">
+                    <RLIcon.MenuIcon icon="gear" />
+                    <span className="align-middle">Video settings...</span>
+                </RLMenu.ButtonItem>                
+                <RLMenu.SeparatorItem key="sep2" />
+                {<RLMenu.ButtonItem onClick={api.video.restart} disabled={false} key="start_button">
+                    <RLIcon.MenuIcon icon={video_is_running ? "undo" : "play"} />
+                    <span className="align-middle">{video_is_running ? "Restart" : "Start"} video</span>
+                </RLMenu.ButtonItem>}
+                {<RLMenu.ButtonItem onClick={api.video.shutdown} disabled={!video_is_running} key="stop_video">
+                <RLIcon.MenuIcon icon="stop" />
+                    <span className="align-middle">Stop video</span>
+                </RLMenu.ButtonItem>}
             </RLMenu>
         );
     })();

@@ -50,7 +50,7 @@ const SeparatorItem = () => (
 );
 
 const HeaderItem = ({ children, ...props }) => (
-    <Menu.Item as="div" className="p-1 first:pt-2" {...props}>{children}</Menu.Item>
+    <Menu.Item as="div" className="p-1 first:pt-2 text-slate-600" {...props}>{children}</Menu.Item>
 );
 
 const StaticItem = ({ children, ...props }) => (

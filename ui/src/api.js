@@ -1,5 +1,5 @@
 // To run a separate development http server set this flag to true:
-const DEVELOPMENT_MODE = false; // don't forget to set back to false before building
+const DEVELOPMENT_MODE = true; // don't forget to set back to false before building
 
 // If ReptiLearn API uses a different port change it here:
 export const api_url = DEVELOPMENT_MODE ? `http://${window.location.hostname}:3500` : '';
@@ -65,10 +65,10 @@ export const api = {
 
     system: {
         shutdown() {
-            return requestJSON('/system/shutdown');
+            return request('/system/shutdown');
         },
         restart() {
-            return requestJSON('/system/restart');
+            return request('/system/restart');
         },
     },
 
@@ -79,13 +79,15 @@ export const api = {
         update_config(video_config) {
             return request('/video/update_config', null, "POST", video_config, true);
         },
+        restart() {
+            return request('/video/update_config', null, "POST", null, true);
+        },
         async shutdown() {
             try {
                 return await request('/video/shutdown');
             } catch (e) {
                 console.log('Error while shutting down video system:', e);
             }
-
         },
         list_image_classes() {
             return requestJSON("/video/list_image_classes")

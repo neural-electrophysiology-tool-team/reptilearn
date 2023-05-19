@@ -9,8 +9,7 @@ class TestObeserver(ImageObserver):
         self.log.info("on_start")
 
     def _on_image_update(self, img, timestamp):
-        self.output[:] = np.random.random_integers(64, 128, 64)
-        self._notify_listeners()
+        self._update_output(np.random.random_integers(64, 128, 64))
 
     def _on_stop(self):
         self.log.info("on_stop")

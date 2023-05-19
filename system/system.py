@@ -119,7 +119,7 @@ experiment.init(state)
 routes.add_routes(app, restart_system)
 
 # Start the video system
-video_system.start()
+video_system.start_processes()
 
 
 # Setup SocketIO state updates

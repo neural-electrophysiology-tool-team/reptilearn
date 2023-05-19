@@ -74,7 +74,7 @@ const HeaderOption = ({ children }) => (
 
 const RLSimpleListbox = ({ placeholder, options, selected, setSelected, header, className, portal, checked=true, optionComponent=null }) => (
     <RLListbox
-        header={selected ? options.filter(({ value }) => value === selected)[0]?.label : placeholder}
+        header={options.filter(({ value }) => value === selected)?.[0]?.label || placeholder}
         value={selected}
         onChange={setSelected}
         portal={portal}
