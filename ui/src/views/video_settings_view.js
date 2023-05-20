@@ -63,6 +63,8 @@ export const VideoSettingsView = ({ setOpen, open }) => {
             }
         });
 
+        setActiveTabIdx(0);
+
     }, [open]);
 
     if (!video_config) {

@@ -11,10 +11,6 @@ class ObserverTest(exp.Experiment):
         "obs_ids": None,
     }
 
-    def setup(self):
-        self.remove_listeners = []
-        pass
-
     def run(self):
         obs_ids = exp.get_params()["obs_ids"]
 
@@ -37,6 +33,7 @@ class ObserverTest(exp.Experiment):
                     vid.image_observers[obs_id].stop_observing()
 
     def run_trial(self):
+        self.remove_listeners = []
         self.log.info("run trial")
         self.update_count = {}
         self.last_ts = {}

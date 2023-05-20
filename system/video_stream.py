@@ -549,6 +549,7 @@ class ImageObserver(ConfigurableProcess):
                 self.output_update_events = self.state.get_events(self.name)
 
             if cmd == "shutdown":
+                self._release()
                 self.log.info("Shutting down")
                 break
 

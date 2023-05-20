@@ -11,7 +11,7 @@ from pathlib import Path
 import json
 
 from configure import get_config
-from dynamic_loading import instantiate_class, load_modules, find_subclasses
+from dynamic_loading import instantiate_class, load_modules, find_subclasses, reload_module
 from rl_logging import get_main_logger
 import video_write
 from arena import has_trigger, start_trigger, stop_trigger
@@ -360,7 +360,8 @@ def find_image_classes(warn=False):
     source_classes = []
     observer_classes = []
 
-    for mod, _ in src_mods.values():
+    for mod, spec in src_mods.values():
+        mod = reload_module(spec)
         clss = find_subclasses(mod, ImageSource)
         cls_names = list(map(cls2str, clss))
 
@@ -368,7 +369,8 @@ def find_image_classes(warn=False):
         for name, (_, cls) in zip(cls_names, clss):
             image_class_params[name] = cls.default_params
 
-    for mod, _ in obs_mods.values():
+    for mod, spec in obs_mods.values():
+        mod = reload_module(spec)
         clss = find_subclasses(mod, ImageObserver)
         cls_names = list(map(cls2str, clss))
         observer_classes += cls_names

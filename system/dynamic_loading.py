@@ -10,7 +10,9 @@ import inspect
 
 def instantiate_class(class_name, *args, **kwargs):
     module_name, class_name = class_name.rsplit(".", 1)
-    ClassObject = getattr(importlib.import_module(module_name), class_name)
+    mod = importlib.import_module(module_name)
+    mod = reload_module(mod.__spec__)
+    ClassObject = getattr(mod, class_name)
     return ClassObject(*args, **kwargs)
 
 
