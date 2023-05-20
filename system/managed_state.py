@@ -24,7 +24,7 @@ Module classes:
 from copy import deepcopy
 import multiprocessing as mp
 from multiprocessing.managers import DictProxy, SyncManager
-import signal
+import threading
 import dicttools as dt
 
 
@@ -106,19 +106,8 @@ class Cursor:
             )
             self._mgr.connect()
             mp.current_process().authkey = authkey.encode("ASCII")
-            self._store = self._mgr.get()
-            if "lock" not in self._store:
-                self._store["lock"] = self._mgr.Lock()
-            if "state" not in self._store:
-                self._store["state"] = self._mgr.dict()
-            if "did_update_events" not in self._store:
-                self._store["did_update_events"] = self._mgr.list()
-            if "events" not in self._store:
-                self._store["events"] = self._mgr.dict()
-            if "event_change_events" not in self._store:
-                self._store["event_change_events"] = self._mgr.dict()
-        else:
-            self._store = self._mgr.get()
+
+        self._store = self._mgr.get()
 
     def _notify(self):
         for e in self._store["did_update_events"]:
@@ -131,7 +120,7 @@ class Cursor:
         return deepcopy(self._store["state"])
 
     def _set_state(self, new_state):
-        self._store["state"] = self._mgr.dict(new_state)
+        self._store["state"] = new_state
 
     def _setitem(self, path, v):
         with self._get_lock():
@@ -315,7 +304,7 @@ class Cursor:
         """
         The basic mechanism for listening to state changes. Adds an update event and returns 2
         functions. a StateDispatcher should be used instead of this for listening to changes in specific
-        state paths.        
+        state paths.
 
         - listen(): Starts a blocking loop listening for update events, calling on_update(old, new)
                     whenever that happens.
@@ -324,7 +313,7 @@ class Cursor:
         did_update_event = self._mgr.Event()
         stop_event = mp.Event()
 
-        self._store["did_update_events"].append(did_update_event)
+        self._store["did_update_events"] += [did_update_event]
         old = self._get_state()
 
         def listen():
@@ -364,7 +353,7 @@ class Cursor:
 
         Args:
         - path: tuple, string or int. A path relative to the base path of the Cursor.
-        - on_update: a function f(old, new) where `old` is the previous value of this state path, and `new` 
+        - on_update: a function f(old, new) where `old` is the previous value of this state path, and `new`
                      is the new value. This function will be called whenever the value at the state path changes.
         """
         if self._state_dispatcher is None:
@@ -392,19 +381,21 @@ class Cursor:
         """
         Return an event from the event store corresponding to the supplied owner and name.
         """
-        if owner not in self._store["events"]:
-            self._store["events"][owner] = {}
+        events = self._store["events"]
+        if owner not in events:
+            events[owner] = {}
 
-        if name not in self._store["events"][owner]:
+        if name not in events[owner]:
             e = self._mgr.Event()
             with self._get_lock():
-                owner_store = self._store["events"][owner]
+                owner_store = events[owner]
                 owner_store[name] = e
-                self._store["events"][owner] = owner_store
+                events[owner] = owner_store
+            self._store["events"] = events
             self._notify_events_changed(owner)
             return e
         else:
-            return self._store["events"][owner][name]
+            return events[owner][name]
 
     def _notify_events_changed(self, owner):
         if owner in self._store["event_change_events"]:
@@ -420,7 +411,9 @@ class Cursor:
             with self._get_lock():
                 owner_store = self._store["events"][owner]
                 del owner_store[name]
-                self._store["events"][owner] = owner_store
+                events = self._store["events"]
+                events[owner] = owner_store
+                self._store["events"] = events
 
             self._notify_events_changed(owner)
         else:
@@ -433,7 +426,9 @@ class Cursor:
         - owner: string. The owner whose event list should be observed
         """
         event = self._mgr.Event()
-        self._store["event_change_events"][owner] = event
+        events = self._store["event_change_events"]
+        events[owner] = event
+        self._store["event_change_events"] = events
         return event
 
     def get_events(self, owner):
@@ -462,22 +457,30 @@ class StateStore:
         """
         self.authkey = authkey
         self.address = address
-        self.managerProcess = mp.Process(target=self._start_manager, daemon=True)
-        self.managerProcess.start()
+
+        self.server_ready = threading.Event()
+        self.managerThread = threading.Thread(target=self._start_manager, daemon=True)
+        self.managerThread.start()
+
+        self.server_ready.wait()
+        self.manager.connect()
+        self.store = self.manager.get()
+        self.store["lock"] = self.manager.Lock()
 
     def _start_manager(self):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        store = {
+            "lock": None,
+            "state": {},
+            "did_update_events": [],
+            "events": {},
+            "event_change_events": {},
+        }
 
-        store = {}
         _StateManager.register("get", lambda: store, DictProxy)
-        mgr = _StateManager(address=self.address, authkey=self.authkey.encode("ASCII"))
-        mgr.get_server().serve_forever()
-
-    def shutdown(self):
-        """
-        Terminate the store SyncManager process.
-        """
-        self.managerProcess.terminate()
+        self.manager = _StateManager(address=self.address, authkey=self.authkey.encode("ASCII"))
+        server = self.manager.get_server()
+        self.server_ready.set()
+        server.serve_forever()
 
 
 class StateDispatcher:

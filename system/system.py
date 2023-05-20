@@ -8,7 +8,6 @@ import multiprocessing
 import os
 import threading
 import logging
-import time
 import flask
 import flask_cors
 from flask_socketio import SocketIO, emit
@@ -65,15 +64,7 @@ state_store = managed_state.StateStore(
 )
 
 # Create a Cursor pointing to the root of the state. It can be used only from the main process.
-state = None
-while state is None:  # retry until the store server is running
-    try:
-        state = managed_state.Cursor(
-            (), address=config.state_store_address, authkey=config.state_store_authkey
-        )
-    except (ConnectionRefusedError, multiprocessing.AuthenticationError):
-        time.sleep(0.01)
-
+state = managed_state.Cursor((), manager=state_store.manager)
 
 # Run a state dispatcher thread. This is can be used anywhere on the main process.
 dispatcher = managed_state.StateDispatcher(state)
@@ -155,7 +146,6 @@ def shutdown():
     rl_logging.shutdown()
     stop_state_emitter()
     dispatcher.stop()
-    state_store.shutdown()
 
     if restart:
         try:

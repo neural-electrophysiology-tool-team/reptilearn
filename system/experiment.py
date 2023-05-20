@@ -151,6 +151,7 @@ def create_session(session_id, experiment):
     log.info(f"Data directory: {str(data_path)}")
 
     load_experiment(experiment)
+    _init_event_logger(data_path)
 
     session_state.set_self(
         {
@@ -210,23 +211,16 @@ def continue_session(session_name):
         )
         session["is_running"] = False
 
+    _init_event_logger(data_path)
     session_state.set_self(session)
 
     init_session(continue_session=True)
 
 
-def init_session(continue_session=False):
-    """
-    Initialize the session event logger (referenced from the global event_logger attribute),
-    calls the experiment class setup() hook, and creates session_state.json file.
-
-    Args:
-    - continue_session: Whether the loaded session is a continued session that was created previously.
-    """
+def _init_event_logger(data_dir):
     global event_logger
 
     event_log_config = get_config().event_log
-    data_dir = Path(session_state["data_dir"])
     csv_path = data_dir / "events.csv" if event_log_config["log_to_csv"] else None
 
     event_logger = event_log.EventDataLogger(
@@ -240,6 +234,15 @@ def init_session(continue_session=False):
     for src, key in event_log_config["default_events"]:
         event_logger.add_event(src, key)
 
+
+def init_session(continue_session=False):
+    """
+    Initialize the session. Calls the experiment class setup() hook,
+    and creates session_state.json file.
+
+    Args:
+    - continue_session: Whether the loaded session is a continued session that was created previously.
+    """
     cur_experiment.setup()
     refresh_actions()
 
