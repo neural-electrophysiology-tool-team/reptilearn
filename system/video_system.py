@@ -33,10 +33,10 @@ image_observers = {}
 video_writers = {}
 
 # A list of strings containing every known ImageSource class
-source_classes = []
+source_classes = {}
 
 # A list of strings containing every known ImageObserver class
-observer_classes = []
+observer_classes = {}
 
 # A dict containing the default parameters for every known ImageObserver and ImageSource class using class names as keys.
 image_class_params = {}
@@ -53,6 +53,7 @@ def _load_source(id, config):
     """
     image_sources[id] = instantiate_class(
         config["class"],
+        source_classes[config["class"]],
         id,
         config,
         get_config().state_store_address,
@@ -68,6 +69,7 @@ def _load_observer(id, config):
     """
     image_observers[id] = instantiate_class(
         config["class"],
+        observer_classes[config["class"]],
         id,
         config,
         image_sources[config["src_id"]],
@@ -117,8 +119,6 @@ def _load_video_config(config: dict):
     - config: Video configuration dict. Usually the contents of config/video_config.json.
     """
     overlay.overlays = {}
-
-    find_image_classes()
 
     if "video" not in _state:
         _state["video"] = {
@@ -209,6 +209,7 @@ def update_video_config(config: dict, save=True):
     image_sources = {}
     image_observers = {}
 
+    find_image_classes()
     _load_video_config(video_config)
     _load_video_writers()
 
@@ -357,24 +358,25 @@ def find_image_classes(warn=False):
     def cls2str(name_cls):
         return mod.__name__ + "." + name_cls[1].__name__
 
-    source_classes = []
-    observer_classes = []
+    source_classes = {}
+    observer_classes = {}
 
     for mod, spec in src_mods.values():
         mod = reload_module(spec)
         clss = find_subclasses(mod, ImageSource)
         cls_names = list(map(cls2str, clss))
 
-        source_classes += cls_names
         for name, (_, cls) in zip(cls_names, clss):
+            source_classes[name] = mod
             image_class_params[name] = cls.default_params
 
     for mod, spec in obs_mods.values():
         mod = reload_module(spec)
         clss = find_subclasses(mod, ImageObserver)
         cls_names = list(map(cls2str, clss))
-        observer_classes += cls_names
+
         for name, (_, cls) in zip(cls_names, clss):
+            observer_classes[name] = mod
             image_class_params[name] = cls.default_params
 
 
@@ -389,8 +391,6 @@ def init(state: managed_state.Cursor):
     global _log, _state, video_config, _rec_state
     _log = get_main_logger()
     _state = state
-
-    find_image_classes(warn=True)
     _rec_state = state.get_cursor(("video", "record"))
 
     config_path = get_config().video_config_path
@@ -413,6 +413,7 @@ def init(state: managed_state.Cursor):
             _log.exception(f"Exception while reading {str(config_path)}")
             return
 
+    find_image_classes(warn=True)
     _load_video_config(video_config)
     _load_video_writers()
 

@@ -8,10 +8,9 @@ from pathlib import Path
 import inspect
 
 
-def instantiate_class(class_name, *args, **kwargs):
+def instantiate_class(class_name, mod, *args, **kwargs):
     module_name, class_name = class_name.rsplit(".", 1)
     mod = importlib.import_module(module_name)
-    mod = reload_module(mod.__spec__)
     ClassObject = getattr(mod, class_name)
     return ClassObject(*args, **kwargs)
 

@@ -360,8 +360,8 @@ def add_routes(app, restart_hook):
             video_system.find_image_classes()
             return flask.jsonify(
                 {
-                    "image_sources": video_system.source_classes,
-                    "image_observers": video_system.observer_classes,
+                    "image_sources": list(video_system.source_classes.keys()),
+                    "image_observers": list(video_system.observer_classes.keys()),
                 }
             )
         except Exception as e:
