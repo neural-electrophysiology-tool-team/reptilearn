@@ -13,18 +13,17 @@ class HistogramObserver(ImageObserver):
     }
 
     def _on_image_update(self, img, timestamp):
-        bins = self.config["bin_count"]
-        hist, bins = np.histogram(img, bins=bins)
+        hist, _ = np.histogram(img, bins=self.config["bin_count"])
         self._update_output(hist)
 
     def _get_buffer_opts(self):
-        bins = self.config["bin_count"]
+        bin_count = self.config["bin_count"]
 
         if len(self.image_shape) == 3:
-            size = bins * self.image_shape[-1]
-            buf_shape = (self.image_shape[-1], bins)
+            size = bin_count * self.image_shape[-1]
+            buf_shape = (self.image_shape[-1], bin_count)
         else:
-            size = bins
-            buf_shape = bins
+            size = bin_count
+            buf_shape = bin_count
 
         return "L", size, buf_shape, "long"

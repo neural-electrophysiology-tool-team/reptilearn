@@ -336,7 +336,11 @@ def add_routes(app, restart_hook):
     @app.route("/video/update_config", methods=["POST"])
     def route_video_update_config():
         try:
-            video_system.update_video_config(flask.request.json)
+            new_config = flask.request.json
+            if new_config is None:
+                video_system.restart_video()
+            else:
+                video_system.update_video_config(flask.request.json)
             return flask.Response("ok")
         except Exception as e:
             log.exception("Exception while updating video config:")
@@ -353,6 +357,7 @@ def add_routes(app, restart_hook):
     @app.route("/video/list_image_classes")
     def route_video_list_classes():
         try:
+            video_system.find_image_classes()
             return flask.jsonify(
                 {
                     "image_sources": video_system.source_classes,

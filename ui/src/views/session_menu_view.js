@@ -62,12 +62,13 @@ export const SessionMenuView = () => {
     const is_recording = !!ctrl_state.video?.record?.is_recording;
 
     const new_session_modal = (
-        <RLModal open={openNewSessionModal} setOpen={setOpenNewSessionModal} sizeClasses="h-fit" header="Start a new session" actions={
-            <React.Fragment>
-                <RLButton.ModalButton onClick={create_session}>Ok</RLButton.ModalButton>
-                <RLButton.ModalButton onClick={() => setOpenNewSessionModal(false)}>Cancel</RLButton.ModalButton>
-            </React.Fragment>
-        }>
+        <RLModal open={openNewSessionModal} setOpen={setOpenNewSessionModal} sizeClasses="h-fit" header="Start a new session"
+            actions={
+                <React.Fragment>
+                    <RLButton.ModalButton onClick={create_session}>Ok</RLButton.ModalButton>
+                    <RLButton.ModalButton onClick={() => setOpenNewSessionModal(false)}>Cancel</RLButton.ModalButton>
+                </React.Fragment>
+            }>
             <table className="border-separate [border-spacing:0.75rem]">
                 <tbody>
                     <tr>
@@ -79,7 +80,7 @@ export const SessionMenuView = () => {
                                         options={RLListbox.valueOnlyOptions(experimentList)}
                                         selected={selectedExperiment}
                                         setSelected={setSelectedExperiment}
-                                        className="w-full"/>
+                                        className="w-full" />
                                 ) : <div>Loading...</div>}
                         </td>
                     </tr>
@@ -108,7 +109,7 @@ export const SessionMenuView = () => {
                 open={openSessionListModal}
                 setOpen={setOpenSessionListModal} />
             {new_session_modal}
-            <RLMenu  button={<RLMenu.TopBarMenuButton title="Session"/>}>
+            <RLMenu button={<RLMenu.TopBarMenuButton title="Session" />}>
                 <RLMenu.ButtonItem
                     onClick={open_new_session_modal}
                     disabled={!!session}>Start new session...</RLMenu.ButtonItem>

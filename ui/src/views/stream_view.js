@@ -40,6 +40,7 @@ const StreamView = ({ idx }) => {
 
     const streams = useSelector((state) => state.reptilearn.streams);
     const video_config = useSelector((state) => state.reptilearn.videoConfig);
+    const ctrl_state = useSelector((state) => state.reptilearn.ctrlState);
     const src_ids = useSelector(imageSourceIds);
     const unused_src_ids = useSelector(streamlessSrcIds);
 
@@ -53,6 +54,8 @@ const StreamView = ({ idx }) => {
     const dragHandle = React.useRef();
 
     const { src_id, width, is_streaming } = streams[idx];
+    const is_acquiring = ctrl_state?.video?.image_sources?.[src_id]?.acquiring;
+    const is_running = is_streaming && is_acquiring;
 
     if (!src_ids.includes(src_id)) {
         if (unused_src_ids.length > 0) {
@@ -67,7 +70,7 @@ const StreamView = ({ idx }) => {
     const src_width = video_config.image_sources[src_id].image_shape[1];
     const src_height = video_config.image_sources[src_id].image_shape[0];
 
-    const stream_btn_icon = is_streaming ? "pause" : "play";
+    const stream_btn_icon = is_running ? "pause" : "play";
     const is_dragged_over = draggedOver && !drag;
     const bar_height = 28;
 
@@ -131,7 +134,7 @@ const StreamView = ({ idx }) => {
     };
 
     const on_resize_start = () => {
-        if (is_streaming) {
+        if (is_running) {
             setRestartStream(true);
             dispatch(stopStreaming({ idx }));
         }
@@ -145,7 +148,7 @@ const StreamView = ({ idx }) => {
     };
 
     const toggle_stream = () => {
-        if (is_streaming) {
+        if (is_running) {
             dispatch(stopStreaming({ idx }));
         } else {
             dispatch(startStreaming({ idx }));
@@ -220,7 +223,7 @@ const StreamView = ({ idx }) => {
                         <FontAwesomeIcon icon="grip-vertical" className="h-4 text-gray-600" transform="up-1" />
                     </div>
                 </Bar>
-                <StreamImage src_id={src_id} width={width} height={stream_height} is_streaming={is_streaming} />
+                <StreamImage src_id={src_id} width={width} height={stream_height} is_streaming={is_running} />
             </div>
         </Resizable>
     );

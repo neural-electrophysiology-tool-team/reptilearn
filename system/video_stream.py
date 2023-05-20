@@ -124,6 +124,7 @@ class ImageSource(ConfigurableProcess):
         "encoding_config": None,
         "8bit_scaling": "full_range",
         "video_frame_rate": None,
+        "disabled": False,
     }
 
     def __init__(
@@ -412,13 +413,10 @@ class ImageObserver(ConfigurableProcess):
     See the documentation of each method for more information.
 
     Observer output data:
-    Each ImageObserver can store output data in a multiprocess output buffer (self.output - a numpy.array).
+    The ImageObserver stores its output data in a shared output buffer (self.output, a numpy.array). This buffer can be accessed efficiently by other processes such
+    as the main experiment process, or data logger processes.
 
-    To update the buffer, change the contents of self.output while taking care to not reassign the value of self.output.
-    For example, do NOT use: ```self.output = np.zeros(some_shape)``` as this will overwrite the field without updating the buffer.
-    To make this specific example work use: ```self.output[:] = np.zeros(self.output.shape)```
-
-    Once the buffer is updated, call self._notify_listeners(). This will cause all listener functions to be called with the updated data.
+    To update the buffer, call the method _update_output(new_output).
 
     The buffer size and various options are determined according to the values returned by self.get_buffer_opts() (see method documentation for details).
     This method is called once while the observer is initializing.
@@ -551,6 +549,7 @@ class ImageObserver(ConfigurableProcess):
                 self.output_update_events = self.state.get_events(self.name)
 
             if cmd == "shutdown":
+                self._release()
                 self.log.info("Shutting down")
                 break
 

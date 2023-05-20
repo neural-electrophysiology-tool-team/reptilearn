@@ -11,10 +11,6 @@ class ObserverTest(exp.Experiment):
         "obs_ids": None,
     }
 
-    def setup(self):
-        self.remove_listeners = []
-        pass
-
     def run(self):
         obs_ids = exp.get_params()["obs_ids"]
 
@@ -37,8 +33,10 @@ class ObserverTest(exp.Experiment):
                     vid.image_observers[obs_id].stop_observing()
 
     def run_trial(self):
+        self.remove_listeners = []
         self.log.info("run trial")
         self.update_count = {}
+        self.last_ts = {}
 
         obs_ids = exp.get_params().get("obs_ids", None)
         if obs_ids is not None:
@@ -49,19 +47,25 @@ class ObserverTest(exp.Experiment):
 
     def end_trial(self):
         self.log.info("end trial")
-        if hasattr(self, "remove_listener"):
-            for ls in self.remove_listeners:
-                ls()
+        for ls in self.remove_listeners:
+            ls()
 
     def on_obs_update(self, obs_id):
         self.update_count[obs_id] = 0
-
+        self.last_ts[obs_id] = None
+    
         def on_update(data, timestamp):
             self.update_count[obs_id] += 1
+            if self.last_ts[obs_id] is None:
+                ts_delta = None
+            else:
+                ts_delta = timestamp - self.last_ts[obs_id]
+            self.last_ts[obs_id] = timestamp
+
             if (self.update_count[obs_id] % 100) == 0:
                 cs = np.cumsum(data)
                 median = cs[-1] / 2
                 cs_med = np.argmax(cs > median)
-                self.log.info(f"{obs_id}: {self.update_count[obs_id]} {timestamp} {data.shape} {cs_med}")
+                self.log.info(f"{obs_id}: {self.update_count[obs_id]} {timestamp} {ts_delta} {data.shape} {cs_med}")
 
         return on_update
