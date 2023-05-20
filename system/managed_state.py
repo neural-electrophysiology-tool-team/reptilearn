@@ -21,7 +21,7 @@ Module classes:
 - StateDispatcher: Makes it possible to register callback functions that will run whenever specific state
                    values are updated.
 """
-from copy import deepcopy
+from copy import copy, deepcopy
 import multiprocessing as mp
 from multiprocessing.managers import DictProxy, SyncManager
 import threading
@@ -303,17 +303,21 @@ class Cursor:
     def register_listener(self, on_update, on_ready=None):
         """
         The basic mechanism for listening to state changes. Adds an update event and returns 2
-        functions. a StateDispatcher should be used instead of this for listening to changes in specific
-        state paths.
+        functions: 
 
         - listen(): Starts a blocking loop listening for update events, calling on_update(old, new)
                     whenever that happens.
         - stop_listening(): Stops the loop when called from another thread or process.
+
+        a StateDispatcher should be used instead for listening to changes in specific state paths.
         """
         did_update_event = self._mgr.Event()
         stop_event = mp.Event()
+        with self._get_lock():
+            update_events = copy(self._store["did_update_events"])
+            update_events.append(did_update_event)
+            self._store["did_update_events"] = update_events
 
-        self._store["did_update_events"] += [did_update_event]
         old = self._get_state()
 
         def listen():
@@ -381,7 +385,7 @@ class Cursor:
         """
         Return an event from the event store corresponding to the supplied owner and name.
         """
-        events = self._store["events"]
+        events = copy(self._store["events"])
         if owner not in events:
             events[owner] = {}
 
@@ -391,7 +395,7 @@ class Cursor:
                 owner_store = events[owner]
                 owner_store[name] = e
                 events[owner] = owner_store
-            self._store["events"] = events
+                self._store["events"] = events
             self._notify_events_changed(owner)
             return e
         else:
@@ -409,9 +413,9 @@ class Cursor:
         """
         if owner in self._store["events"] and name in self._store["events"][owner]:
             with self._get_lock():
-                owner_store = self._store["events"][owner]
+                events = copy(self._store["events"])
+                owner_store = events[owner]
                 del owner_store[name]
-                events = self._store["events"]
                 events[owner] = owner_store
                 self._store["events"] = events
 
@@ -426,9 +430,10 @@ class Cursor:
         - owner: string. The owner whose event list should be observed
         """
         event = self._mgr.Event()
-        events = self._store["event_change_events"]
-        events[owner] = event
-        self._store["event_change_events"] = events
+        with self._get_lock():
+            events = copy(self._store["event_change_events"])
+            events[owner] = event
+            self._store["event_change_events"] = events
         return event
 
     def get_events(self, owner):

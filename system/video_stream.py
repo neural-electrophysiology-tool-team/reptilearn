@@ -466,7 +466,7 @@ class ImageObserver(ConfigurableProcess):
 
         self.parent_pipe, self.child_pipe = mp.Pipe()
 
-        self.name = f"{type(self).__name__}:{self.get_config('src_id')}"
+        self.name = f"{id}:{self.get_config('src_id')}"
 
         self._init()
 
