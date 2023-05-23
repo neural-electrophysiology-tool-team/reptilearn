@@ -211,12 +211,12 @@ def poll(callback_once=None):
 
 
 def _flatten(d, parent_key="", sep="_"):
-    if isinstance(d, collections.MutableMapping):
+    if isinstance(d, collections.abc.MutableMapping):
         items = []
         for k, v in d.items():
             new_key = str(parent_key) + sep + str(k) if parent_key else str(k)
-            if isinstance(v, collections.MutableMapping) or isinstance(
-                v, collections.MutableSequence
+            if isinstance(v, collections.abc.MutableMapping) or isinstance(
+                v, collections.abc.MutableSequence
             ):
                 items.extend(_flatten(v, new_key, sep=sep).items())
             else:
@@ -224,12 +224,12 @@ def _flatten(d, parent_key="", sep="_"):
 
         return dict(items)
 
-    elif isinstance(d, collections.MutableSequence):
+    elif isinstance(d, collections.abc.MutableSequence):
         items = []
         for i, v in enumerate(d):
             new_key = parent_key + sep + str(i)
-            if isinstance(v, collections.MutableMapping) or isinstance(
-                v, collections.MutableSequence
+            if isinstance(v, collections.abc.MutableMapping) or isinstance(
+                v, collections.abc.MutableSequence
             ):
                 items.extend(_flatten(v, new_key, sep=sep).items())
             else:

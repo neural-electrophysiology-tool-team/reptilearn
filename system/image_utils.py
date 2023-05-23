@@ -82,7 +82,7 @@ def convert_to_8bit(img, scaling_param):
             smin, smax = 0, (2**16) - 1
         else:
             raise ValueError(f"Invalid scaling_8bit parameter value: {scaling_param}")
-    elif isinstance(scaling_param, collections.Sequence):
+    elif isinstance(scaling_param, collections.abc.Sequence):
         smin, smax = scaling_param
     else:
         raise ValueError(f"Invalid scaling_8bit parameter value: {scaling_param}")
