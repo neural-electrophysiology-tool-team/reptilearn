@@ -25,7 +25,7 @@ _log_listener = None
 
 # The default log formatter
 formatter = logging.Formatter(
-    "%(asctime)s %(name)s %(levelname)-8s %(message)s",
+    "%(asctime)s %(levelname)-8s %(name)s %(message)s",
     datefmt="%Y-%d-%m %H:%M:%S",
 )
 
