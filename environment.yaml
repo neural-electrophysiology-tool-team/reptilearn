@@ -4,8 +4,7 @@ channels:
   - defaults
 dependencies:
   - pip
-  - python=3.8
-  - tk=8.6.11
+  - python=3.10
   - pip:
     - flask
     - flask-cors
