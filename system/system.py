@@ -28,6 +28,7 @@ import task
 import video_system
 import routes
 from json_convert import json_convert
+import version
 
 # Load environment variables from .env file.
 load_dotenv()
@@ -42,6 +43,8 @@ arg_parser.add_argument(
 args = arg_parser.parse_args()
 
 print("🦎 Loading ReptiLearn")
+
+version.version_check()
 
 # Import configuration module
 config = configure.load_config(args.config)

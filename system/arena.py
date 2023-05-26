@@ -18,6 +18,7 @@ from rl_logging import get_main_logger
 import schedule
 import logging
 from configure import get_config
+from execute import execute
 
 _state = None
 _values_once_callback = None
@@ -29,34 +30,6 @@ _interfaces_config: list = None
 _trigger_interface: str = None
 _arena_process = None
 _arena_process_thread = None
-
-
-def _execute(command, cwd=None, shell=False, log=True):
-    """Run external program as a subprocess"""
-    process = Popen(
-        command,
-        shell=shell,
-        cwd=cwd,
-        universal_newlines=True,
-        stdout=PIPE,
-        stderr=STDOUT,
-    )
-    output = ""
-
-    # Poll process for new output until finished
-    for line in process.stdout:
-        if line:
-            line = line.rstrip()
-            if log:
-                _log.info(line)
-            output += line
-
-    process.wait()
-
-    if process.returncode == 0:
-        return output
-    else:
-        raise Exception(command, process.returncode, output)
 
 
 def switch_display(on, display=None):
@@ -76,9 +49,9 @@ def switch_display(on, display=None):
     _state["arena", "displays", display] = on
 
     if on:
-        _execute(DISPLAY_CMD.format("auto"), shell=True)
+        execute(DISPLAY_CMD.format("auto"), shell=True, logger=_log)
     else:
-        _execute(DISPLAY_CMD.format("off"), shell=True)
+        execute(DISPLAY_CMD.format("off"), shell=True, logger=_log)
 
 
 def run_command(command, interface, args=None, update_value=True):
@@ -363,10 +336,9 @@ def get_ports():
     Return a list containing all available serial ports. Each port is represented by a dictionary
     with `description, device, serial_number` keys
     """
-    ret = _execute(
+    ret = execute(
         ["python", "arena.py", "--list-ports-json"],
         cwd=get_config().arena_controller_path,
-        log=False,
     )
     return json.loads(ret)
 
@@ -394,7 +366,7 @@ def upload_program(port_name=None):
 
         try:
             _arena_state["bridge", "uploading"] = True
-            _execute(cmd, cwd=get_config().arena_controller_path)
+            execute(cmd, cwd=get_config().arena_controller_path, logger=_log)
         except Exception:
             _log.exception("Exception while uploading program:")
         finally:
