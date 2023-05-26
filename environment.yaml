@@ -21,3 +21,4 @@ dependencies:
     - Pillow
     - simple-websocket
     - psutil
+    - requests

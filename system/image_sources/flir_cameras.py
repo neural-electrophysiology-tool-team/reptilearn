@@ -133,12 +133,14 @@ class FLIRImageSource(ImageSource):
             if not self.cam.IsValid():
                 self.log.error(f"Camera with serial number {sn} was not found.")
                 cam_list.Clear()
+                self.cam = None
                 return False
 
             try:
                 self.cam.Init()
             except PySpin.SpinnakerException:
                 self.log.exception("Exception while initializing camera:")
+                self.cam = None
                 return False
             finally:
                 cam_list.Clear()
