@@ -17,12 +17,29 @@ import video_system
 import undistort
 import image_utils
 import rl_logging
+import version
 
 
 def add_routes(app, restart_hook):
     log = rl_logging.get_main_logger()
 
     # Flask REST API
+    @app.route("/system/version")
+    def route_system_version():
+        return flask.Response(
+            json.dumps({
+                "installed": {
+                    "commit": version.installed_commit_hash,
+                    "timestamp": version.installed_commit_ts,
+                },
+                "latest": {
+                    "commit": version.latest_commit_hash,
+                    "timestamp": version.latest_commit_ts,
+                }
+            }, default=json_convert),
+            mimetype="application/json",
+        )
+
     @app.route("/system/shutdown")
     def route_system_shutdown():
         os.kill(os.getpid(), 2)
@@ -534,18 +551,16 @@ def add_routes(app, restart_hook):
         rl_logging.clear_log_buffer()
         return flask.Response("ok")
 
-    @app.route("/about")
-    def root():
-        return "ReptiLearn Controller"
-
     @app.route("/" + str(get_config().static_web_path.name + "/<path:filename>"))
     def static_route(filename):
         if (get_config().static_web_path / filename).exists():
-            return flask.send_from_directory(str(get_config().static_web_path), filename)
+            return flask.send_from_directory(
+                str(get_config().static_web_path), filename
+            )
         else:
             return "Page not found", 404
 
-    @app.route("/", defaults={'path': ''})
+    @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     def ui_route(path):
         if path != "" and (get_config().ui_build_path / path).exists():

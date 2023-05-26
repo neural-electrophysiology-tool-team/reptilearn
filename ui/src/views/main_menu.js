@@ -7,6 +7,8 @@ import { api } from "../api";
 export const MainMenu = () => {
     const [openAboutModal, setOpenAboutModal] = React.useState(false);
     const [openConfirmModal, setOpenConfirmModal] = React.useState(false);
+    const [version, setVersion] = React.useState(null);
+
     const confirmFunc = React.useRef(null);
 
     const open_restart_modal = () => {
@@ -19,15 +21,26 @@ export const MainMenu = () => {
         setOpenConfirmModal(true);
     };
 
+    React.useEffect(() => {
+        (async () => setVersion(await api.system.version()))();
+    }, [])
+
+    const commit = version?.installed?.commit?.substring(0, 7);
+    const timestamp = version?.installed?.timestamp;
+    const not_latest_version = version?.latest?.commit && (version.latest.commit !== version.installed.commit);
+
     return <React.Fragment>
-        <RLModal open={openAboutModal} setOpen={setOpenAboutModal} sizeClasses="w-3/6 h-3/6" paddingClasses="p-0 m-0"  contentOverflowClass="overflow-clip">
+        <RLModal open={openAboutModal} setOpen={setOpenAboutModal} sizeClasses="w-[570px] h-[200px]" paddingClasses="p-0 m-0"  contentOverflowClass="overflow-clip">
             <div className="h-full overflow-visible">
-                <div className="text-8xl z-10 font-[Roboto] absolute top-32 left-60">
-                    <a href="https://github.com/neural-electrophysiology-tool-team/reptilearn" target="_blank" rel="noreferrer">ReptiLearn</a>
-                    
+                <div className="text-6xl z-10 font-[Helvetica] absolute top-5 left-[176px]">
+                    <a href="https://github.com/neural-electrophysiology-tool-team/reptilearn" target="_blank" rel="noreferrer">
+                        <span className="font-bold">REPTILE</span>
+                        <span className="font-extralight">ARN</span></a>
+                    <div className="font-[helvetica] font-extralight text-sm text-right">{timestamp} <span className="font-bold">{commit}</span></div>
+                    {not_latest_version && <div className="font-[helvetica] font-bold text-sm text-right">A new version is available!</div>}
                 </div>
                 <a href="https://github.com/neural-electrophysiology-tool-team/reptilearn" target="_blank" rel="noreferrer">
-                    <img src="github-mark.svg" className="text-2xl z-10 font-[Roboto] absolute bottom-4 right-4 h-16 hover:bg-[rgba(93,194,92)] rounded-full" alt="Link to the ReptiLearn github repository" />
+                    <img src="github-mark.svg" className="text-2xl z-10 font-[Roboto] absolute bottom-4 right-4 h-8 hover:bg-[rgba(93,194,92)] rounded-full" alt="Link to the ReptiLearn github repository" />
                 </a>
                 
                 <img src="reptilearn-logo.png" className="h-[100%] z-0 overflow-visible absolute bottom-0 left-2" alt="ReptiLearn" />
