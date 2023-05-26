@@ -44,6 +44,7 @@ args = arg_parser.parse_args()
 
 print("🦎 Loading ReptiLearn")
 
+# Check for updates
 version.version_check()
 
 # Import configuration module
