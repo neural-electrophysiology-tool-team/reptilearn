@@ -112,7 +112,7 @@ class VideoWriter(ImageObserver):
         self.queue_max_size = queue_max_size
 
         super().__init__(
-            self.img_src_id + ".writer",
+            type(self).__name__,
             config,
             image_source,
             state_store_address,

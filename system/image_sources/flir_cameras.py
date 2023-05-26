@@ -118,16 +118,30 @@ class FLIRImageSource(ImageSource):
         self.restart_requested = False
         try:
             self.system: PySpin.SystemPtr = PySpin.System_GetInstance()
-            self.cam_list = self.system.GetCameras()
+            cam_list: PySpin.CameraList = self.system.GetCameras()
 
             sn = str(self.get_config("serial_number"))
-            self.cam: PySpin.CameraPtr = self.cam_list.GetBySerial(sn)
+            self.cam: PySpin.CameraPtr = cam_list.GetBySerial(sn)
+
+            if not self.cam.IsValid():
+                # Try to fix missing camera serial number
+                for cam in cam_list:
+                    if sn in cam.GetUniqueID():
+                        self.cam = cam
+                        break
+
+            if not self.cam.IsValid():
+                self.log.error(f"Camera with serial number {sn} was not found.")
+                cam_list.Clear()
+                return False
+
             try:
                 self.cam.Init()
-            except PySpin.SpinnakerException as e:
-                if e.errorcode == -1015:
-                    self.log.error(f"Camera with serial number {sn} was not found.")
-                    return False
+            except PySpin.SpinnakerException:
+                self.log.exception("Exception while initializing camera:")
+                return False
+            finally:
+                cam_list.Clear()
 
             self.configure_camera()
 
@@ -218,11 +232,6 @@ class FLIRImageSource(ImageSource):
                 self.log.Exception("While shutting down camera:")
 
         self.image_result = None
-
-        if self.cam_list is not None:
-            self.cam_list.Clear()
-            # self.cam_list = None
-
         self.system.ReleaseInstance()
 
 
