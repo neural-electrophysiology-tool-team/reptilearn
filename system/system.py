@@ -103,12 +103,34 @@ def restart_system():
     os.kill(os.getpid(), 2)
 
 
+def shutdown():
+    log.info("Shutting down...")
+
+    video_system.shutdown()
+    schedule.cancel_all(pool=None, wait=True)
+    arena.shutdown()
+    mqtt.shutdown()
+
+    rl_logging.shutdown()
+    stop_state_emitter()
+    dispatcher.stop()
+
+    if restart:
+        try:
+            p = psutil.Process(os.getpid())
+            for handler in p.open_files() + p.connections():
+                os.close(handler.fd)
+        except Exception as e:
+            print("ERROR: While cleaning up before restart:", e)
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
+
 # Initialize all other modules
 mqtt.init()
 task.init()
 arena.init(state)
 video_system.init(state)
-experiment.init(state)
+experiment.init(state, on_loop_shutdown=shutdown)
 
 # Setup flask http routes
 routes.add_routes(app, restart_system)
@@ -136,35 +158,6 @@ threading.Thread(target=state_listen).start()
 # Run Flask server
 host, port = config.web_ui["host"], config.web_ui["port"]
 log.info(f"Running web server on {host}:{port}")
-socketio.run(app, host=host, port=port)
 
-
-# Shutdown (flask server was terminated)
-def shutdown():
-    video_system.shutdown()
-    schedule.cancel_all(pool=None, wait=True)
-    arena.shutdown()
-    mqtt.shutdown()
-
-    log.info("Shutting down logging and state store...")
-    rl_logging.shutdown()
-    stop_state_emitter()
-    dispatcher.stop()
-
-    if restart:
-        try:
-            p = psutil.Process(os.getpid())
-            for handler in p.open_files() + p.connections():
-                os.close(handler.fd)
-        except Exception as e:
-            print("ERROR: While cleaning up before restart:", e)
-        os.execl(sys.executable, sys.executable, *sys.argv)
-
-
-log.info("System is shutting down...")
-if "session" in state:
-    state.add_callback("session", lambda old, new: shutdown())
-    experiment.shutdown()
-else:
-    experiment.shutdown()
-    shutdown()
+flask_thread = threading.Thread(target=socketio.run, args=(app,), kwargs={"host": host, "port": port}, daemon=True)
+flask_thread.start()

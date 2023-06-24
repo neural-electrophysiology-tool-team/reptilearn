@@ -248,7 +248,7 @@ def add_routes(app, restart_hook):
     @app.route("/session/reset_phase")
     def route_session_reset_phase():
         try:
-            experiment.set_phase(0, 0)
+            experiment.reset_phase()
             return flask.Response("ok")
         except Exception as e:
             log.exception("Exception while resetting experiment phase:")
