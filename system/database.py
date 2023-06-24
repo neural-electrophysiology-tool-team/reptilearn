@@ -7,12 +7,16 @@ necessary when database communication is required.
 
 The module tries to make a default connection to a localhost
 """
+
+import multiprocessing as mp
+
 try:
     import psycopg2
 except Exception:
-    print(
-        "WARNING: Can't load psycopg2 library. Database logging will not be available."
-    )
+    if mp.current_process().name == "MainProcess":
+        print(
+            "WARNING: Can't load psycopg2 library. Database logging will not be available."
+        )
 
 
 class DatabaseException(Exception):
