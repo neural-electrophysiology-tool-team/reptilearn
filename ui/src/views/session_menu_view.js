@@ -52,8 +52,7 @@ export const SessionMenuView = () => {
 
     const session = ctrl_state.session;
 
-    const reload_session = async () => {
-        await api.session.close();
+    const reload_session = () => {
         const split_dir = session.data_dir.split('/');
         return api.session.continue(split_dir[split_dir.length - 1]);
     };

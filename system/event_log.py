@@ -41,7 +41,7 @@ class EventDataLogger(DataLogger):
     To log custom events the log method can be used.
     """
 
-    def __init__(self, config, db_table_name="events", *args, **kwargs):
+    def __init__(self, config, db_table_name=None, *args, **kwargs):
         super().__init__(
             columns=(
                 ("time", "timestamptz not null"),
