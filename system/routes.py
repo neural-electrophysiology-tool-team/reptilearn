@@ -42,7 +42,7 @@ def add_routes(app, restart_hook):
 
     @app.route("/system/shutdown")
     def route_system_shutdown():
-        os.kill(os.getpid(), 2)
+        experiment.shutdown()
         return flask.Response("ok")
 
     @app.route("/system/restart")

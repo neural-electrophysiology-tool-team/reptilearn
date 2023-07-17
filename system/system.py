@@ -42,7 +42,10 @@ arg_parser.add_argument(
 )
 args = arg_parser.parse_args()
 
-print("🦎 Loading ReptiLearn")
+try:
+    print("🦎 Loading ReptiLearn")
+except:
+    print("Loading ReptiLearn")
 
 # Check for updates
 version.version_check()
@@ -100,7 +103,7 @@ def restart_system():
     global restart
     log.info("Restarting system...")
     restart = True
-    os.kill(os.getpid(), 2)
+    experiment.shutdown()
 
 
 def shutdown():

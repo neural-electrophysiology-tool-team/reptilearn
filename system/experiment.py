@@ -15,6 +15,7 @@ from pathlib import Path
 import threading
 import asyncio
 import signal
+import platform
 
 from configure import get_config
 from json_convert import json_convert
@@ -78,7 +79,9 @@ def init(state_obj, on_loop_shutdown=None):
     load_experiment_specs()
 
     event_loop = asyncio.new_event_loop()
-    event_loop.add_signal_handler(signal.SIGINT, _shutdown)
+
+    if platform.system() != "Windows":
+        event_loop.add_signal_handler(signal.SIGINT, shutdown)
 
     def run_thread(event_loop: asyncio.AbstractEventLoop):
         asyncio.set_event_loop(event_loop)
@@ -91,7 +94,7 @@ def init(state_obj, on_loop_shutdown=None):
     event_loop_thread.start()
 
 
-def _shutdown():
+def shutdown():
     """
     Shutdown module. Stop experiment and close session if necessary. Stop the event loop and
     then call on_loop_shutdown callback to continue terminating the whole system.
