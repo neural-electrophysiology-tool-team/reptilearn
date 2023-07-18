@@ -18,6 +18,7 @@ function App() {
     if (stageRef.current) {
       return;
     }
+  
     const canvas_id = window.location.pathname.slice(1);
     if (!canvas_id) {
       window.location.pathname = "/" + crypto.randomUUID();
@@ -46,6 +47,7 @@ function App() {
     mqtt.onConnectionLost = (resp) => {
       console.warn('MQTT connection lost', resp);
       setConnected(false)
+      mqtt.publish('connection_lost', {});
       // TODO: reconnect
     }
 
@@ -109,7 +111,6 @@ function App() {
     };
 
     const set_prop = (obj, prop, value) => {
-      console.log(obj, prop)      
       const p = obj[prop];
 
       if (!p) {
@@ -119,7 +120,6 @@ function App() {
     }
 
     const get_prop = (obj, prop) => {
-      console.log(obj, prop)
       const p = obj[prop];
 
       if (p === undefined) {
@@ -170,11 +170,17 @@ function App() {
           node_config.image = image
           delete node_config.image_id
         }
+
+        if (node_config && node_config.filters) {
+          node_config.filters = node_config.filters.map((filter_name) => Konva.Filters[filter_name])
+        }
+
         const container = get_node(container_id);
         container.add(new Konva[node_class](node_config))
       },
 
       node(payload) {
+        // TODO: support filter, easing, image translation (maybe more?) based on method name.
         const { node_id, method, args } = payload;
         const node = get_node(node_id)
         return call_method(node, method, args);
@@ -312,7 +318,11 @@ function App() {
         video.pause();
         if (anim) {
           anim.stop();
-        }        
+        }
+      },
+
+      echo(payload) {
+        return payload;
       },
     }
 
@@ -350,6 +360,7 @@ function App() {
     });
    
     addEventListener("unload", () => {
+      // TODO: not working
       publish("unloading", {});
     })
 

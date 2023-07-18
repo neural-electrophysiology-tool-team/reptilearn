@@ -6,8 +6,15 @@ import threading
 import asyncio
 
 
+# TODO:
+# - resize window events + actually grow stage
+# - handle canvas disconnection
+# - way to configure mqtt address on js side
+# - add all conversions in node() function on js side (image_id=>image, filter names => filters etc, see todo in App.jsx)
+
+
 class Canvas:
-    def __init__(self, canvas_id):
+    def __init__(self, canvas_id, on_connect=None):
         self.canvas_id = canvas_id
 
         self.subscription_topic = f"canvas/{canvas_id}/out"
@@ -32,10 +39,11 @@ class Canvas:
         self.video_handlers_lock = threading.Lock()
         self.tween_handlers = {}
         self.tween_handlers_lock = threading.Lock()
-        self.on_connect = None
         self.on_unload = None
+        self.on_connect = None
+        self.connected = False
 
-        self.log.info(f"Initialized canvas with id {canvas_id}")
+        self.aio = Canvas.AsyncCanvas(self)
 
     def release(self):
         mqtt.client.unsubscribe_callback(self.subscription_topic + "/#")
@@ -78,9 +86,14 @@ class Canvas:
             self.handle_node_event(payload)
 
         elif topic == "connected":
+            self.connected = True
+
             if self.on_connect:
                 self.on_connect()
+
         elif topic == "unloading":
+            self.connected = False
+
             if self.on_unload:
                 self.on_unload()
 
@@ -127,7 +140,13 @@ class Canvas:
 
         return await asyncio.wait_for(f, timeout=timeout, loop=loop)
 
-    def send_command(self, topic, payload, on_result=None, on_error=None):
+    def send_command(self, topic, payload, on_result=None, on_error=None, force=False):
+        if not self.connected and not force:
+            self.log.debug(
+                f"Sending command while canvas is not connected. topic={topic} payload={payload}"
+            )
+            return
+
         ts = time.time()
         payload["request_timestamp"] = ts
         if on_result is not None:
@@ -141,39 +160,6 @@ class Canvas:
         self.handle_request(topic, payload)
 
         return ts
-
-    def add(
-        self,
-        container_id: str,
-        node_class: str,
-        on_result=None,
-        on_error=None,
-        **kwargs,
-    ):
-        self.send_command(
-            "add",
-            {
-                "container_id": container_id,
-                "node_class": node_class,
-                "node_config": kwargs,
-            },
-            on_result=on_result,
-            on_error=on_error,
-        )
-
-    def node(self, node_id: str, method: str, *args, on_result=None, on_error=None):
-        self.send_command(
-            "node",
-            {"node_id": node_id, "method": method, "args": args},
-            on_result=on_result,
-            on_error=on_error,
-        )
-
-    def get_node(self, node_id: str, on_result=None, on_error=None):
-        def handle_result(res):
-            on_result(res.get("result", None))
-
-        self.node(node_id, "toObject", on_result=handle_result, on_error=on_error)
 
     def handle_node_event(self, payload):
         self.log.debug(f"Received event payload={payload}")
@@ -231,14 +217,69 @@ class Canvas:
             with self.video_handlers_lock:
                 del self.video_handlers[payload["video_id"]]["error"]
 
-    def on(self, node_id, event_name, handler):
+    def connect(self, on_result=None, on_error=None):
+        def on_connect(resp):
+            self.log.info(f"Connected to canvas with id '{self.canvas_id}'")
+            self.connected = True
+            if on_result:
+                on_result(resp)
+            if self.on_connect:
+                self.on_connect()
+
+        self.echo(on_result=on_connect)
+
+    def add(
+        self,
+        container_id: str,
+        node_class: str,
+        on_result=None,
+        on_error=None,
+        **kwargs,
+    ):
+        self.send_command(
+            "add",
+            {
+                "container_id": container_id,
+                "node_class": node_class,
+                "node_config": kwargs,
+            },
+            on_result=on_result,
+            on_error=on_error,
+        )
+
+    def node(self, node_id: str, method: str, *args, on_result=None, on_error=None):
+        self.send_command(
+            "node",
+            {"node_id": node_id, "method": method, "args": args},
+            on_result=on_result,
+            on_error=on_error,
+        )
+
+    def get_node(self, node_id: str, on_result=None, on_error=None):
+        def handle_result(res):
+            on_result(res.get("result", None))
+
+        self.node(node_id, "toObject", on_result=handle_result, on_error=on_error)
+
+    def on(self, node_id, event_name, handler, on_result=None, on_error=None):
         with self.node_handlers_lock:
             self.node_handlers[(node_id, event_name)] = handler
 
-        self.send_command("on", {"node_id": node_id, "event_name": event_name})
+        self.send_command(
+            "on",
+            {"node_id": node_id, "event_name": event_name},
+            on_result=on_result,
+            on_error=on_error,
+        )
 
-    def off(self, node_id, event_name):
-        self.send_command("off", {"node_id": node_id, "event_name": event_name})
+    def off(self, node_id, event_name, on_result=None, on_error=None):
+        self.send_command(
+            "off",
+            {"node_id": node_id, "event_name": event_name},
+            on_result=on_result,
+            on_error=on_error,
+        )
+
         with self.node_handlers_lock:
             del self.node_handlers[(node_id, event_name)]
 
@@ -409,3 +450,40 @@ class Canvas:
             on_result=on_result,
             on_error=on_error,
         )
+
+    def echo(self, on_result=None, on_error=None, force=True):
+        self.send_command(
+            "echo", {}, on_result=on_result, on_error=on_error, force=force
+        )
+
+    class AsyncCanvas:
+        def __init__(self, canvas) -> None:
+            self.c: Canvas = canvas
+
+            self.connect = self.awaiting_func(self.c.connect)
+            self.add = self.awaiting_func(self.c.add)
+            self.node = self.awaiting_func(self.c.node)
+            self.get_node = self.awaiting_func(self.c.get_node)
+            self.on = self.awaiting_func(self.c.on)
+            self.off = self.awaiting_func(self.c.off)
+            self.reset = self.awaiting_func(self.c.reset)
+            self.make_tween = self.awaiting_func(self.c.make_tween)
+            self.remove_tween = self.awaiting_func(self.c.remove_tween)
+            self.tween = self.awaiting_func(self.c.tween)
+            self.play_tween = self.awaiting_func(self.c.play_tween)
+            self.load_image = self.awaiting_func(self.c.load_image)
+            self.remove_image = self.awaiting_func(self.c.remove_image)
+            self.load_video = self.awaiting_func(self.c.load_video)
+            self.add_video = self.awaiting_func(self.c.add_video)
+            self.remove_video = self.awaiting_func(self.c.remove_video)
+            self.play_video = self.awaiting_func(self.c.play_video)
+            self.pause_video = self.awaiting_func(self.c.pause_video)
+            self.video_set_props = self.awaiting_func(self.c.video_set_props)
+            self.video_get_props = self.awaiting_func(self.c.video_get_props)
+            self.echo = self.awaiting_func(self.c.echo)
+
+        def awaiting_func(self, f):
+            async def af(*args, **kwargs):
+                return await self.c.wait(f, *args, **kwargs)
+
+            return af
