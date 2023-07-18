@@ -58,7 +58,7 @@ export const MainMenu = () => {
         <RLMenu button={<RLMenu.TopBarMenuButton title="ReptiLearn" />}>
             <RLMenu.ButtonItem onClick={() => setOpenAboutModal(true)} key="about">About</RLMenu.ButtonItem>
             <RLMenu.SeparatorItem key="sep" />
-            <RLMenu.ButtonItem onClick={open_restart_modal} key="restart">Restart</RLMenu.ButtonItem>
+            {/* <RLMenu.ButtonItem onClick={open_restart_modal} key="restart">Restart</RLMenu.ButtonItem> */}
             <RLMenu.ButtonItem onClick={open_shutdown_modal} key="shutdown">Shutdown</RLMenu.ButtonItem>
         </RLMenu>
     </React.Fragment>;

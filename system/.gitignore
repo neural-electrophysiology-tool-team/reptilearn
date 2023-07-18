@@ -1,9 +1,10 @@
 videos/
 media/
+config/*.json
 *.avi
 *.mp4
 *.sh
 *.pdf
 .vscode
 __pycache__
-blackfly_checkerboard
+

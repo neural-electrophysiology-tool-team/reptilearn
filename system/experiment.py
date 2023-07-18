@@ -6,12 +6,16 @@ Responsible for creating/continuing/deleting sessions and loading, running, and 
 lifecycle of experiment modules.
 """
 from datetime import datetime
+import inspect
 import re
 import json
 import shutil
 import pandas as pd
 from pathlib import Path
 import threading
+import asyncio
+import signal
+import platform
 
 from configure import get_config
 from json_convert import json_convert
@@ -44,12 +48,25 @@ params: managed_state.Cursor = None
 blocks: managed_state.Cursor = None
 actions: managed_state.Cursor = None
 
+event_loop_thread: threading.Thread = None
+event_loop: asyncio.AbstractEventLoop = None
 
-def init(state_obj):
+_on_loop_shutdown = None
+
+
+def _run_coroutine(cor):
+    asyncio.run_coroutine_threadsafe(cor, event_loop)
+
+
+def init(state_obj, on_loop_shutdown=None):
     """
     Initialize module.
+
+    Args:
+    - state_obj: A managed_state.Cursor pointing to the state store root
+    - on_loop_shutdown: A function that will be called once the asyncio eventloop stops
     """
-    global log, session_state, params, blocks, actions, state
+    global event_loop_thread, event_loop, run_future, log, session_state, params, blocks, actions, state, _on_loop_shutdown
 
     state = state_obj
     session_state = state.get_cursor("session")
@@ -58,17 +75,46 @@ def init(state_obj):
     actions = session_state.get_cursor("actions")
 
     log = get_main_logger()
+    _on_loop_shutdown = on_loop_shutdown
     load_experiment_specs()
+
+    event_loop = asyncio.new_event_loop()
+
+    if platform.system() != "Windows":
+        event_loop.add_signal_handler(signal.SIGINT, shutdown)
+
+    def run_thread(event_loop: asyncio.AbstractEventLoop):
+        asyncio.set_event_loop(event_loop)
+        try:
+            event_loop.run_forever()
+        except Exception:
+            log.exception("Exception while running event loop:")
+
+    event_loop_thread = threading.Thread(target=run_thread, args=(event_loop,))
+    event_loop_thread.start()
 
 
 def shutdown():
     """
-    Shutdown module. Stop experiment and close session if necessary.
+    Shutdown module. Stop experiment and close session if necessary. Stop the event loop and
+    then call on_loop_shutdown callback to continue terminating the whole system.
+
+    NOTE: This is called when the event loop receives a SIGINT signal (i.e. Ctrl-C). It
     """
-    if session_state.exists(()):
-        if session_state["is_running"]:
-            stop_experiment()
-        close_session()
+
+    async def async_shutdown():
+        if session_state.exists(()):
+            if session_state["is_running"]:
+                await _async_stop_experiment()
+
+            await _async_close_session(cur_experiment)
+
+        if _on_loop_shutdown is not None:
+            _on_loop_shutdown()
+
+        event_loop.stop()
+
+    asyncio.run_coroutine_threadsafe(async_shutdown(), loop=event_loop)
 
 
 def _update_state_file():
@@ -76,7 +122,7 @@ def _update_state_file():
         json.dump(session_state.get_self(), f, default=json_convert)
 
 
-def split_name_datetime(s):
+def _split_name_datetime(s):
     """
     Split a string with format {name}_%Y%m%d_%H%M%S into name and a datetime64 objects.
 
@@ -101,7 +147,7 @@ def get_session_list():
             get_config().session_data_root.glob("*"),
         )
     )
-    nds = [split_name_datetime(p.stem) for p in paths]
+    nds = [_split_name_datetime(p.stem) for p in paths]
     sl = [(nd[0], nd[1], p.name) for nd, p in zip(nds, paths)]
     sl.sort(key=lambda s: s[1])
     return sl
@@ -150,7 +196,7 @@ def create_session(session_id, experiment):
 
     log.info(f"Data directory: {str(data_path)}")
 
-    load_experiment(experiment)
+    _load_experiment(experiment)
     _init_event_logger(data_path)
 
     session_state.set_self(
@@ -167,19 +213,12 @@ def create_session(session_id, experiment):
         }
     )
 
-    init_session()
+    _init_session()
 
 
-def continue_session(session_name):
-    """
-    Continue a session stored under the directory
-    `config.session_data_root / session_name`
-
-    Load the session experiment module, load latest session state from the session_state.json file,
-    and call init_session().
-    """
+async def _async_continue_session(session_name):
     if session_state.exists(()):
-        close_session()
+        await _async_close_session(cur_experiment)
 
     log.info("")
     log.info(f"Continuing session {session_name}")
@@ -203,7 +242,7 @@ def continue_session(session_name):
 
     log.info(f"Data directory: {str(data_path)}")
 
-    load_experiment(session["experiment"])
+    _load_experiment(session["experiment"])
 
     if session["is_running"]:
         log.warning(
@@ -214,7 +253,19 @@ def continue_session(session_name):
     _init_event_logger(data_path)
     session_state.set_self(session)
 
-    init_session(continue_session=True)
+    await _async_init_session(continue_session=True)
+
+
+def continue_session(session_name):
+    """
+    Continue a session stored under the directory
+    `config.session_data_root / session_name`
+
+    Load the session experiment module, load latest session state from the session_state.json file,
+    and call init_session().
+    """
+
+    _run_coroutine(_async_continue_session(session_name))
 
 
 def _init_event_logger(data_dir):
@@ -226,7 +277,9 @@ def _init_event_logger(data_dir):
     event_logger = event_log.EventDataLogger(
         config=get_config(),
         csv_path=csv_path,
-        db_table_name=event_log_config["table_name"] if event_log_config["log_to_db"] else None,
+        db_table_name=event_log_config["table_name"]
+        if event_log_config["log_to_db"]
+        else None,
     )
     if not event_logger.start(wait=5):
         raise ExperimentException("Event logger can't connect. Timeout elapsed.")
@@ -235,15 +288,8 @@ def _init_event_logger(data_dir):
         event_logger.add_event(src, key)
 
 
-def init_session(continue_session=False):
-    """
-    Initialize the session. Calls the experiment class setup() hook,
-    and creates session_state.json file.
-
-    Args:
-    - continue_session: Whether the loaded session is a continued session that was created previously.
-    """
-    cur_experiment.setup()
+async def _async_init_session():
+    await await_maybe(cur_experiment.setup)
     refresh_actions()
 
     event_logger.log(
@@ -253,33 +299,39 @@ def init_session(continue_session=False):
     _update_state_file()
 
 
+def _init_session(continue_session=False):
+    """
+    Initialize the session. Calls the experiment class setup() hook,
+    and creates session_state.json file.
+
+    Args:
+    - continue_session: Whether the loaded session is a continued session that was created previously.
+    """
+    _run_coroutine(_async_init_session())
+
+
 def refresh_actions():
     """
     Refresh the list of available actions according to the current
-    value of the actions dict attribute of the session experiment class.
+    value of the actions dict of the session experiment object.
     """
     actions.set_self(cur_experiment.actions.keys())
 
 
-def close_session():
-    """
-    Close the current session. Updates the session state file,
-    calls the experiment class release() hook, shutdowns the event logger,
-    removes session state from the global state.
-    """
-    global cur_experiment
-
+async def _async_close_session(cur_experiment):
     if not session_state.exists(()):
-        raise ExperimentException("There is no started session.")
+        raise ExperimentException("There is no current session.")
 
     if session_state["is_running"] is True:
         raise ExperimentException("Can't close session while experiment is running.")
+
+    log.info(f"Closing session {session_state['id']}...")
 
     _update_state_file()
 
     if cur_experiment is not None:
         try:
-            cur_experiment.release()
+            await await_maybe(cur_experiment.release)
         except Exception:
             log.exception("While releasing experiment:")
 
@@ -301,6 +353,17 @@ def close_session():
 
     session_state.delete(())
     log.info("Closed session.")
+
+
+def close_session():
+    """
+    Close the current session. Updates the session state file,
+    calls the experiment class release() hook, shutdowns the event logger,
+    removes session state from the global state.
+    """
+    global cur_experiment
+
+    _run_coroutine(_async_close_session(cur_experiment))
 
 
 def archive_sessions(sessions, archives, move=False):
@@ -376,6 +439,13 @@ def delete_sessions(sessions):
     threading.Thread(target=delete_fn).start()
 
 
+async def await_maybe(callback):
+    result = callback()
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 def run_experiment():
     """
     Run the experiment of the current session. Calls the experiment class run() hook, and starts
@@ -396,32 +466,30 @@ def run_experiment():
     cached_params = None
     cached_params_block = None
 
-    try:
-        cur_experiment.run()
-        st = session_state.get_self()
-        set_phase(st["cur_block"], st["cur_trial"], force_run=True)
+    async def run_async():
+        try:
+            await await_maybe(cur_experiment.run)
+            st = session_state.get_self()
+            await _set_phase(st["cur_block"], st["cur_trial"], force_run=True)
+            _update_state_file()
+        except Exception:
+            log.exception("Exception while running experiment:")
+            session_state["is_running"] = False
+
+        event_logger.log("session/run", session_state.get_self())
         _update_state_file()
-    except Exception:
-        log.exception("Exception while running experiment:")
-        session_state["is_running"] = False
 
-    event_logger.log("session/run", session_state.get_self())
-    _update_state_file()
+    asyncio.run_coroutine_threadsafe(run_async(), event_loop)
 
 
-def stop_experiment():
-    """
-    Stop the currently running experiment.
-    Calls the experiment class hooks end_trial(), end_block(), end() in this order.
-    Update session state file and log to the events log.
-    """
+async def _async_stop_experiment():
     if session_state["is_running"] is False:
         raise ExperimentException("Session is not running.")
 
     try:
-        cur_experiment.end_trial()
-        cur_experiment.end_block()
-        cur_experiment.end()
+        await await_maybe(cur_experiment.end_trial)
+        await await_maybe(cur_experiment.end_block)
+        await await_maybe(cur_experiment.end)
     except Exception:
         log.exception("Exception while ending session:")
     finally:
@@ -433,13 +501,24 @@ def stop_experiment():
         session_state["is_running"] = False
 
         event_logger.log("session/stop", session_state.get_self())
-        set_phase(session_state.get("cur_block", 0), session_state.get("cur_trial", 0))
+        await _set_phase(
+            session_state.get("cur_block", 0), session_state.get("cur_trial", 0)
+        )
         _update_state_file()
 
     log.info(f"Experiment {session_state['experiment']} has ended.")
 
 
-def set_phase(block, trial, force_run=False):
+def stop_experiment():
+    """
+    Stop the currently running experiment.
+    Calls the experiment class hooks end_trial(), end_block(), end() in this order.
+    Update session state file and log to the events log.
+    """
+    _run_coroutine(_async_stop_experiment())
+
+
+async def _set_phase(block, trial, force_run=False):
     """
     Set the current block and trial numbers.
     Calls the run_block() and run_trial() experiment class hooks when applicable.
@@ -463,10 +542,10 @@ def set_phase(block, trial, force_run=False):
         cur_block = session_state.get("cur_block", None)
 
         if cur_trial != trial or cur_block != block:
-            cur_experiment.end_trial()
+            await await_maybe(cur_experiment.end_trial)
 
         if cur_block != block:
-            cur_experiment.end_block()
+            await await_maybe(cur_experiment.end_block)
 
         num_trials = get_params().get("$num_trials", None)
         if num_trials is not None and trial >= num_trials:
@@ -474,33 +553,30 @@ def set_phase(block, trial, force_run=False):
                 f"Trial {trial} is out of range for block {block}."
             )
 
-        def start_trial():
-            session_state.update((), {"cur_block": block, "cur_trial": trial})
-
-            if cur_block != block or force_run:
-                cur_experiment.run_block()
-
-            if cur_trial != trial or cur_block != block or force_run:
-                cur_experiment.run_trial()
-
-            block_duration = get_params().get("$block_duration", None)
-            if block_duration is not None:
-                schedule.once(next_block, block_duration, pool="experiment_phases")
-
-            trial_duration = get_params().get("$trial_duration", None)
-            if trial_duration is not None:
-                schedule.once(next_trial, trial_duration, pool="experiment_phases")
-
         try:
             schedule.cancel_all(pool="experiment_phases", wait=False)
         except ValueError:
             pass
 
         iti = get_params().get("$inter_trial_interval", None)
-        if iti is not None and cur_block != block or cur_trial != trial:
-            schedule.once(start_trial, iti)
-        else:
-            start_trial()
+        if iti is not None and (cur_block != block or cur_trial != trial):
+            await asyncio.sleep(iti)
+
+        session_state.update((), {"cur_block": block, "cur_trial": trial})
+
+        if cur_block != block or force_run:
+            await await_maybe(cur_experiment.run_block)
+
+        if cur_trial != trial or cur_block != block or force_run:
+            await await_maybe(cur_experiment.run_trial)
+
+        block_duration = get_params().get("$block_duration", None)
+        if block_duration is not None:
+            schedule.once(next_block, block_duration, pool="experiment_phases")
+
+        trial_duration = get_params().get("$trial_duration", None)
+        if trial_duration is not None:
+            schedule.once(next_trial, trial_duration, pool="experiment_phases")
 
 
 def next_trial():
@@ -517,7 +593,7 @@ def next_trial():
         next_block()
     else:
         # next trial
-        set_phase(cur_block, cur_trial + 1)
+        _run_coroutine(_set_phase(cur_block, cur_trial + 1))
 
 
 def next_block():
@@ -527,10 +603,17 @@ def next_block():
     """
     cur_block = session_state["cur_block"]
     if cur_block + 1 < get_num_blocks():
-        set_phase(cur_block + 1, 0)
+        _run_coroutine(_set_phase(cur_block + 1, 0))
     else:
         if session_state["is_running"]:
             stop_experiment()
+
+
+def reset_phase():
+    """
+    Go back to the first trial of the first block. Reset session block and trial to 0
+    """
+    _run_coroutine(_set_phase(0, 0))
 
 
 def load_experiment_specs():
@@ -548,7 +631,7 @@ def load_experiment_specs():
     return experiment_specs
 
 
-def load_experiment(experiment_name):
+def _load_experiment(experiment_name):
     """
     Load an experiment module. Reload the module and instantiate the experiment
     class.
