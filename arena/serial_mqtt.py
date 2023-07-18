@@ -168,8 +168,6 @@ class SerialMQTTBridge:
         for e in self.serial_configured_events.values():
             e.wait()
 
-        self.publish_listening()
-
     def publish_listening(self):
         with self.mqtt_publish_lock:
             self.mqtt.publish(f"{self.mqtt_config['publish_topic']}/listening", "true")
@@ -292,6 +290,7 @@ class SerialMQTTBridge:
 
     def _mqtt_listen(self):
         self.log.info("(MQTT  ) Starting listening thread")
+        self.publish_listening()
 
         while True:
             try:

@@ -280,6 +280,9 @@ def run_mqtt_serial_bridge():
             cmd, cwd=dir, stdout=PIPE, stderr=STDOUT, universal_newlines=True
         )
         _arena_state["bridge", "running"] = True
+        if _arena_state["bridge", "listening"] is False:
+            run_command("is_listening", "bridge", [], False)
+
         _log.info(f"Arena controller is running. pid: {_arena_process.pid}")
         stdout, _ = _arena_process.communicate()
 
@@ -479,8 +482,7 @@ def init(state):
 
     if len(_arena_config) > 0 and get_config().arena["run_controller"] is True:
         run_mqtt_serial_bridge()
-
-    if _arena_state["bridge", "listening"] is False:
+    elif _arena_state["bridge", "listening"] is False:
         run_command("is_listening", "bridge", [], False)
 
     schedule.repeat(poll, get_config().arena["poll_interval"], pool="arena")
