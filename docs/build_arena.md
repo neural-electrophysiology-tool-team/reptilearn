@@ -49,7 +49,7 @@ The layout of this specific board is easy to work with as you’ll see. As menti
 5. Connect the four inputs marked IN1-IN4 to digital pins on the Arduino board (e.g. D9, D10, D11, D12).
 6. Close and screw the bottom cover back, making sure all the wires can get to where they need to be. There are 4 LEDs on the board that light up in sequence during feeding, you might want to hide or show these depending on your needs.
 7. Use the mounting mechanism provided together with the feeder to fix everything to the top frame of the arena.
-8. Connect a 5V 1A DC power supply to the DC power socket on the feeder (a power supply with a bit less current may also work).
+8. Connect a 5V DC power supply to the DC power socket on the feeder. A maximum current of about 500mA should be enough.
 
 Our setup is very similar to the one described [here](https://lastminuteengineers.com/28byj48-stepper-motor-arduino-tutorial/)
 
