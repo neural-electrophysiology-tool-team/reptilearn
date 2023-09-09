@@ -1,20 +1,29 @@
+"""
+Canvas MQTT interface
+Author: Tal Eisenberg (2023)
+"""
+
 import mqtt
 import json
-from rl_logging import get_main_logger
 import time
 import threading
 import asyncio
-
-
-# TODO:
-# - resize window events + actually grow stage
-# - handle canvas disconnection
-# - way to configure mqtt address on js side
-# - add all conversions in node() function on js side (image_id=>image, filter names => filters etc, see todo in App.jsx)
+from rl_logging import get_main_logger
 
 
 class Canvas:
-    def __init__(self, canvas_id, on_connect=None):
+    """
+    Class representing a connection to a Canvas browser app.
+    """
+
+    def __init__(
+        self,
+        canvas_id,
+        on_connect=None,
+        on_disconnect=None,
+        event_loop=None,
+        logger=None,
+    ):
         self.canvas_id = canvas_id
 
         self.subscription_topic = f"canvas/{canvas_id}/out"
@@ -25,7 +34,10 @@ class Canvas:
             mqtt.mqtt_json_callback(self.handle_mqtt_response),
         )
 
-        self.log = get_main_logger()
+        if logger is not None:
+            self.log = logger
+        else:
+            logger = get_main_logger()
 
         self.result_handlers = {}
         self.result_handlers_lock = threading.Lock()
@@ -39,11 +51,11 @@ class Canvas:
         self.video_handlers_lock = threading.Lock()
         self.tween_handlers = {}
         self.tween_handlers_lock = threading.Lock()
-        self.on_unload = None
-        self.on_connect = None
+        self.on_disconnect = on_disconnect
+        self.on_connect = on_connect
         self.connected = False
 
-        self.aio = Canvas.AsyncCanvas(self)
+        self.aio = Canvas.AsyncCanvas(self, event_loop)
 
     def release(self):
         mqtt.client.unsubscribe_callback(self.subscription_topic + "/#")
@@ -54,7 +66,7 @@ class Canvas:
         # self.log.debug(f"MQTT message received. canvas={self.canvas_id} topic={topic} payload={payload}")
 
         if topic == "result":
-            # log.debug(f"Received result: {payload}")
+            # self.log.debug(f"Received result: {payload}")
             ts = payload["request"].get("request_timestamp", None)
             if ts is None:
                 return
@@ -86,16 +98,23 @@ class Canvas:
             self.handle_node_event(payload)
 
         elif topic == "connected":
-            self.connected = True
+            # dt = time.time() - payload["response_timestamp"]
+            if "value" not in payload:
+                return
 
-            if self.on_connect:
-                self.on_connect()
+            if self.connected == payload["value"]:
+                return
 
-        elif topic == "unloading":
-            self.connected = False
+            self.connected = payload["value"]
 
-            if self.on_unload:
-                self.on_unload()
+            if self.connected:
+                if self.on_connect:
+                    self.on_connect()
+                self.aio._on_connect()
+            else:
+                if self.on_disconnect:
+                    self.on_disconnect()
+                self.aio._on_disconnect()
 
         elif topic == "image_onload":
             self.handle_image_onload(payload)
@@ -109,11 +128,20 @@ class Canvas:
         elif topic == "video_error":
             self.handle_video_error(payload)
 
+        elif topic == "video_on_update":
+            self.handle_video_on_update(payload)
+
+        elif topic == "video_on_ended":
+            self.handle_video_on_ended(payload)
+
         elif topic == "tween_on_update":
             self.handle_tween_on_update(payload)
 
         elif topic == "tween_on_finish":
             self.handle_tween_on_finish(payload)
+
+        elif topic == "window_on_resize":
+            self.handle_window_on_resize(payload)
 
     def handle_request(self, topic, payload):
         # self.log.debug(f"MQTT publishing canvas={self.canvas_id} topic={topic} payload={payload}")
@@ -142,10 +170,9 @@ class Canvas:
 
     def send_command(self, topic, payload, on_result=None, on_error=None, force=False):
         if not self.connected and not force:
-            self.log.debug(
+            raise Exception(
                 f"Sending command while canvas is not connected. topic={topic} payload={payload}"
             )
-            return
 
         ts = time.time()
         payload["request_timestamp"] = ts
@@ -176,14 +203,22 @@ class Canvas:
             handler(payload)
 
     def handle_image_onload(self, payload):
-        handler = self.image_handlers.get(payload["image_id"], None)["load"]
+        handlers = self.image_handlers.get(payload["image_id"], None)
+        if handlers is None:
+            return
+
+        handler = handlers.get("load", None)
         if handler is not None:
             handler(payload)
             with self.image_handlers_lock:
                 del self.image_handlers[payload["image_id"]]["load"]
 
     def handle_image_onerror(self, payload):
-        handler = self.image_handlers.get(payload["image_id"], None)["error"]
+        handlers = self.image_handlers.get(payload["image_id"], None)
+        if handlers is not None:
+            return
+        handler = handlers.get("error", None)
+
         if handler is not None:
             handler(payload)
             with self.image_handlers_lock:
@@ -196,37 +231,41 @@ class Canvas:
             with self.video_handlers_lock:
                 del self.video_handlers[payload["video_id"]]["loadedmetadata"]
 
-    def handle_tween_on_update(self, payload):
-        handlers = self.tween_handlers.get(payload["tween_id"], None)
-        if handlers is not None:
-            if handlers["on_update"] is not None:
-                payload["node"] = json.loads(payload["node"])
-                handlers["on_update"](payload)
+    def handle_video_on_update(self, payload):
+        handlers = self.video_handlers.get(payload["video_id"], None)
+        if handlers is not None and handlers["on_update"] is not None:
+            handlers["on_update"](payload)
 
-    def handle_tween_on_finish(self, payload):
-        handlers = self.tween_handlers.get(payload["tween_id"], None)
-        if handlers is not None:
-            if handlers["on_finish"] is not None:
-                payload["node"] = json.loads(payload["node"])
-                handlers["on_finish"](payload)
+    def handle_video_on_ended(self, payload):
+        handlers = self.video_handlers.get(payload["video_id"], None)
+        if handlers is not None and handlers["on_ended"] is not None:
+            handlers["on_ended"](payload)
 
     def handle_video_error(self, payload):
-        handler = self.video_handlers.get(payload["video_id"], None)["error"]
+        handlers = self.video_handlers.get(payload["video_id"], None)
+        if handlers is None:
+            return
+        handler = handlers.get("error", None)
+
         if handler is not None:
             handler(payload)
             with self.video_handlers_lock:
                 del self.video_handlers[payload["video_id"]]["error"]
 
-    def connect(self, on_result=None, on_error=None):
-        def on_connect(resp):
-            self.log.info(f"Connected to canvas with id '{self.canvas_id}'")
-            self.connected = True
-            if on_result:
-                on_result(resp)
-            if self.on_connect:
-                self.on_connect()
+    def handle_tween_on_update(self, payload):
+        handlers = self.tween_handlers.get(payload["tween_id"], None)
+        if handlers is not None and handlers["on_update"] is not None:
+            payload["node"] = json.loads(payload["node"])
+            handlers["on_update"](payload)
 
-        self.echo(on_result=on_connect)
+    def handle_tween_on_finish(self, payload):
+        handlers = self.tween_handlers.get(payload["tween_id"], None)
+        if handlers is not None and handlers["on_finish"] is not None:
+            payload["node"] = json.loads(payload["node"])
+            handlers["on_finish"](payload)
+
+    def handle_window_on_resize(self, payload):
+        pass  # TODO: add listeners for window resize
 
     def add(
         self,
@@ -321,6 +360,7 @@ class Canvas:
             {
                 "tween_id": tween_id,
                 "tween_config": kwargs,
+                "send_updates": on_update is not None,
             },
             on_result=on_result,
             on_error=on_error,
@@ -384,6 +424,8 @@ class Canvas:
         src: str,
         video_loadedmetadata=None,
         video_error=None,
+        on_update=None,
+        on_ended=None,
         on_result=None,
         on_error=None,
         **kwargs,
@@ -391,22 +433,38 @@ class Canvas:
         with self.video_handlers_lock:
             self.video_handlers[video_id] = {
                 "loadedmetadata": video_loadedmetadata,
+                "on_update": on_update,
+                "on_ended": on_ended,
                 "error": video_error,
             }
 
         self.send_command(
             "load_video",
-            {"video_id": video_id, "src": src, **kwargs},
+            {
+                "video_id": video_id,
+                "src": src,
+                "send_updates": on_update is not None,
+                **kwargs,
+            },
             on_result=on_result,
             on_error=on_error,
         )
 
     def add_video(
-        self, container_id: str, video_id: str, on_result=None, on_error=None, **kwargs
+        self,
+        container_id: str,
+        video_id: str,
+        on_result=None,
+        on_error=None,
+        **kwargs,
     ):
         self.send_command(
             "add_video",
-            {"container_id": container_id, "video_id": video_id, "node_config": kwargs},
+            {
+                "container_id": container_id,
+                "video_id": video_id,
+                "node_config": kwargs,
+            },
             on_result=on_result,
             on_error=on_error,
         )
@@ -457,10 +515,16 @@ class Canvas:
         )
 
     class AsyncCanvas:
-        def __init__(self, canvas) -> None:
+        def __init__(self, canvas, event_loop=None) -> None:
             self.c: Canvas = canvas
 
-            self.connect = self.awaiting_func(self.c.connect)
+            if event_loop is None:
+                self._event_loop = asyncio.get_event_loop()
+            else:
+                self._event_loop = event_loop
+
+            self._connect_future = self._event_loop.create_future()
+
             self.add = self.awaiting_func(self.c.add)
             self.node = self.awaiting_func(self.c.node)
             self.get_node = self.awaiting_func(self.c.get_node)
@@ -487,3 +551,12 @@ class Canvas:
                 return await self.c.wait(f, *args, **kwargs)
 
             return af
+
+        async def connected(self):
+            await self._connect_future
+
+        def _on_connect(self):
+            self._event_loop.call_soon_threadsafe(self._connect_future.set_result, True)
+
+        def _on_disconnect(self):
+            self._connect_future = self._event_loop.create_future()

@@ -368,7 +368,6 @@ class LocationExperiment(exp.Experiment):
         session_state["cooldown_time"] = False
 
     def is_in_area_changed(self, old, new):
-        # TODO: make sure area changed continuously
         if not old and new:
             exp.event_logger.log(
                 "loclearn/entered_area",

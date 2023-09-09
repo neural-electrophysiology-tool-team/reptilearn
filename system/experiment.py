@@ -79,6 +79,7 @@ def init(state_obj, on_loop_shutdown=None):
     load_experiment_specs()
 
     event_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(event_loop)
 
     if platform.system() != "Windows":
         event_loop.add_signal_handler(signal.SIGINT, shutdown)
@@ -164,13 +165,10 @@ def create_session(session_id, experiment):
     and calls init_session().
 
     """
-    if session_state.exists(()) and session_state["is_running"] is True:
-        raise ExperimentException(
-            "Can't start new session while an experiment is running."
-        )
-
     if session_state.exists(()):
-        close_session()
+        raise ExperimentException(
+            "Can't start new session while a session is open."
+        )
 
     log.info("")
     log.info(f"Starting session {session_id}")
@@ -288,7 +286,7 @@ def _init_event_logger(data_dir):
         event_logger.add_event(src, key)
 
 
-async def _async_init_session():
+async def _async_init_session(continue_session):
     await await_maybe(cur_experiment.setup)
     refresh_actions()
 
@@ -307,7 +305,7 @@ def _init_session(continue_session=False):
     Args:
     - continue_session: Whether the loaded session is a continued session that was created previously.
     """
-    _run_coroutine(_async_init_session())
+    _run_coroutine(_async_init_session(continue_session))
 
 
 def refresh_actions():
@@ -413,7 +411,7 @@ def archive_sessions(sessions, archives, move=False):
     threading.Thread(target=archive_fn).start()
 
 
-def delete_sessions(sessions):
+async def _async_delete_sessions(sessions):
     """
     Delete all files and directories of a list of sessions
 
@@ -429,14 +427,21 @@ def delete_sessions(sessions):
 
     if session_state.exists(()) and session_state["data_dir"] in data_dirs:
         log.warning("Closing and deleting current session.")
-        close_session()
+        await _async_close_session(cur_experiment)
 
-    def delete_fn():
-        for dir in data_dirs:
-            shutil.rmtree(dir)
-            log.info(f"Deleted session data directory: {dir}")
+    for dir in data_dirs:
+        shutil.rmtree(dir)
+        log.info(f"Deleted session data directory: {dir}")
 
-    threading.Thread(target=delete_fn).start()
+
+def delete_sessions(sessions):
+    """
+    Delete all files and directories of a list of sessions
+
+    Args:
+    - sessions: A list of session dicts as returned from get_session_list()
+    """
+    _run_coroutine(_async_delete_sessions(sessions))
 
 
 async def await_maybe(callback):
@@ -577,6 +582,8 @@ async def _set_phase(block, trial, force_run=False):
         trial_duration = get_params().get("$trial_duration", None)
         if trial_duration is not None:
             schedule.once(next_trial, trial_duration, pool="experiment_phases")
+
+        _update_state_file()
 
 
 def next_trial():
