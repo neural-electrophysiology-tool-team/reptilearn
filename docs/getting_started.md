@@ -157,7 +157,7 @@ CREATE DATABASE reptilearn;
 
 ReptiLearn currently supports real-time object detection using the YOLOv4 neural network model. YOLO can be used to obtain bounding boxes of relevant objects in image streams (such as your subject animals). We use the original darknet version from [this](https://github.com/AlexeyAB/darknet) repository. Darknet requires a CUDA capable GPU, and working installations of NVIDIA CUDA, and cuDNN.
 
-First, configure your cameras or other image sources (see [Camera configuration](docs/camera_config.md) for more information), then follow these steps to setup the model:
+First, configure your cameras or other image sources (see [Camera configuration](camera_config.md) for more information), then follow these steps to setup the model:
 
 - [Compile darknet](https://github.com/AlexeyAB/darknet#how-to-compile-on-linux-using-make). We recommend using the `make` method. Make sure to set `LIBSO=1` in the `Makefile` to compile into a static library.
 

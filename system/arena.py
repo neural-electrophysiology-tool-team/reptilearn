@@ -423,7 +423,8 @@ def load_arena_config():
 
     _trigger_interface = None
     for ifs in _interfaces_config:
-        if ifs["type"] == "trigger":
+        # interfaces_config sometimes has initial string object in list
+        if (not isinstance(ifs, str)) and ifs["type"] == "trigger":
             _trigger_interface = ifs["name"]
             break
 

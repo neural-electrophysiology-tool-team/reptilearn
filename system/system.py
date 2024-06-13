@@ -73,7 +73,7 @@ state_store = managed_state.StateStore(
 # Create a Cursor pointing to the root of the state. It can be used only from the main process.
 state = managed_state.Cursor((), manager=state_store.manager)
 
-# Run a state dispatcher thread. This is can be used anywhere on the main process.
+# Run a state dispatcher thread. This can be used anywhere on the main process.
 dispatcher = managed_state.StateDispatcher(state)
 dispatcher_thread = threading.Thread(target=dispatcher.listen)
 dispatcher_thread.start()
